@@ -1,0 +1,238 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { MessageSquare, MapPin, ListChecks, ArrowRight, ArrowLeft } from "lucide-react"
+import { cn } from "@/lib/utils"
+import Link from "next/link"
+
+// Force dynamic rendering to avoid document is not defined error
+export const dynamic = "force-dynamic"
+
+// Temporary user data
+const TEMP_USER = {
+  firstName: {
+    he: "משתמש",
+    en: "User",
+    ar: "مستخدم",
+    ru: "Пользователь",
+  },
+  profileImageUrl:
+    "https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/fcae81_support-agent.png",
+}
+
+// Base translations (will be translated to other languages if needed)
+const baseTranslations = {
+  en: {
+    greeting: "Hello",
+    whatToDo: "What would you like to do today?",
+    emergencyChat: {
+      title: "Emergency Chat",
+      description: "Ask questions and receive immediate information about emergency situations",
+      cta: "Start",
+    },
+    shelters: {
+      title: "Shelters",
+      description: "Find the nearest shelter and get directions",
+      cta: "Start",
+    },
+    emergencyEquipment: {
+      title: "Emergency Equipment",
+      description: "Manage your equipment lists and get notifications about expired items",
+      cta: "Start",
+    },
+  },
+  he: {
+    greeting: "שלום",
+    whatToDo: "מה תרצה לעשות היום?",
+    emergencyChat: {
+      title: "צ'אט חירום",
+      description: "שאל שאלות וקבל מידע מיידי על מצבי חירום",
+      cta: "התחל",
+    },
+    shelters: {
+      title: "מקלטים",
+      description: "מצא את המקלט הקרוב אליך וקבל הוראות הגעה",
+      cta: "התחל",
+    },
+    emergencyEquipment: {
+      title: "ציוד חירום",
+      description: "נהל את רשימות הציוד שלך וקבל התראות על פריטים שפג תוקפם",
+      cta: "התחל",
+    },
+  },
+  ar: {
+    greeting: "مرحبا",
+    whatToDo: "ماذا تود أن تفعل اليوم؟",
+    emergencyChat: {
+      title: "دردشة الطوارئ",
+      description: "اطرح أسئلة واحصل على معلومات فورية حول حالات الطوارئ",
+      cta: "ابدأ",
+    },
+    shelters: {
+      title: "الملاجئ",
+      description: "ابحث عن أقرب ملجأ واحصل على الاتجاهات",
+      cta: "ابدأ",
+    },
+    emergencyEquipment: {
+      title: "معدات الطوارئ",
+      description: "إدارة قوائم المعدات الخاصة بك والحصول على إشعارات حول العناصر منتهية الصلاحية",
+      cta: "ابدأ",
+    },
+  },
+  ru: {
+    greeting: "Здравствуйте",
+    whatToDo: "Что бы вы хотели сделать сегодня?",
+    emergencyChat: {
+      title: "Экстренный чат",
+      description: "Задавайте вопросы и получайте немедленную информацию о чрезвычайных ситуациях",
+      cta: "Начать",
+    },
+    shelters: {
+      title: "Убежища",
+      description: "Найдите ближайшее убежище и получите указания",
+      cta: "Начать",
+    },
+    emergencyEquipment: {
+      title: "Аварийное оборудование",
+      description: "Управляйте своими списками оборудования и получайте уведомления о просроченных предметах",
+      cta: "Начать",
+    },
+  },
+}
+
+export default function HomePage() {
+  // Initialize with default language
+  const [language, setLanguage] = useState("he")
+  const [translations, setTranslations] = useState(baseTranslations.he)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isRTL, setIsRTL] = useState(true)
+  const [theme, setTheme] = useState("light")
+
+  useEffect(() => {
+    // Only access document in the browser
+    if (typeof window !== "undefined") {
+      const browserLanguage = document.documentElement.lang || "he"
+      setLanguage(browserLanguage)
+
+      // Set RTL based on language
+      setIsRTL(browserLanguage === "he" || browserLanguage === "ar")
+
+      // Get theme from localStorage
+      const storedTheme = localStorage.getItem("eilam-theme") || "light"
+      setTheme(storedTheme)
+
+      // Use the existing translations if available
+      if (baseTranslations[browserLanguage]) {
+        setTranslations(baseTranslations[browserLanguage])
+      } else {
+        // Otherwise use translation API
+        const translateContent = async () => {
+          try {
+            // Translate from Hebrew to the target language
+            // In a real implementation, we would use the translateObject function
+            setTranslations(baseTranslations.en) // Fallback to English for now
+          } catch (error) {
+            console.error("Translation error:", error)
+            // Fallback to Hebrew if translation fails
+            setTranslations(baseTranslations.he)
+          }
+        }
+
+        translateContent()
+      }
+
+      setIsLoading(false)
+    }
+  }, [])
+
+  const t = translations
+
+  const features = [
+    {
+      title: t.emergencyChat.title,
+      description: t.emergencyChat.description,
+      icon: MessageSquare,
+      page: "/chat",
+      cta: t.emergencyChat.cta,
+    },
+    {
+      title: t.shelters.title,
+      description: t.shelters.description,
+      icon: MapPin,
+      page: "/shelters",
+      cta: t.shelters.cta,
+    },
+    {
+      title: t.emergencyEquipment.title,
+      description: t.emergencyEquipment.description,
+      icon: ListChecks,
+      page: "/equipment",
+      cta: t.emergencyEquipment.cta,
+    },
+  ]
+
+  if (isLoading) {
+    return (
+      <div className="min-h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#bad3fc] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-full flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 bg-gradient-to-b from-gray-50 to-[#005c72]/20 dark:from-gray-900 dark:to-[#005c72]/20">
+      <header className="text-center mb-12">
+        <img
+          src={TEMP_USER.profileImageUrl || "/placeholder.svg"}
+          alt="User Avatar"
+          className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-white dark:border-gray-700 shadow-lg"
+        />
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-white">
+          {t.greeting}, {TEMP_USER.firstName[language] || TEMP_USER.firstName.he}!
+        </h1>
+        <p className="text-lg text-gray-600 dark:text-gray-300 mt-2">{t.whatToDo}</p>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 w-full max-w-5xl">
+        {features.map((feature) => (
+          <Card
+            key={feature.title}
+            className={cn(
+              "bg-white dark:bg-gray-800 shadow-xl hover:shadow-2xl transition-shadow duration-300 rounded-xl overflow-hidden flex flex-col",
+              feature.disabled && "opacity-50 cursor-not-allowed",
+            )}
+          >
+            <CardHeader className="items-center text-center pt-8">
+              <div className="p-4 bg-[#ea5c3e]/10 dark:bg-[#cc9999]/20 rounded-full mb-4 inline-block">
+                <feature.icon className="w-8 h-8 text-[#ea5c3e] dark:text-[#cc9999]" />
+              </div>
+              <CardTitle className="text-2xl font-semibold text-gray-800 dark:text-white">{feature.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center pb-8 flex flex-col flex-grow">
+              <div className="flex-grow">
+                <CardDescription className="text-gray-600 dark:text-gray-300 mb-6 text-base min-h-[4.5rem]">
+                  {feature.description}
+                </CardDescription>
+              </div>
+              <Link href={!feature.disabled ? feature.page : "#"} className="mt-auto">
+                <Button
+                  size="lg"
+                  className="w-full bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b1c9f8] dark:text-black"
+                  disabled={feature.disabled}
+                >
+                  {feature.cta}{" "}
+                  {isRTL ? <ArrowLeft className="mr-2 h-5 w-5" /> : <ArrowRight className="ml-2 h-5 w-5" />}
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  )
+}
