@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
           "elderly": מספר הקשישים,
           "pets": מספר חיות המחמד,
           "special_needs": תיאור צרכים מיוחדים,
-          "duration_hours": משך זמן בשעות שהציוד אמור להספיק (ברירת מחדל 72)
+          "duration_hours": משך זמן בשעות שהציוד אמור להספיק 
         },
         "items": [
           {
