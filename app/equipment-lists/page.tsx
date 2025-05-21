@@ -19,6 +19,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { Spinner } from "@/components/ui/spinner"
 
 // Force dynamic rendering to prevent document access during SSR
 export const dynamic = "force-dynamic"
@@ -127,29 +129,6 @@ const pageSpecificTexts = {
   },
 }
 
-// Mock data for equipment lists
-const mockEquipmentLists = [
-  {
-    id: "1",
-    name: "רשימת ציוד חירום בסיסית",
-    description: "ציוד חירום בסיסי לבית",
-    items: [
-      { id: "1", name: "פנס", quantity: 2, category: "תאורה" },
-      { id: "2", name: "מים (בקבוקים)", quantity: 12, category: "מזון ומים" },
-      { id: "3", name: "ערכת עזרה ראשונה", quantity: 1, category: "רפואי" },
-    ],
-  },
-  {
-    id: "2",
-    name: "ציוד למקלט",
-    description: "ציוד חיוני למקלט",
-    items: [
-      { id: "1", name: "שמיכות", quantity: 4, category: "לינה" },
-      { id: "2", name: "רדיו", quantity: 1, category: "תקשורת" },
-    ],
-  },
-]
-
 export default function AllEquipmentListsPage() {
   const [language, setLanguage] = useState("he")
   const [isRTL, setIsRTL] = useState(true)
@@ -165,6 +144,7 @@ export default function AllEquipmentListsPage() {
   const [listToDelete, setListToDelete] = useState(null)
 
   const searchParams = useSearchParams()
+  const supabase = createClientComponentClient()
 
   // Get language from document only on client-side
   useEffect(() => {
@@ -180,12 +160,44 @@ export default function AllEquipmentListsPage() {
   const fetchLists = async () => {
     setIsLoading(true)
     setError(null)
-    console.log("AllEquipmentListsPage: Fetching lists...")
+
     try {
-      // In a real implementation, this would fetch from Supabase
-      // const lists = await EquipmentList.list("-updated_date")
-      setEquipmentLists(mockEquipmentLists)
-      console.log(`AllEquipmentListsPage: Fetched ${mockEquipmentLists.length} equipment lists successfully.`)
+      // Get the current user's ID
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session) {
+        throw new Error("User not authenticated")
+      }
+
+      // Fetch equipment lists
+      const { data: lists, error: listsError } = await supabase
+        .from("equipment_list")
+        .select("id, title, description, created_at, updated_at")
+        .eq("user_id", session.user.id)
+        .order("updated_at", { ascending: false })
+
+      if (listsError) throw listsError
+
+      // For each list, fetch the count of items
+      const listsWithItemCounts = await Promise.all(
+        lists.map(async (list) => {
+          const { count, error: countError } = await supabase
+            .from("equipment_items")
+            .select("id", { count: "exact", head: true })
+            .eq("list_id", list.id)
+
+          if (countError) throw countError
+
+          return {
+            ...list,
+            itemCount: count || 0,
+          }
+        }),
+      )
+
+      setEquipmentLists(listsWithItemCounts)
     } catch (err) {
       console.error("AllEquipmentListsPage: Error fetching equipment lists:", err)
       setError(t.errorLoadingLists)
@@ -196,25 +208,40 @@ export default function AllEquipmentListsPage() {
 
   // Check for refresh parameter when searchParams changes
   useEffect(() => {
-    console.log("Location changed, checking for refresh parameter:", searchParams.toString())
     fetchLists()
   }, [searchParams])
 
   const handleEditList = (list) => {
     setEditingList(list)
-    setNewListName(list.name)
+    setNewListName(list.title)
     setIsEditModalOpen(true)
   }
 
   const handleSaveListName = async () => {
     if (!editingList || !newListName.trim()) return
-    try {
-      // In a real implementation, this would update in Supabase
-      // await EquipmentList.update(editingList.id, { name: newListName.trim() })
 
-      // Update locally for demo
+    try {
+      const { error } = await supabase
+        .from("equipment_list")
+        .update({
+          title: newListName.trim(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingList.id)
+
+      if (error) throw error
+
+      // Update locally
       setEquipmentLists(
-        equipmentLists.map((list) => (list.id === editingList.id ? { ...list, name: newListName.trim() } : list)),
+        equipmentLists.map((list) =>
+          list.id === editingList.id
+            ? {
+                ...list,
+                title: newListName.trim(),
+                updated_at: new Date().toISOString(),
+              }
+            : list,
+        ),
       )
 
       setIsEditModalOpen(false)
@@ -232,13 +259,22 @@ export default function AllEquipmentListsPage() {
   const confirmDelete = async () => {
     if (!listToDelete) return
     setError(null)
-    try {
-      // In a real implementation, this would delete from Supabase
-      // await EquipmentList.delete(listToDelete.id)
 
-      // Update locally for demo
+    try {
+      // First delete all items in the list
+      const { error: itemsError } = await supabase.from("equipment_items").delete().eq("list_id", listToDelete.id)
+
+      if (itemsError) throw itemsError
+
+      // Then delete the list itself
+      const { error: listError } = await supabase.from("equipment_list").delete().eq("id", listToDelete.id)
+
+      if (listError) throw listError
+
+      // Update locally
       setEquipmentLists(equipmentLists.filter((list) => list.id !== listToDelete.id))
     } catch (err) {
+      console.error("Error deleting list:", err)
       setError(t.errorDeletingList)
     } finally {
       setIsDeleteAlertOpen(false)
@@ -250,7 +286,7 @@ export default function AllEquipmentListsPage() {
     return (
       <div className="min-h-full flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <Spinner size="large" className="mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-300">{t.loadingLists}</p>
         </div>
       </div>
@@ -297,13 +333,13 @@ export default function AllEquipmentListsPage() {
                 <div className="flex justify-between items-center">
                   <div className="flex-1 min-w-0 mr-4">
                     <h2 className="text-xl font-semibold text-purple-700 dark:text-gray-100 break-words">
-                      {list.name}
+                      {list.title}
                     </h2>
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 break-words">
                       {list.description || ""}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {(list.items || []).length} {t.itemsSuffix}
+                      {list.itemCount} {t.itemsSuffix}
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center flex-shrink-0">
@@ -430,7 +466,7 @@ export default function AllEquipmentListsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="dark:text-white">{t.confirmDeleteTitle}</AlertDialogTitle>
             <AlertDialogDescription className="dark:text-gray-300">
-              {t.confirmDeleteDescription.replace("{listName}", listToDelete?.name || "")}
+              {t.confirmDeleteDescription.replace("{listName}", listToDelete?.title || "")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

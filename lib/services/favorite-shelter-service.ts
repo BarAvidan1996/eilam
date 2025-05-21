@@ -6,9 +6,19 @@ export class FavoriteShelterService {
   private supabase = createClientComponentClient()
 
   async list() {
+    // Get the current user's ID
+    const {
+      data: { session },
+    } = await this.supabase.auth.getSession()
+
+    if (!session) {
+      throw new Error("User not authenticated")
+    }
+
     const { data, error } = await this.supabase
       .from("favorite_shelters")
       .select("*")
+      .eq("user_id", session.user.id)
       .order("created_at", { ascending: false })
 
     if (error) {
@@ -31,7 +41,21 @@ export class FavoriteShelterService {
   }
 
   async getByPlaceId(placeId: string) {
-    const { data, error } = await this.supabase.from("favorite_shelters").select("*").eq("place_id", placeId).single()
+    // Get the current user's ID
+    const {
+      data: { session },
+    } = await this.supabase.auth.getSession()
+
+    if (!session) {
+      throw new Error("User not authenticated")
+    }
+
+    const { data, error } = await this.supabase
+      .from("favorite_shelters")
+      .select("*")
+      .eq("place_id", placeId)
+      .eq("user_id", session.user.id)
+      .single()
 
     if (error && error.code !== "PGRST116") {
       // PGRST116 is "no rows returned"
@@ -43,9 +67,19 @@ export class FavoriteShelterService {
   }
 
   async create(shelterData: any) {
+    // Get the current user's ID
+    const {
+      data: { session },
+    } = await this.supabase.auth.getSession()
+
+    if (!session) {
+      throw new Error("User not authenticated")
+    }
+
     const { data, error } = await this.supabase
       .from("favorite_shelters")
       .insert({
+        user_id: session.user.id,
         place_id: shelterData.place_id,
         name: shelterData.name,
         address: shelterData.address,
@@ -100,7 +134,20 @@ export class FavoriteShelterService {
   }
 
   async deleteByPlaceId(placeId: string) {
-    const { error } = await this.supabase.from("favorite_shelters").delete().eq("place_id", placeId)
+    // Get the current user's ID
+    const {
+      data: { session },
+    } = await this.supabase.auth.getSession()
+
+    if (!session) {
+      throw new Error("User not authenticated")
+    }
+
+    const { error } = await this.supabase
+      .from("favorite_shelters")
+      .delete()
+      .eq("place_id", placeId)
+      .eq("user_id", session.user.id)
 
     if (error) {
       console.error("Error deleting favorite shelter by place_id:", error)
