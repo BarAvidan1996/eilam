@@ -13,10 +13,10 @@ import {
   Pill,
   HeartHandshake,
   UsersIcon,
+  Users,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
-// Fix: Import locales dynamically to prevent initialization errors during prerendering
 import { createClient } from "@supabase/supabase-js"
 import { AIRecommendationService } from "@/lib/services/ai-recommendation-service"
 import { EquipmentService } from "@/lib/services/equipment-service"
@@ -155,6 +155,7 @@ const baseTranslations = {
     allItemsTitle: "כל הפריטים ברשימה",
     searchItemPlaceholder: "חפש פריט...",
     categoryFilterPlaceholder: "קטגוריה",
+    allCategories: "כל הקטגוריות",
     importanceFilterPlaceholder: "חשיבות",
     allLevels: "כל הרמות",
     clearFiltersButton: "נקה",
@@ -362,8 +363,8 @@ const LoadingIndicator = ({ state, t }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between mb-1">
-        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{getStepText()}</span>
-        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{state.progress}%</span>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{getStepText()}</span>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{state.progress}%</span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
         <div
@@ -371,6 +372,114 @@ const LoadingIndicator = ({ state, t }) => {
           style={{ width: `${state.progress}%` }}
         ></div>
       </div>
+    </div>
+  )
+}
+
+// רכיב להצגת סיכום הציוד
+const EquipmentSummary = ({ items, profile }) => {
+  const totalItems = items.length
+  const checkedItems = items.filter((item) => item.obtained).length
+  const essentialItems = items.filter((item) => item.importance >= 5)
+  const missingEssentialItems = essentialItems.filter((item) => !item.obtained)
+  const uniqueCategories = [...new Set(items.map((item) => item.category))]
+  const readinessPercentage = totalItems > 0 ? Math.round((checkedItems / totalItems) * 100) : 0
+
+  return (
+    <div className="mb-6">
+      <h2 className="text-xl font-semibold mb-4 text-right">סיכום הציוד שלך</h2>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg text-center">
+          <div className="text-sm text-blue-800 dark:text-blue-300 mb-1">פריטים שנבדקו</div>
+          <div className="text-2xl font-bold text-blue-800 dark:text-blue-300">
+            {checkedItems} / {totalItems}
+          </div>
+        </div>
+        <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg text-center">
+          <div className="text-sm text-red-800 dark:text-red-300 mb-1">הכרחיים חסרים</div>
+          <div className="text-2xl font-bold text-red-800 dark:text-red-300">{missingEssentialItems.length}</div>
+        </div>
+        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
+          <div className="text-sm text-green-800 dark:text-green-300 mb-1">מוכנות כוללת</div>
+          <div className="text-2xl font-bold text-green-800 dark:text-green-300">{readinessPercentage}%</div>
+        </div>
+        <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg text-center">
+          <div className="text-sm text-purple-800 dark:text-purple-300 mb-1">קטגוריות</div>
+          <div className="text-2xl font-bold text-purple-800 dark:text-purple-300">{uniqueCategories.length}</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// רכיב להצגת הרכב המשפחה
+const FamilyComposition = ({ profile }) => {
+  if (!profile) return null
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold flex items-center">
+          <Users className="h-5 w-5 ml-2" />
+          הרכב המשפחה
+        </h2>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-center">
+        <div>
+          <div className="text-gray-600 dark:text-gray-400 text-sm">מבוגרים</div>
+          <div className="text-xl font-bold">{profile.adults || 0}</div>
+        </div>
+        <div>
+          <div className="text-gray-600 dark:text-gray-400 text-sm">ילדים</div>
+          <div className="text-xl font-bold">{profile.children || 0}</div>
+        </div>
+        <div>
+          <div className="text-gray-600 dark:text-gray-400 text-sm">תינוקות</div>
+          <div className="text-xl font-bold">{profile.babies || 0}</div>
+        </div>
+        <div>
+          <div className="text-gray-600 dark:text-gray-400 text-sm">חיות מחמד</div>
+          <div className="text-xl font-bold">{profile.pets || 0}</div>
+        </div>
+      </div>
+      <div className="mb-4">
+        <div className="text-gray-600 dark:text-gray-400 text-sm">משך זמן (שעות)</div>
+        <div className="text-xl font-bold">{profile.duration_hours || 48}</div>
+      </div>
+      {profile.special_needs && (
+        <div>
+          <div className="text-gray-600 dark:text-gray-400 text-sm">צרכים מיוחדים</div>
+          <div className="text-gray-800 dark:text-gray-200">{profile.special_needs}</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// רכיב להצגת פריטים הכרחיים חסרים
+const MissingEssentialItems = ({ items }) => {
+  const missingEssentialItems = items.filter((item) => item.importance >= 5 && !item.obtained)
+
+  if (missingEssentialItems.length === 0) return null
+
+  return (
+    <div className="bg-red-50 dark:bg-red-900/10 rounded-lg p-4 mb-6">
+      <div className="flex items-center mb-3">
+        <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 ml-2" />
+        <h3 className="text-lg font-semibold text-red-800 dark:text-red-400">פריטים הכרחיים חסרים</h3>
+      </div>
+      <ul className="space-y-2 pr-6 list-disc">
+        {missingEssentialItems.slice(0, 5).map((item) => (
+          <li key={item.id} className="text-red-700 dark:text-red-300">
+            {item.name} - {item.quantity} {item.unit}
+          </li>
+        ))}
+        {missingEssentialItems.length > 5 && (
+          <li className="text-red-700 dark:text-red-300">
+            ועוד {missingEssentialItems.length - 5} פריטים הכרחיים חסרים...
+          </li>
+        )}
+      </ul>
     </div>
   )
 }
@@ -831,145 +940,66 @@ export default function EquipmentPage() {
 
         {/* AI Generated Items */}
         {aiGeneratedItems.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">{t.aiItemsTitle}</h2>
-              {itemHistory.length > 0 && (
-                <button
-                  onClick={handleUndo}
-                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
-                >
-                  {t.undoAction}
-                </button>
-              )}
-            </div>
+          <div className="space-y-6">
+            {/* Equipment Summary */}
+            <EquipmentSummary items={aiGeneratedItems} />
 
-            {/* סיכום סטטוס הציוד */}
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
-              <h3 className="text-lg font-medium mb-3">{t.summaryTitle}</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{t.categoriesCount}</div>
-                  <div className="text-xl font-bold">
-                    {
-                      Object.keys(
-                        aiGeneratedItems.reduce((acc, item) => {
-                          acc[item.category] = true
-                          return acc
-                        }, {}),
-                      ).length
-                    }
-                  </div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{t.totalReadiness}</div>
-                  <div className="text-xl font-bold">
-                    {Math.round(
-                      (aiGeneratedItems.filter((item) => item.obtained).length / aiGeneratedItems.length) * 100,
-                    )}
-                    %
-                  </div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{t.missingEssentialItems}</div>
-                  <div className="text-xl font-bold text-red-600 dark:text-red-400">
-                    {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length}
-                  </div>
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">{t.itemsChecked}</div>
-                  <div className="text-xl font-bold">
-                    {aiGeneratedItems.filter((item) => item.obtained).length}/{aiGeneratedItems.length}
-                  </div>
-                </div>
+            {/* Family Composition */}
+            <FamilyComposition profile={aiGeneratedProfile} />
+
+            {/* Missing Essential Items */}
+            <MissingEssentialItems items={aiGeneratedItems} />
+
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold">{t.aiItemsTitle}</h2>
+                {itemHistory.length > 0 && (
+                  <button
+                    onClick={handleUndo}
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
+                  >
+                    {t.undoAction}
+                  </button>
+                )}
               </div>
-            </div>
 
-            {/* פריטים הכרחיים חסרים */}
-            {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-medium mb-3 text-red-600 dark:text-red-400">
-                  {t.missingEssentialItemsTitle}
-                </h3>
-                <div className="space-y-2">
-                  {aiGeneratedItems
-                    .filter((item) => item.importance >= 5 && !item.obtained)
-                    .slice(0, 3)
-                    .map((item) => (
-                      <div key={`missing-${item.id}`} className="flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                        <span>{item.name}</span>
-                      </div>
+              <div className="mb-4">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t.searchItemPlaceholder}
+                  className="w-full p-2 border border-gray-300 rounded-md mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  >
+                    <option value="all">{t.allCategories}</option>
+                    {Object.keys(categoryColors).map((category) => (
+                      <option key={category} value={category}>
+                        {t.aiCategories[category] || category}
+                      </option>
                     ))}
-                  {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length > 3 && (
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {t.andMoreMissing.replace(
-                        "{count}",
-                        (
-                          aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length - 3
-                        ).toString(),
-                      )}
-                    </div>
-                  )}
+                  </select>
+
+                  <select
+                    value={selectedImportance}
+                    onChange={(e) => setSelectedImportance(e.target.value)}
+                    className="p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  >
+                    <option value="all">{t.allLevels}</option>
+                    <option value="essential">{t.aiCategories.essential}</option>
+                    <option value="very_important">{t.aiCategories.very_important}</option>
+                    <option value="important">{t.aiCategories.important}</option>
+                    <option value="recommended">{t.aiCategories.recommended}</option>
+                    <option value="optional">{t.aiCategories.optional}</option>
+                  </select>
                 </div>
-              </div>
-            )}
 
-            <div className="mb-4">
-              <h3 className="text-lg font-medium mb-3">{t.allItemsTitle}</h3>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t.searchItemPlaceholder}
-                className="w-full p-2 border border-gray-300 rounded-md mb-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              />
-
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
-                  <option value="all">{t.allCategories}</option>
-                  {Object.keys(categoryColors).map((category) => (
-                    <option key={category} value={category}>
-                      {t.aiCategories[category] || category}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={selectedImportance}
-                  onChange={(e) => setSelectedImportance(e.target.value)}
-                  className="p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
-                  <option value="all">{t.allLevels}</option>
-                  <option value="essential">{t.aiCategories.essential}</option>
-                  <option value="very_important">{t.aiCategories.very_important}</option>
-                  <option value="important">{t.aiCategories.important}</option>
-                  <option value="recommended">{t.aiCategories.recommended}</option>
-                  <option value="optional">{t.aiCategories.optional}</option>
-                </select>
-              </div>
-
-              {(searchQuery || selectedCategory !== "all" || selectedImportance !== "all") && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("")
-                    setSelectedCategory("all")
-                    setSelectedImportance("all")
-                  }}
-                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                >
-                  {t.clearFiltersButton}
-                </button>
-              )}
-            </div>
-
-            {filteredItems.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500 dark:text-gray-400">{t.noItemsFound}</p>
                 {(searchQuery || selectedCategory !== "all" || selectedImportance !== "all") && (
                   <button
                     onClick={() => {
@@ -977,93 +1007,111 @@ export default function EquipmentPage() {
                       setSelectedCategory("all")
                       setSelectedImportance("all")
                     }}
-                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mt-2"
+                    className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                   >
-                    {t.showAllItemsButton}
+                    {t.clearFiltersButton}
                   </button>
                 )}
               </div>
-            ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-                {filteredItems.map((item) => {
-                  const categoryStyle = getCategoryStyle(item.category)
-                  return (
-                    <div
-                      key={item.id}
-                      className="border rounded-lg p-3 flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+
+              {filteredItems.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 dark:text-gray-400">{t.noItemsFound}</p>
+                  {(searchQuery || selectedCategory !== "all" || selectedImportance !== "all") && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery("")
+                        setSelectedCategory("all")
+                        setSelectedImportance("all")
+                      }}
+                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mt-2"
                     >
-                      <input
-                        type="checkbox"
-                        id={`item-${item.id}`}
-                        checked={item.obtained}
-                        onChange={(e) => handleItemCheckboxChange(item.id, e.target.checked)}
-                        className="mt-1"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap gap-2 items-start justify-between mb-1">
-                          <label
-                            htmlFor={`item-${item.id}`}
-                            className={`font-medium ${item.obtained ? "line-through text-gray-500 dark:text-gray-400" : ""}`}
-                          >
-                            {item.name}
-                          </label>
-                          {getImportanceBadge(item.importance)}
-                        </div>
-
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400 mb-1">
-                          <span className="flex items-center gap-1">
-                            <span
-                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText}`}
+                      {t.showAllItemsButton}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                  {filteredItems.map((item) => {
+                    const categoryStyle = getCategoryStyle(item.category)
+                    return (
+                      <div
+                        key={item.id}
+                        className="border rounded-lg p-3 flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          id={`item-${item.id}`}
+                          checked={item.obtained}
+                          onChange={(e) => handleItemCheckboxChange(item.id, e.target.checked)}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap gap-2 items-start justify-between mb-1">
+                            <label
+                              htmlFor={`item-${item.id}`}
+                              className={`font-medium ${item.obtained ? "line-through text-gray-500 dark:text-gray-400" : ""}`}
                             >
-                              {categoryStyle.icon}
-                              <span className="ml-1">{t.aiCategories[item.category] || item.category}</span>
+                              {item.name}
+                            </label>
+                            {getImportanceBadge(item.importance)}
+                          </div>
+
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400 mb-1">
+                            <span className="flex items-center gap-1">
+                              <span
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText}`}
+                              >
+                                {categoryStyle.icon}
+                                <span className="ml-1">{t.aiCategories[item.category] || item.category}</span>
+                              </span>
                             </span>
-                          </span>
-                          <span>
-                            {item.quantity} {item.unit}
-                          </span>
-                        </div>
+                            <span>
+                              {item.quantity} {item.unit}
+                            </span>
+                          </div>
 
-                        {item.description && (
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.description}</p>
-                        )}
+                          {item.description && (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.description}</p>
+                          )}
 
-                        <div className="flex justify-end mt-2">
-                          <button
-                            onClick={() => handleRemoveItem(item.id)}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 text-sm px-2 py-1 rounded"
-                          >
-                            {t.removeItem}
-                          </button>
+                          <div className="flex justify-end mt-2">
+                            <button
+                              onClick={() => handleRemoveItem(item.id)}
+                              className="text-red-600 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 text-sm px-2 py-1 rounded"
+                            >
+                              {t.removeItem}
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              )}
 
-            <div className="mt-4 flex justify-between">
-              <button
-                onClick={() => setIsAddItemDialogOpen(true)}
-                className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded"
-              >
-                {t.addItem}
-              </button>
-              <button
-                onClick={saveAIGeneratedList}
-                disabled={isAILoading}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isAILoading ? t.aiGenerating : t.aiSaveList}
-              </button>
+              <div className="mt-4 flex justify-between">
+                <button
+                  onClick={() => setIsAddItemDialogOpen(true)}
+                  className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold py-2 px-4 rounded"
+                >
+                  {t.addItem}
+                </button>
+                <button
+                  onClick={saveAIGeneratedList}
+                  disabled={isAILoading}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAILoading ? t.aiGenerating : t.aiSaveList}
+                </button>
+              </div>
+
+              {lastSavedMessage && (
+                <div className="mt-4 p-2 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">
+                  {lastSavedMessage}
+                </div>
+              )}
             </div>
-
-            {lastSavedMessage && (
-              <div className="mt-4 p-2 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">
-                {lastSavedMessage}
-              </div>
-            )}
           </div>
         )}
       </div>
