@@ -55,6 +55,7 @@ import { format, parseISO } from "date-fns"
 // Fix: Import locales dynamically to prevent initialization errors during prerendering
 import { createClient } from "@supabase/supabase-js"
 import { AIRecommendationService } from "@/lib/services/ai-recommendation-service"
+import { EquipmentService } from "@/lib/services/equipment-service"
 
 // Mock data for equipment lists when not using AI
 const mockEquipmentLists = [
@@ -265,152 +266,7 @@ const createSupabaseClient = () => {
 }
 
 // Equipment List service
-const EquipmentList = {
-  async getAll() {
-    try {
-      const supabase = createSupabaseClient()
-      const { data, error } = await supabase
-        .from("equipment_lists")
-        .select("*")
-        .order("created_at", { ascending: false })
-
-      if (error) throw error
-      return data || []
-    } catch (error) {
-      console.error("Error fetching equipment lists:", error)
-      return mockEquipmentLists // Fallback to mock data
-    }
-  },
-
-  async get(id) {
-    try {
-      const supabase = createSupabaseClient()
-
-      // Get the list
-      const { data: list, error: listError } = await supabase.from("equipment_lists").select("*").eq("id", id).single()
-
-      if (listError) throw listError
-
-      // Get the items for this list
-      const { data: items, error: itemsError } = await supabase.from("equipment_items").select("*").eq("list_id", id)
-
-      if (itemsError) throw itemsError
-
-      return { ...list, items: items || [] }
-    } catch (error) {
-      console.error(`Error fetching equipment list ${id}:`, error)
-      return mockEquipmentLists[0] // Fallback to first mock list
-    }
-  },
-
-  async create(listData) {
-    try {
-      const supabase = createSupabaseClient()
-
-      // Create the list
-      const { data: list, error: listError } = await supabase
-        .from("equipment_lists")
-        .insert({
-          title: listData.name,
-          user_id: "705cfb06-546c-49b4-8f60-d970eecc6b9d", // Default user ID
-          is_favorite: false,
-        })
-        .select()
-        .single()
-
-      if (listError) throw listError
-
-      // Create the items
-      if (listData.items && listData.items.length > 0) {
-        const itemsToInsert = listData.items.map((item) => ({
-          list_id: list.id,
-          name: item.name,
-          quantity: item.quantity,
-          category: item.category,
-          obtained: item.obtained || false,
-          expiry_date: item.expiryDate,
-          send_reminder: item.sendExpiryReminder || false,
-          description: item.description || "",
-          importance: item.importance || 3,
-          shelf_life: item.shelf_life || null,
-          usage_instructions: item.usage_instructions || "",
-        }))
-
-        const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
-
-        if (itemsError) throw itemsError
-      }
-
-      return list
-    } catch (error) {
-      console.error("Error creating equipment list:", error)
-      return { id: "mock-id-" + Date.now(), ...listData } // Return mock data with generated ID
-    }
-  },
-
-  async update(id, listData) {
-    try {
-      const supabase = createSupabaseClient()
-
-      // Update the list
-      const { error: listError } = await supabase.from("equipment_lists").update({ title: listData.name }).eq("id", id)
-
-      if (listError) throw listError
-
-      // Delete existing items
-      const { error: deleteError } = await supabase.from("equipment_items").delete().eq("list_id", id)
-
-      if (deleteError) throw deleteError
-
-      // Create new items
-      if (listData.items && listData.items.length > 0) {
-        const itemsToInsert = listData.items.map((item) => ({
-          list_id: id,
-          name: item.name,
-          quantity: item.quantity,
-          category: item.category,
-          obtained: item.obtained || false,
-          expiry_date: item.expiryDate,
-          send_reminder: item.sendExpiryReminder || false,
-          description: item.description || "",
-          importance: item.importance || 3,
-          shelf_life: item.shelf_life || null,
-          usage_instructions: item.usage_instructions || "",
-        }))
-
-        const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
-
-        if (itemsError) throw itemsError
-      }
-
-      return { id, ...listData }
-    } catch (error) {
-      console.error(`Error updating equipment list ${id}:`, error)
-      return { id, ...listData } // Return the data that was passed in
-    }
-  },
-
-  async delete(id) {
-    try {
-      const supabase = createSupabaseClient()
-
-      // Delete items first (foreign key constraint)
-      const { error: itemsError } = await supabase.from("equipment_items").delete().eq("list_id", id)
-
-      if (itemsError) throw itemsError
-
-      // Delete the list
-      const { error: listError } = await supabase.from("equipment_lists").delete().eq("id", id)
-
-      if (listError) throw listError
-
-      return true
-    } catch (error) {
-      console.error(`Error deleting equipment list ${id}:`, error)
-      return false
-    }
-  },
-}
+const EquipmentList = EquipmentService
 
 // Mock AI recommendation function (when not using OpenAI)
 const generateAIRecommendations = async (prompt) => {
@@ -641,6 +497,7 @@ export default function EquipmentPage() {
     try {
       const listToSave = {
         name: listNameToSave,
+        description: "",
         items: aiGeneratedItems.map((item) => ({
           name: item.name,
           category: item.category,
@@ -662,7 +519,7 @@ export default function EquipmentPage() {
       const existingListId = urlParams.get("listId")
 
       if (existingListId) {
-        savedListResponse = await EquipmentList.update(existingListId, listToSave)
+        savedListResponse = await EquipmentService.updateEquipmentList(existingListId, listToSave)
         setLastSavedMessage(t.listUpdatedSuccessfully || "הרשימה עודכנה בהצלחה!")
       } else {
         // When creating a new list, items may have aiSuggestedExpiryDate.
@@ -671,14 +528,14 @@ export default function EquipmentPage() {
           ...it,
           expiryDate: it.expiryDate || it.aiSuggestedExpiryDate || null,
         }))
-        savedListResponse = await EquipmentList.create(listToSave)
+        savedListResponse = await EquipmentService.createEquipmentList(listToSave)
         setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
       }
 
       router.push("/equipment-lists?refresh=" + new Date().getTime())
     } catch (error) {
       console.error("Error saving list:", error)
-      setError(t.errorSavingList || "שגיאה בשמירת הרשימה.")
+      setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.")
     } finally {
       setIsAILoading(false)
     }
@@ -727,7 +584,7 @@ export default function EquipmentPage() {
 
       if (listId) {
         try {
-          const listData = await EquipmentList.get(listId)
+          const listData = await EquipmentService.getEquipmentList(listId)
           if (listData) {
             setCurrentListName(listData.name || listData.title)
 
@@ -988,7 +845,7 @@ export default function EquipmentPage() {
     }))
 
     try {
-      await EquipmentList.update(listId, {
+      await EquipmentService.updateEquipmentList(listId, {
         name: currentListName,
         items: itemsToSave,
         profile: aiGeneratedProfile,

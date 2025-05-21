@@ -18,11 +18,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Prepare the prompt for OpenAI
+    // Prepare the prompt for OpenAI with recommended items list
     const systemPrompt = `
       אתה מומחה לציוד חירום ובטיחות. 
       תפקידך הוא לנתח את המידע על משק הבית ולהמליץ על רשימת ציוד חירום מותאמת אישית.
       התייחס למספר האנשים, גילאים, צרכים מיוחדים, חיות מחמד וכל מידע רלוונטי אחר.
+      
+      חשוב מאוד: עליך להחזיר לפחות 15 פריטים בסך הכל, כאשר לפחות 8 מהם הם פריטים חיוניים (importance=5).
+      
+      הנה רשימת המלצות כלליות לציוד חירום שעליך להתבסס עליהן:
+      
+      **המלצות ציוד חירום כלליות:**
+      1. מים ומזון שאינו דורש קירור לכל בני הבית למשך לפחות שלושה ימים
+      2. תאורת חירום
+      3. פנסים וסוללות
+      4. ערכת עזרה ראשונה
+      5. תרופות ומרשמים מודפסים
+      6. רדיו וסוללות
+      7. מטענים ניידים לטלפונים
+      8. ציוד מיוחד לצרכי המשפחה (למשל, תינוקות, קשישים, חיות מחמד)
+      
+      **ציוד כללי נוסף:**
+      1. סוללות גיבוי למכשירים חיוניים, כמו ציוד רפואי
+      2. עותקים של מסמכים חיוניים כמו תעודת זהות, רישיון נהיגה, דרכון וכו'
+      3. מטף כיבוי אש, גלאי עשן
+      4. לפחות חצי מיכל דלק במכונית
+      5. פעילויות לילדים (למשל, משחקים, ספרים וכלי כתיבה)
+      6. ציוד לחיות מחמד
       
       הנה הפורמט שבו עליך להחזיר את התשובה (JSON בלבד):
       {
@@ -59,6 +81,7 @@ export async function POST(request: NextRequest) {
       עבור כל פריט, הקפד לציין את כל השדות הנדרשים.
       התאם את הכמויות לפי מספר האנשים ומשך הזמן.
       הקפד לתת תאריכי תפוגה הגיוניים לפריטים שיש להם חיי מדף.
+      זכור: עליך להחזיר לפחות 15 פריטים בסך הכל!
     `
 
     // Call OpenAI API
@@ -98,6 +121,146 @@ export async function POST(request: NextRequest) {
           ...item,
           id: item.id || `ai${index + 1}`,
         }))
+
+        // Ensure we have at least 8 items
+        if (parsedResponse.items.length < 8) {
+          console.warn("AI returned fewer than 8 items, using fallback items")
+          // Add fallback items if needed
+          const fallbackItems = [
+            {
+              id: "fallback1",
+              name: "מים",
+              category: "water_food",
+              quantity: 3 * (parsedResponse.profile.adults + parsedResponse.profile.children) * 3,
+              unit: "ליטרים",
+              importance: 5,
+              description: "מים לשתייה ובישול",
+              shelf_life: "שנה",
+              usage_instructions: "3 ליטרים לאדם ליום",
+              recommended_quantity_per_person: "3 ליטרים ליום",
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: "2025-12-31",
+              sendExpiryReminder: false,
+            },
+            {
+              id: "fallback2",
+              name: "מזון יבש",
+              category: "water_food",
+              quantity: parsedResponse.profile.adults + parsedResponse.profile.children,
+              unit: 'ק"ג',
+              importance: 5,
+              description: "מזון שאינו דורש קירור",
+              shelf_life: "שנה",
+              usage_instructions: "לאחסן במקום יבש וקריר",
+              recommended_quantity_per_person: '1 ק"ג ליום',
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: "2025-06-30",
+              sendExpiryReminder: false,
+            },
+            {
+              id: "fallback3",
+              name: "פנס",
+              category: "lighting_energy",
+              quantity: Math.ceil((parsedResponse.profile.adults + parsedResponse.profile.children) / 2),
+              unit: "יחידות",
+              importance: 5,
+              description: "פנס לתאורת חירום",
+              shelf_life: "לא רלוונטי",
+              usage_instructions: "יש לוודא שהסוללות טעונות",
+              recommended_quantity_per_person: "1 יחידה לכל 2 אנשים",
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: null,
+              sendExpiryReminder: false,
+            },
+            {
+              id: "fallback4",
+              name: "ערכת עזרה ראשונה",
+              category: "medical",
+              quantity: 1,
+              unit: "ערכה",
+              importance: 5,
+              description: "ערכת עזרה ראשונה בסיסית",
+              shelf_life: "שנתיים",
+              usage_instructions: "יש לבדוק תוקף של תרופות",
+              recommended_quantity_per_person: "ערכה אחת למשפחה",
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: "2026-12-31",
+              sendExpiryReminder: false,
+            },
+            {
+              id: "fallback5",
+              name: "רדיו",
+              category: "communication",
+              quantity: 1,
+              unit: "יחידה",
+              importance: 5,
+              description: "רדיו המופעל על סוללות לקבלת עדכונים",
+              shelf_life: "לא רלוונטי",
+              usage_instructions: "יש לוודא שיש סוללות רזרביות",
+              recommended_quantity_per_person: "1 יחידה למשפחה",
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: null,
+              sendExpiryReminder: false,
+            },
+            {
+              id: "fallback6",
+              name: "מטען נייד",
+              category: "communication",
+              quantity: parsedResponse.profile.adults,
+              unit: "יחידות",
+              importance: 5,
+              description: "מטען נייד לטלפונים",
+              shelf_life: "לא רלוונטי",
+              usage_instructions: "יש לוודא שהמטען טעון",
+              recommended_quantity_per_person: "1 יחידה לאדם",
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: null,
+              sendExpiryReminder: false,
+            },
+            {
+              id: "fallback7",
+              name: "עותקי מסמכים",
+              category: "documents_money",
+              quantity: 1,
+              unit: "סט",
+              importance: 5,
+              description: "עותקים של מסמכים חיוניים (תעודת זהות, דרכון, רישיון נהיגה וכו')",
+              shelf_life: "לא רלוונטי",
+              usage_instructions: "לשמור במקום יבש ובטוח",
+              recommended_quantity_per_person: "סט אחד למשפחה",
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: null,
+              sendExpiryReminder: false,
+            },
+            {
+              id: "fallback8",
+              name: "מטף כיבוי אש",
+              category: "other",
+              quantity: 1,
+              unit: "יחידה",
+              importance: 5,
+              description: "מטף כיבוי אש לשימוש בחירום",
+              shelf_life: "5 שנים",
+              usage_instructions: "יש לבדוק תקינות אחת לשנה",
+              recommended_quantity_per_person: "1 יחידה לבית",
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: "2029-12-31",
+              sendExpiryReminder: false,
+            },
+          ]
+
+          // Add only the missing number of items
+          const missingCount = 8 - parsedResponse.items.length
+          parsedResponse.items = [...parsedResponse.items, ...fallbackItems.slice(0, missingCount)]
+        }
 
         return NextResponse.json(parsedResponse)
       } else {

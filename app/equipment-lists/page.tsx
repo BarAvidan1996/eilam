@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { EquipmentService } from "@/lib/services/equipment-service"
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://lfmxtaefgvjbuipcdcya.supabase.co"
@@ -122,21 +123,23 @@ export default function EquipmentListsPage() {
       setError("")
 
       try {
-        const supabase = createSupabaseClient()
-        const { data, error } = await supabase
-          .from("equipment_lists")
-          .select("*, equipment_items(count)")
-          .order("created_at", { ascending: false })
+        const data = await EquipmentService.getEquipmentLists()
 
-        if (error) throw error
+        if (data && data.length > 0) {
+          // Process the data to include item counts
+          const processedData = data.map((list) => ({
+            ...list,
+            id: list.id,
+            title: list.title,
+            description: list.description,
+            itemCount: 0, // We'll update this when we implement counting
+          }))
 
-        // Process the data to include item counts
-        const processedData = data.map((list) => ({
-          ...list,
-          itemCount: list.equipment_items?.[0]?.count || 0,
-        }))
-
-        setEquipmentLists(processedData)
+          setEquipmentLists(processedData)
+        } else {
+          // Fallback to mock data or empty array
+          setEquipmentLists([])
+        }
       } catch (error) {
         console.error("Error fetching equipment lists:", error)
         setError(t.errorLoading)
@@ -155,15 +158,9 @@ export default function EquipmentListsPage() {
     if (!listToDelete) return
 
     try {
-      const supabase = createSupabaseClient()
+      const success = await EquipmentService.deleteEquipmentList(listToDelete.id)
 
-      // Delete items first (foreign key constraint)
-      await supabase.from("equipment_items").delete().eq("list_id", listToDelete.id)
-
-      // Delete the list
-      const { error } = await supabase.from("equipment_lists").delete().eq("id", listToDelete.id)
-
-      if (error) throw error
+      if (!success) throw new Error("Failed to delete list")
 
       // Update the list
       setEquipmentLists(equipmentLists.filter((list) => list.id !== listToDelete.id))
