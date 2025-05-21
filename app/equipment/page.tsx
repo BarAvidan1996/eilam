@@ -52,8 +52,7 @@ import { useRouter } from "next/navigation"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { format, parseISO } from "date-fns"
-import { he } from "date-fns/locale"
-import { enUS } from "date-fns/locale"
+// Fix: Import locales dynamically to prevent initialization errors during prerendering
 import { createClient } from "@supabase/supabase-js"
 import { AIRecommendationService } from "@/lib/services/ai-recommendation-service"
 
@@ -528,8 +527,10 @@ export default function EquipmentPage() {
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedImportance, setSelectedImportance] = useState("all")
   const [filteredItems, setFilteredItems] = useState([])
-  const [isEditing, setIsEditing] = useState(isEditing)
+  const [isEditing, setIsEditing] = useState(false)
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false)
+  // Fix: Initialize locale states with null and set them in useEffect
+  const [currentLocale, setCurrentLocale] = useState(null)
 
   const t = translations
 
@@ -537,7 +538,7 @@ export default function EquipmentPage() {
     name: "",
     category: "water_food",
     quantity: 1,
-    unit: t.aiCategories?.default_unit || "יחידות",
+    unit: "יחידות", // Default unit
     importance: 3,
     description: "",
     expiryDate: null,
@@ -553,7 +554,6 @@ export default function EquipmentPage() {
   const [lastSavedMessage, setLastSavedMessage] = useState("")
 
   const isRTL = language === "he" || language === "ar"
-  const currentLocale = language === "he" ? he : enUS
 
   // Get category style
   const getCategoryStyle = (categoryKey) => {
@@ -686,12 +686,28 @@ export default function EquipmentPage() {
 
   // Load page context
   useEffect(() => {
+    // Fix: Import locales dynamically to prevent initialization errors during prerendering
+    const loadLocales = async () => {
+      try {
+        const { he } = await import("date-fns/locale/he")
+        const { enUS } = await import("date-fns/locale/en-US")
+        setCurrentLocale(language === "he" ? he : enUS)
+      } catch (error) {
+        console.error("Error loading locales:", error)
+        // Fallback to null locale if loading fails
+        setCurrentLocale(null)
+      }
+    }
+
     const loadPageContext = async () => {
       setIsLoading(true)
 
       // Get language from document
       const docLang = document.documentElement.lang || "he"
       setLanguage(docLang)
+
+      // Load locales
+      await loadLocales()
 
       // Set translations based on language
       setTranslations(baseTranslations[docLang] || baseTranslations.he)
@@ -1026,6 +1042,9 @@ export default function EquipmentPage() {
 
   // Render expiry controls
   const renderExpiryControls = (item) => {
+    // Fix: Check if currentLocale is available before using it
+    if (!currentLocale) return null
+
     // Determine initial date for picker: user-set, then AI-suggested, then null
     const dateForPicker = item.expiryDate || item.aiSuggestedExpiryDate
 
@@ -1113,6 +1132,18 @@ export default function EquipmentPage() {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">{t.loading || "טוען..."}</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Fix: Check if currentLocale is available before rendering date-related components
+  if (!currentLocale) {
+    return (
+      <div className="min-h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">טוען הגדרות שפה...</p>
         </div>
       </div>
     )

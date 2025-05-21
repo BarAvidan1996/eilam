@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const { prompt } = await request.json()
 
@@ -12,8 +12,10 @@ export async function POST(request: Request) {
     const openaiApiKey = process.env.OPENAI_API_KEY
 
     if (!openaiApiKey) {
-      console.error("OpenAI API key is missing. Please set the OPENAI_API_KEY environment variable.")
-      return NextResponse.json({ error: "OpenAI API key is missing" }, { status: 500 })
+      return NextResponse.json(
+        { error: "OpenAI API key is missing. Please set the OPENAI_API_KEY environment variable." },
+        { status: 500 },
+      )
     }
 
     // Prepare the prompt for OpenAI
@@ -107,7 +109,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Error parsing OpenAI response" }, { status: 500 })
     }
   } catch (error) {
-    console.error("Error in AI recommendations route:", error)
+    console.error("Error in AI recommendations API:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
