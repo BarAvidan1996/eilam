@@ -1,26 +1,11 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
+import { useState, useEffect } from "react"
 import {
-  PlusCircle,
-  Trash2,
-  Edit2,
   FileText,
   AlertTriangle,
-  CalendarIcon,
-  Bell,
   ListChecks,
   Lightbulb,
-  ShieldCheck,
-  Save,
-  Filter,
-  Search,
   Baby,
   Cat,
   Activity,
@@ -28,34 +13,27 @@ import {
   Pill,
   HeartHandshake,
   UsersIcon,
-  X,
-  Package,
-  RotateCcw,
-  Undo,
-  BellOff,
 } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { useRouter } from "next/navigation"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Calendar } from "@/components/ui/calendar"
-import { format, parseISO } from "date-fns"
-// Fix: Import locales dynamically to prevent initialization errors during prerendering
 import { createClient } from "@supabase/supabase-js"
 import { AIRecommendationService } from "@/lib/services/ai-recommendation-service"
 import { EquipmentService } from "@/lib/services/equipment-service"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Spinner } from "@/components/ui/spinner"
 
 // Mock data for equipment lists when not using AI
 const mockEquipmentLists = [
@@ -246,6 +224,12 @@ const baseTranslations = {
     unknownItem: "פריט לא ידוע",
     usageInstructionsPlaceholder: "הוראות שימוש והערות חשובות",
     loading: "טוען...",
+    // חדש - מצבי טעינה
+    extractingData: "מחלץ מידע מהתיאור שלך...",
+    generatingRecommendations: "יוצר רשימת ציוד מותאמת אישית...",
+    processingItems: "מעבד את הפריטים המומלצים...",
+    finalizingProcess: "מסיים את התהליך...",
+    processingGeneric: "מעבד...",
   },
   en: {
     pageTitle: "Emergency Equipment Management",
@@ -368,6 +352,39 @@ const categoryColors = {
   },
 }
 
+// רכיב חדש להצגת מצב הטעינה
+const LoadingIndicator = ({ state, t }) => {
+  const getStepText = () => {
+    switch (state.step) {
+      case "extracting":
+        return t.extractingData || "מחלץ מידע מהתיאור שלך..."
+      case "generating":
+        return t.generatingRecommendations || "יוצר רשימת ציוד מותאמת אישית..."
+      case "processing":
+        return t.processingItems || "מעבד את הפריטים המומלצים..."
+      case "finalizing":
+        return t.finalizingProcess || "מסיים את התהליך..."
+      default:
+        return t.processingGeneric || "מעבד..."
+    }
+  }
+
+  return (
+    <div className="w-full">
+      <div className="flex justify-between mb-1">
+        <span className="text-sm font-medium text-purple-700 dark:text-purple-300">{getStepText()}</span>
+        <span className="text-sm font-medium text-purple-700 dark:text-purple-300">{state.progress}%</span>
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+        <div
+          className="bg-purple-600 h-2.5 rounded-full transition-all duration-300 ease-in-out"
+          style={{ width: `${state.progress}%` }}
+        ></div>
+      </div>
+    </div>
+  )
+}
+
 export default function EquipmentPage() {
   const router = useRouter()
   const [language, setLanguage] = useState("he")
@@ -387,6 +404,13 @@ export default function EquipmentPage() {
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false)
   // Fix: Initialize locale states with null and set them in useEffect
   const [currentLocale, setCurrentLocale] = useState(null)
+
+  // חדש: מצב טעינה מפורט
+  const [loadingState, setLoadingState] = useState({
+    isLoading: false,
+    step: "", // "extracting", "generating", "processing", "finalizing"
+    progress: 0, // 0-100
+  })
 
   const t = translations
 
@@ -485,54 +509,121 @@ export default function EquipmentPage() {
       return
     }
 
-    let listNameToSave = currentListName
-    if (!listNameToSave && aiGeneratedProfile) {
-      listNameToSave = `${t.equipmentListFor || "רשימת ציוד עבור"} ${aiGeneratedProfile.adults || 0} ${t.adults || "מבוגרים"}`
-    }
+    try {
+      // Update loading state
+      setLoadingState({
+        isLoading: true,
+        step: "extracting",
+        progress: 10,
+      })
 
-    if (!listNameToSave) {
-      listNameToSave = t.defaultNewListName || "רשימה חדשה"
+      // Extract data from user prompt
+      const extractedData = await fetch("/api/extract-data", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt: aiUserPrompt }),
+      }).then((res) => res.json())
+
+      // Update loading state
+      setLoadingState({
+        isLoading: true,
+        step: "generating",
+        progress: 30,
+      })
+
+      // Generate recommendations based on extracted data
+      const recommendations = await generateAIRecommendations(aiUserPrompt)
+
+      // Update loading state
+      setLoadingState({
+        isLoading: true,
+        step: "processing",
+        progress: 70,
+      })
+
+      if (recommendations && recommendations.items) {
+        setAIGeneratedItems(recommendations.items)
+        setAIGeneratedProfile(recommendations.profile || {})
+      } else {
+        setError("Failed to generate recommendations. Please try again.")
+      }
+
+      // Update loading state
+      setLoadingState({
+        isLoading: true,
+        step: "finalizing",
+        progress: 90,
+      })
+
+      // Simulate a short delay for the final step
+      setTimeout(() => {
+        setLoadingState({
+          isLoading: false,
+          step: "",
+          progress: 100,
+        })
+        setIsAILoading(false)
+      }, 500)
+    } catch (error) {
+      console.error("Error generating AI recommendations:", error)
+      setError("An error occurred while generating recommendations. Please try again.")
+      setIsAILoading(false)
+      setLoadingState({
+        isLoading: false,
+        step: "",
+        progress: 0,
+      })
+    }
+  }
+
+  // Save AI generated list
+  const saveAIGeneratedList = async () => {
+    setIsAILoading(true)
+    setError("")
+
+    if (!currentListName) {
+      setError(t.listNameCannotBeEmpty || "שם הרשימה אינו יכול להיות ריק.")
+      setIsAILoading(false)
+      return
     }
 
     try {
-      const listToSave = {
-        name: listNameToSave,
-        description: "",
+      const supabase = createSupabaseClient()
+      const { data: userData, error: userError } = await supabase.auth.getUser()
+
+      if (userError) {
+        throw new Error(userError.message)
+      }
+
+      const userId = userData.user?.id
+
+      if (!userId) {
+        router.push("/login")
+        return
+      }
+
+      const newList = {
+        name: currentListName,
+        description: aiGeneratedProfile ? JSON.stringify(aiGeneratedProfile) : "",
+        user_id: userId,
         items: aiGeneratedItems.map((item) => ({
-          name: item.name,
-          category: item.category,
-          quantity: Number(item.quantity) || 1,
-          unit: item.unit || t.aiCategories?.default_unit || "יחידות",
-          obtained: typeof item.obtained === "boolean" ? item.obtained : false,
-          expiryDate: item.expiryDate || null,
-          sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
-          description: item.description || "",
-          importance: item.importance || 3,
-          shelf_life: item.shelf_life || null,
-          usage_instructions: item.usage_instructions || "",
+          ...item,
+          id: crypto.randomUUID(),
         })),
-        profile: aiGeneratedProfile,
       }
 
-      let savedListResponse
-      const urlParams = new URLSearchParams(window.location.search)
-      const existingListId = urlParams.get("listId")
+      const { data, error: saveError } = await EquipmentList.createList(newList)
 
-      if (existingListId) {
-        savedListResponse = await EquipmentService.updateEquipmentList(existingListId, listToSave)
-        setLastSavedMessage(t.listUpdatedSuccessfully || "הרשימה עודכנה בהצלחה!")
-      } else {
-        // When creating a new list, items may have aiSuggestedExpiryDate.
-        // We want to initialize expiryDate with aiSuggestedExpiryDate if available.
-        listToSave.items = listToSave.items.map((it) => ({
-          ...it,
-          expiryDate: it.expiryDate || it.aiSuggestedExpiryDate || null,
-        }))
-        savedListResponse = await EquipmentService.createEquipmentList(listToSave)
-        setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
+      if (saveError) {
+        throw new Error(saveError.message)
       }
 
-      router.push("/equipment-lists?refresh=" + new Date().getTime())
+      setLastSavedMessage(t.aiSavedSuccess || "הרשימה נשמרה בהצלחה!")
+      setTimeout(() => {
+        router.push(`/equipment-lists?list=${data.id}`)
+      }, 1500)
     } catch (error) {
       console.error("Error saving list:", error)
       setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.")
@@ -541,239 +632,49 @@ export default function EquipmentPage() {
     }
   }
 
-  // Load page context
-  useEffect(() => {
-    // Fix: Import locales dynamically to prevent initialization errors during prerendering
-    const loadLocales = async () => {
-      try {
-        const { he } = await import("date-fns/locale/he")
-        const { enUS } = await import("date-fns/locale/en-US")
-        setCurrentLocale(language === "he" ? he : enUS)
-      } catch (error) {
-        console.error("Error loading locales:", error)
-        // Fallback to null locale if loading fails
-        setCurrentLocale(null)
-      }
-    }
+  // Filter items based on search query, category, and importance
+  const filterItems = (items) => {
+    if (!items) return []
 
-    const loadPageContext = async () => {
-      setIsLoading(true)
+    return items.filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      const matchesCategory = selectedCategory === "all" || item.category === selectedCategory
+      const matchesImportance =
+        selectedImportance === "all" ||
+        (selectedImportance === "essential" && item.importance >= 5) ||
+        (selectedImportance === "very_important" && item.importance >= 4 && item.importance < 5) ||
+        (selectedImportance === "important" && item.importance >= 3 && item.importance < 4) ||
+        (selectedImportance === "recommended" && item.importance >= 2 && item.importance < 3) ||
+        (selectedImportance === "optional" && item.importance < 2)
 
-      // Get language from document
-      const docLang = document.documentElement.lang || "he"
-      setLanguage(docLang)
-
-      // Load locales
-      await loadLocales()
-
-      // Set translations based on language
-      setTranslations(baseTranslations[docLang] || baseTranslations.he)
-
-      // Update newItem's default unit based on the loaded translations
-      setNewItem((prev) => ({
-        ...prev,
-        unit: baseTranslations[docLang]?.aiCategories?.default_unit || "יחידות",
-      }))
-
-      setIsLoading(false)
-
-      // Load list data if listId is provided
-      setIsListContextLoading(true)
-      const urlParams = new URLSearchParams(window.location.search)
-      const listId = urlParams.get("listId")
-
-      if (listId) {
-        try {
-          const listData = await EquipmentService.getEquipmentList(listId)
-          if (listData) {
-            setCurrentListName(listData.name || listData.title)
-
-            const itemsWithDetails = (listData.items || []).map((item) => ({
-              ...item,
-              id: item.id || Math.random().toString(36).substr(2, 9),
-              obtained: typeof item.obtained === "boolean" ? item.obtained : false,
-              importance: item.importance || 3,
-              description: item.description || "",
-              shelf_life: item.shelf_life || "N/A",
-              usage_instructions: item.usage_instructions || "",
-              recommended_quantity_per_person: item.recommended_quantity_per_person || "",
-              expiryDate: item.expiryDate || item.expiry_date || null,
-              aiSuggestedExpiryDate: item.aiSuggestedExpiryDate || null,
-              sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
-            }))
-
-            setAIGeneratedItems(itemsWithDetails)
-            setFilteredItems(itemsWithDetails)
-
-            setAIGeneratedProfile({
-              adults: listData.profile?.adults || 1,
-              children: listData.profile?.children || 0,
-              babies: listData.profile?.babies || 0,
-              elderly: listData.profile?.elderly || 0,
-              pets: listData.profile?.pets || 0,
-              special_needs: listData.profile?.special_needs || baseTranslations[docLang].notSpecified || "לא צוין",
-              duration_hours: listData.profile?.duration_hours || 72,
-              loadedFromExisting: true,
-            })
-            setAIUserPrompt("")
-          } else {
-            console.warn(`List with ID ${listId} not found.`)
-            setCurrentListName("")
-            setAIGeneratedProfile(null)
-          }
-        } catch (error) {
-          console.error("Error loading equipment list:", error)
-          setCurrentListName("")
-          setAIGeneratedProfile(null)
-        }
-      } else {
-        setCurrentListName("")
-        setAIGeneratedItems([])
-        setFilteredItems([])
-        setAIGeneratedProfile(null)
-        setAIUserPrompt("")
-      }
-      setIsListContextLoading(false)
-    }
-
-    loadPageContext()
-  }, [])
-
-  // Filter items when search or filters change
-  useEffect(() => {
-    if (aiGeneratedItems.length > 0) {
-      let filtered = [...aiGeneratedItems]
-
-      if (searchQuery) {
-        filtered = filtered.filter(
-          (item) =>
-            item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase())),
-        )
-      }
-
-      if (selectedCategory && selectedCategory !== "all") {
-        filtered = filtered.filter((item) => item.category === selectedCategory)
-      }
-
-      if (selectedImportance && selectedImportance !== "all") {
-        const importanceMap = {
-          הכרחי: 5,
-          "חשוב מאוד": 4,
-          חשוב: 3,
-          מומלץ: 2,
-          אופציונלי: 1,
-        }
-        const importanceValue = importanceMap[selectedImportance]
-        if (importanceValue !== undefined) {
-          filtered = filtered.filter((item) => item.importance === importanceValue)
-        }
-      }
-
-      setFilteredItems(filtered)
-    } else {
-      setFilteredItems([])
-    }
-  }, [searchQuery, selectedCategory, selectedImportance, aiGeneratedItems])
-
-  // Clear filters
-  const clearFilters = () => {
-    setSearchQuery("")
-    setSelectedCategory("all")
-    setSelectedImportance("all")
+      return matchesSearch && matchesCategory && matchesImportance
+    })
   }
 
-  // Get category display name
-  const aiCategories = t.aiCategories || {}
-  const getCategoryDisplayName = (categoryKey) => aiCategories[categoryKey] || categoryKey
-
-  // Get missing essential items
-  const getMissingEssentialItems = () => {
-    return aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained)
-  }
-
-  // Get obtained items count
-  const getObtainedItemsCount = () => {
-    return aiGeneratedItems.filter((item) => item.obtained).length
-  }
-
-  // Get total readiness percentage
-  const getTotalReadinessPercentage = () => {
-    if (aiGeneratedItems.length === 0) return 0
-    return Math.round((getObtainedItemsCount() / aiGeneratedItems.length) * 100)
-  }
-
-  // Handle back to prompt
-  const handleBackToPrompt = () => {
-    setAIGeneratedProfile(null)
-    setAIGeneratedItems([])
-    setFilteredItems([])
-    setAIUserPrompt("")
-    setOpenAccordionItem(null)
-    setSearchQuery("")
-    setSelectedCategory("all")
-    setSelectedImportance("all")
-  }
-
-  // Handle AI generate recommendations
-  const handleAIGenerateRecommendations = async () => {
-    if (!aiUserPrompt.trim()) return
-    setIsAILoading(true)
-    setAIGeneratedItems([])
-    setFilteredItems([])
-
-    try {
-      // Use the mock function instead of OpenAI
-      const response = await generateAIRecommendations(aiUserPrompt)
-
-      if (response && response.profile && response.items) {
-        setAIGeneratedProfile(response.profile)
-        setAIGeneratedItems(response.items)
-        setFilteredItems(response.items)
-      } else {
-        console.error("AI response format incorrect or missing data:", response)
-      }
-    } catch (error) {
-      console.error("Error generating AI recommendations:", error)
-    } finally {
-      setIsAILoading(false)
-    }
-  }
-
-  // Toggle item obtained
-  const toggleItemObtained = (itemId) => {
-    setAIGeneratedItems((prevItems) =>
-      prevItems.map((item) => (item.id === itemId ? { ...item, obtained: !item.obtained } : item)),
-    )
-  }
-
-  // Get essential items count
-  const getEssentialItemsCount = () => {
-    return aiGeneratedItems.filter((item) => item.importance >= 5).length
-  }
-
-  // Update items with history
-  const updateItemsWithHistory = (newItems) => {
-    setItemHistory((prev) => [...prev, aiGeneratedItems])
-    setAIGeneratedItems(newItems)
-  }
-
-  // Handle undo
-  const handleUndo = () => {
-    if (itemHistory.length > 0) {
-      const previousItems = itemHistory[itemHistory.length - 1]
-      setAIGeneratedItems(previousItems)
-      setItemHistory(itemHistory.slice(0, -1))
-    }
-  }
-
-  // Handle add item
+  // Handle adding a new item
   const handleAddItem = () => {
+    if (!newItem.name.trim()) {
+      setError(t.itemNameCannotBeEmpty || "שם הפריט אינו יכול להיות ריק.")
+      return
+    }
+
+    const itemId = crypto.randomUUID()
+    const itemToAdd = {
+      ...newItem,
+      id: itemId,
+      obtained: false,
+    }
+
+    setAIGeneratedItems((prevItems) => [...prevItems, itemToAdd])
+    setItemHistory((prevHistory) => [...prevHistory, { action: "add", item: itemToAdd }])
+    setIsAddItemDialogOpen(false)
     setNewItem({
       name: "",
       category: "water_food",
       quantity: 1,
-      unit: baseTranslations[language]?.aiCategories?.default_unit || "יחידות",
+      unit: "יחידות",
       importance: 3,
       description: "",
       expiryDate: null,
@@ -781,848 +682,432 @@ export default function EquipmentPage() {
       usage_instructions: "",
       recommended_quantity_per_person: "",
     })
-    setIsAddItemDialogOpen(true)
   }
 
-  // Handle save new item
-  const handleSaveNewItem = () => {
-    if (!newItem.name.trim()) return
-
-    const itemWithId = {
-      ...newItem,
-      id: Math.random().toString(36).substr(2, 9),
-      obtained: false,
-    }
-
-    updateItemsWithHistory([...aiGeneratedItems, itemWithId])
-    setIsAddItemDialogOpen(false)
-    setOpenAccordionItem(itemWithId.id)
-  }
-
-  // Handle remove item confirm
-  const handleRemoveItemConfirm = (item) => {
-    setItemToRemove(item)
+  // Handle removing an item
+  const handleRemoveItem = (itemId) => {
+    const itemToRemove = aiGeneratedItems.find((item) => item.id === itemId)
+    setItemToRemove(itemToRemove)
     setIsConfirmDialogOpen(true)
   }
 
-  // Handle remove item
-  const handleRemoveItem = () => {
+  // Confirm item removal
+  const confirmRemoveItem = () => {
     if (!itemToRemove) return
 
-    updateItemsWithHistory(aiGeneratedItems.filter((item) => item.id !== itemToRemove.id))
-    setFilteredItems(filteredItems.filter((item) => item.id !== itemToRemove.id))
-    setItemToRemove(null)
-    setIsConfirmDialogOpen(false)
-  }
-
-  // Handle save changes
-  const handleSaveChanges = async () => {
-    setIsEditing(false)
-    setItemHistory([])
-    setLastSavedMessage("")
-    setError("")
-
-    const urlParams = new URLSearchParams(window.location.search)
-    const listId = urlParams.get("listId")
-
-    if (!listId) {
-      setError(t.errorNoListToUpdate || "לא נבחרה רשימה לעדכון.")
-      return
-    }
-
-    const itemsToSave = aiGeneratedItems.map((item) => ({
-      name: item.name,
-      category: item.category,
-      quantity: Number(item.quantity) || 1,
-      unit: item.unit || t.aiCategories?.default_unit || "יחידות",
-      obtained: typeof item.obtained === "boolean" ? item.obtained : false,
-      expiryDate: item.expiryDate || null,
-      sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
-      description: item.description || "",
-      importance: item.importance || 3,
-      shelf_life: item.shelf_life || null,
-      usage_instructions: item.usage_instructions || "",
-    }))
-
-    try {
-      await EquipmentService.updateEquipmentList(listId, {
-        name: currentListName,
-        items: itemsToSave,
-        profile: aiGeneratedProfile,
-      })
-
-      router.push("/equipment-lists?refresh=" + new Date().getTime())
-      return
-    } catch (error) {
-      console.error("Error saving changes to list:", error)
-      setError(t.errorSavingChanges || "שגיאה בשמירת השינויים.")
-    }
-  }
-
-  // Handle item change
-  const handleItemChange = (itemId, field, value) => {
-    const updatedItems = aiGeneratedItems.map((item) => (item.id === itemId ? { ...item, [field]: value } : item))
+    const updatedItems = aiGeneratedItems.filter((item) => item.id !== itemToRemove.id)
     setAIGeneratedItems(updatedItems)
+    setItemHistory((prevHistory) => [...prevHistory, { action: "remove", item: itemToRemove }])
+    setIsConfirmDialogOpen(false)
+    setItemToRemove(null)
   }
 
-  // Handle expiry date change
-  const handleExpiryDateChange = (itemId, date) => {
-    const formattedDate = date ? format(date, "yyyy-MM-dd") : null
-    handleItemChange(itemId, "expiryDate", formattedDate)
-  }
+  // Undo last action
+  const handleUndo = () => {
+    if (itemHistory.length === 0) return
 
-  // Toggle expiry reminder
-  const toggleExpiryReminder = (itemId) => {
-    const itemToUpdate = aiGeneratedItems.find((item) => item.id === itemId)
-    if (itemToUpdate) {
-      handleItemChange(itemId, "sendExpiryReminder", !itemToUpdate.sendExpiryReminder)
+    const lastAction = itemHistory[itemHistory.length - 1]
+    setItemHistory((prevHistory) => prevHistory.slice(0, -1))
+
+    if (lastAction.action === "add") {
+      setAIGeneratedItems((prevItems) => prevItems.filter((item) => item.id !== lastAction.item.id))
+    } else if (lastAction.action === "remove") {
+      setAIGeneratedItems((prevItems) => [...prevItems, lastAction.item])
     }
   }
 
-  // Calculate suggested expiry
-  const calculateSuggestedExpiry = (explicitDate, shelfLifeDays) => {
-    if (explicitDate) {
+  // Handle item checkbox change
+  const handleItemCheckboxChange = (itemId, checked) => {
+    setAIGeneratedItems((prevItems) =>
+      prevItems.map((item) => (item.id === itemId ? { ...item, obtained: checked } : item)),
+    )
+  }
+
+  // Initialize component
+  useEffect(() => {
+    const fetchData = async () => {
       try {
-        return format(parseISO(explicitDate), "yyyy-MM-dd")
-      } catch (e) {
-        console.warn("Invalid date string for explicitDate in calculateSuggestedExpiry:", explicitDate, e)
-        return null
+        setIsLoading(true)
+        // Set default language and translations
+        setLanguage("he")
+        setTranslations(baseTranslations.he)
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Error initializing equipment page:", error)
+        setError("Failed to initialize page. Please try again.")
+        setIsLoading(false)
       }
     }
-    if (shelfLifeDays && !isNaN(Number.parseInt(shelfLifeDays))) {
-      const date = new Date()
-      date.setDate(date.getDate() + Number.parseInt(shelfLifeDays))
-      return format(date, "yyyy-MM-dd")
-    }
-    return null
-  }
 
-  // Render expiry controls
-  const renderExpiryControls = (item) => {
-    // Fix: Check if currentLocale is available before using it
-    if (!currentLocale) return null
+    fetchData()
+  }, [])
 
-    // Determine initial date for picker: user-set, then AI-suggested, then null
-    const dateForPicker = item.expiryDate || item.aiSuggestedExpiryDate
+  // Update filtered items when search query, category, or importance changes
+  useEffect(() => {
+    setFilteredItems(filterItems(aiGeneratedItems))
+  }, [searchQuery, selectedCategory, selectedImportance, aiGeneratedItems])
 
-    if (isEditing) {
-      return (
-        <div className="mt-3 space-y-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-          <Label htmlFor={`expiryDate-${item.id}`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t.expiryDate || "תאריך תפוגה"}
-          </Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className={`w-full justify-start text-left font-normal ${!dateForPicker && "text-muted-foreground"}`}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {item.expiryDate ? (
-                  format(parseISO(item.expiryDate), "PPP", { locale: currentLocale })
-                ) : item.aiSuggestedExpiryDate ? (
-                  format(parseISO(item.aiSuggestedExpiryDate), "PPP", { locale: currentLocale })
-                ) : (
-                  <span>{t.setExpiryDate || "הגדר תאריך תפוגה"}</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={dateForPicker ? parseISO(dateForPicker) : undefined}
-                onSelect={(date) => handleExpiryDateChange(item.id, date)}
-                initialFocus
-                captionLayout="dropdown-buttons"
-                fromYear={new Date().getFullYear()}
-                toYear={new Date().getFullYear() + 20}
-                locale={currentLocale}
-              />
-            </PopoverContent>
-          </Popover>
-          <div className="flex items-center space-x-2 mt-2 rtl:space-x-reverse">
-            <Checkbox
-              id={`reminder-${item.id}`}
-              checked={!!item.sendExpiryReminder}
-              onCheckedChange={() => toggleExpiryReminder(item.id)}
-              aria-label={t.sendReminder || "שלח לי תזכורת"}
-            />
-            <Label
-              htmlFor={`reminder-${item.id}`}
-              className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-            >
-              {t.sendReminder || "שלח לי תזכורת"}
-            </Label>
-            {item.sendExpiryReminder ? (
-              <Bell className="h-4 w-4 text-purple-600" />
-            ) : (
-              <BellOff className="h-4 w-4 text-gray-400" />
-            )}
-          </div>
-        </div>
-      )
-    } else if (item.expiryDate) {
-      return (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          <span className="font-medium">{t.expiryDate || "תאריך תפוגה"}: </span>
-          {format(parseISO(item.expiryDate), "PPP", { locale: currentLocale })}
-          {item.sendExpiryReminder && <Bell className="h-3 w-3 text-purple-600 inline-block ml-1 rtl:mr-1" />}
-        </p>
-      )
-    } else if (item.aiSuggestedExpiryDate && !isEditing) {
-      return (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          <span className="font-medium">{t.expiryDate || "תאריך תפוגה"}: </span>
-          {format(parseISO(item.aiSuggestedExpiryDate), "PPP", { locale: currentLocale })}
-        </p>
-      )
-    }
-    return !isEditing ? (
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t.noExpiryDate || "אין תאריך תפוגה"}</p>
-    ) : null
-  }
-
-  // Loading state
-  if (isLoading || isListContextLoading) {
+  // Render loading state
+  if (isLoading) {
     return (
-      <div className="min-h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">{t.loading || "טוען..."}</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Spinner size="lg" />
       </div>
     )
   }
 
-  // Fix: Check if currentLocale is available before rendering date-related components
-  if (!currentLocale) {
+  // Render error state
+  if (error) {
     return (
-      <div className="min-h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">טוען הגדרות שפה...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
         </div>
+        <Button onClick={() => setError("")}>{t.tryAgain || "Try Again"}</Button>
       </div>
     )
   }
 
+  // Render AI generation form
   return (
-    <div className={`max-w-5xl mx-auto p-4 sm:p-6 ${isRTL ? "rtl" : "ltr"}`}>
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
-          {currentListName ? `${t.pageTitle}: ${currentListName}` : t.pageTitle}
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">{t.pageDescription}</p>
-      </header>
-      {lastSavedMessage && (
-        <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-center">
-          {lastSavedMessage}
-        </div>
-      )}
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-center">
-          {error}
-        </div>
-      )}
-      {!aiGeneratedProfile && !isListContextLoading ? (
-        <Card className="shadow-lg dark:bg-gray-800 mb-6">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-800 dark:text-white">{t.aiModalTitle}</CardTitle>
-            <CardDescription className="text-gray-600 dark:text-gray-300">{t.aiPromptDescription}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <Textarea
-                placeholder={t.aiPromptPlaceholder}
-                value={aiUserPrompt}
-                onChange={(e) => setAIUserPrompt(e.target.value)}
-                className="h-40 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                rows={8}
-              />
-            </div>
+    <div className={`container mx-auto p-4 ${isRTL ? "rtl" : "ltr"}`}>
+      <h1 className="text-3xl font-bold mb-2">{t.pageTitle}</h1>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">{t.pageDescription}</p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* AI Generation Form */}
+        <Card className="p-4">
+          <h2 className="text-xl font-semibold mb-4">{t.aiModalTitle}</h2>
+          <p className="mb-4">{t.aiPromptDescription}</p>
+
+          <Textarea
+            value={aiUserPrompt}
+            onChange={(e) => setAIUserPrompt(e.target.value)}
+            placeholder={t.aiPromptPlaceholder}
+            className="mb-4 min-h-[150px]"
+          />
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">{t.listNameLabel}</label>
+            <Input
+              value={currentListName}
+              onChange={(e) => setCurrentListName(e.target.value)}
+              placeholder={t.aiListNamePlaceholder}
+            />
+          </div>
+
+          {loadingState.isLoading ? (
+            <LoadingIndicator state={loadingState} t={t} />
+          ) : (
             <Button
-              onClick={handleAIGenerateRecommendations}
-              disabled={!aiUserPrompt.trim() || isAILoading}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center gap-2"
+              onClick={handleSaveListAndGenerateItems}
+              disabled={isAILoading || !aiUserPrompt.trim()}
+              className="w-full"
             >
-              {isAILoading ? (
-                <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
-              ) : (
-                <ShieldCheck className="h-5 w-5" />
-              )}
-              {t.aiGenerateButton}
+              {isAILoading ? t.aiGenerating : t.aiGenerateButton}
             </Button>
-          </CardContent>
+          )}
         </Card>
-      ) : aiGeneratedProfile && !isListContextLoading ? (
-        <div className="space-y-6">
-          {!aiGeneratedProfile.loadedFromExisting && (
-            <Button onClick={handleBackToPrompt} variant="outline" className="mb-4 flex items-center gap-2">
-              <RotateCcw className="h-4 w-4" />
-              {t.backToAI || "חזור ליצירת רשימה"}
-            </Button>
-          )}
 
-          <Card className="bg-white dark:bg-gray-800 shadow-md">
-            <CardHeader>
-              <CardTitle className="text-lg text-gray-800 dark:text-white">
-                {t.summaryTitle || "סיכום הציוד שלך"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
-                  <h3 className="font-semibold text-sm text-purple-700 dark:text-purple-300 mb-1">
-                    {t.categoriesCount || "קטגוריות"}
-                  </h3>
-                  <p className="text-2xl font-bold text-purple-900 dark:text-purple-200">
-                    {new Set(aiGeneratedItems.map((item) => item.category)).size}
-                  </p>
-                </Card>
-                <Card className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                  <h3 className="font-semibold text-sm text-green-700 dark:text-green-300 mb-1">
-                    {t.totalReadiness || "מוכנות כוללת"}
-                  </h3>
-                  <p className="text-2xl font-bold text-green-900 dark:text-green-200">
-                    {getTotalReadinessPercentage()}%
-                  </p>
-                </Card>
-                <Card className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
-                  <h3 className="font-semibold text-sm text-red-700 dark:text-red-300 mb-1">
-                    {t.missingEssentialItems || "הכרחיים חסרים"}
-                  </h3>
-                  <p className="text-2xl font-bold text-red-900 dark:text-red-200">
-                    {getMissingEssentialItems().length}
-                  </p>
-                </Card>
-                <Card className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                  <h3 className="font-semibold text-sm text-blue-700 dark:text-blue-300 mb-1">
-                    {t.itemsChecked || "פריטים שנבדקו"}
-                  </h3>
-                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">
-                    {getObtainedItemsCount()} / {aiGeneratedItems.length}
-                  </p>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
+        {/* AI Generated Items */}
+        {aiGeneratedItems.length > 0 && (
+          <Card className="p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">{t.aiItemsTitle}</h2>
+              {itemHistory.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleUndo}>
+                  {t.undoAction}
+                </Button>
+              )}
+            </div>
 
-          {aiGeneratedProfile && (
-            <Card className="bg-white dark:bg-gray-800 shadow-md">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg text-gray-800 dark:text-white flex items-center gap-2">
-                  <UsersIcon className="h-5 w-5 text-purple-500" /> {t.aiFamilyComposition}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-x-6 gap-y-2">
-                  <div className="min-w-28">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiAdults}</p>
-                    <p className="text-xl font-semibold">{aiGeneratedProfile.adults || 0}</p>
-                  </div>
-                  <div className="min-w-28">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiChildren}</p>
-                    <p className="text-xl font-semibold">{aiGeneratedProfile.children || 0}</p>
-                  </div>
-                  <div className="min-w-28">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiBabies}</p>
-                    <p className="text-xl font-semibold">{aiGeneratedProfile.babies || 0}</p>
-                  </div>
-                  <div className="min-w-28">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiPets}</p>
-                    <p className="text-xl font-semibold">{aiGeneratedProfile.pets || 0}</p>
-                  </div>
-                  <div className="min-w-28">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{t.durationHours || "משך זמן (שעות)"}</p>
-                    <p className="text-xl font-semibold">{aiGeneratedProfile.duration_hours || 72}</p>
-                  </div>
+            <div className="mb-4">
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t.searchItemPlaceholder}
+                className="mb-2"
+              />
 
-                  {aiGeneratedProfile.special_needs && (
-                    <div className="w-full mt-2">
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t.aiSpecialNeeds}</p>
-                      <p className="text-gray-700 dark:text-gray-300 text-sm bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
-                        {aiGeneratedProfile.special_needs}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {getMissingEssentialItems().length > 0 && (
-            <Card className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg text-red-700 dark:text-red-300 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" /> {t.missingEssentialItemsTitle || "פריטים הכרחיים חסרים"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 list-disc list-inside pl-2">
-                  {getMissingEssentialItems()
-                    .slice(0, 5)
-                    .map((item) => (
-                      <li key={item.id} className="text-sm text-red-600 dark:text-red-400">
-                        {item.name} - {item.quantity} {item.unit}
-                      </li>
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t.categoryFilterPlaceholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.allCategories}</SelectItem>
+                    {Object.keys(categoryColors).map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {t.aiCategories[category] || category}
+                      </SelectItem>
                     ))}
-                  {getMissingEssentialItems().length > 5 && (
-                    <li className="text-xs text-red-500 dark:text-red-500 list-none pt-1">
-                      {getMissingEssentialItems().length - 5 === 1
-                        ? "יש לרכוש פריט הכרחי נוסף אחד לשלמות הציוד"
-                        : `יש לרכוש ${getMissingEssentialItems().length - 5} פריטים הכרחיים נוספים לשלמות הציוד`}
-                    </li>
-                  )}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
+                  </SelectContent>
+                </Select>
 
-          <Card className="bg-white dark:bg-gray-800 shadow-md">
-            <CardContent className="p-4">
-              <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:justify-between md:items-center mb-6">
-                <div className="flex flex-1 md:max-w-md relative">
-                  <Search className="absolute right-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder={t.searchItemPlaceholder || "חפש פריט..."}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className={`w-full ${isRTL ? "pr-10" : "pl-10"}`}
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger className="w-full sm:w-36">
-                      <SelectValue placeholder={t.categoryFilterPlaceholder || "קטגוריה"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t.allCategories || "כל הקטגוריות"}</SelectItem>
-                      {[
-                        "water_food",
-                        "medical",
-                        "hygiene",
-                        "lighting_energy",
-                        "communication",
-                        "documents_money",
-                        "children",
-                        "pets",
-                        "elderly",
-                        "special_needs",
-                        "other",
-                      ].map((key) => (
-                        <SelectItem key={key} value={key}>
-                          {aiCategories[key] || key}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  <Select value={selectedImportance} onValueChange={setSelectedImportance}>
-                    <SelectTrigger className="w-full sm:w-36">
-                      <SelectValue placeholder={t.importanceFilterPlaceholder || "חשיבות"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t.allLevels || "כל הרמות"}</SelectItem>
-                      <SelectItem value="הכרחי">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
-                      <SelectItem value="חשוב מאוד">{t.aiCategories.very_important || "חשוב מאוד"} (4)</SelectItem>
-                      <SelectItem value="חשוב">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
-                      <SelectItem value="מומלץ">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
-                      <SelectItem value="אופציונלי">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">
-                    <Filter className="h-4 w-4" />
-                    {t.clearFiltersButton || "נקה"}
-                  </Button>
-                </div>
+                <Select value={selectedImportance} onValueChange={setSelectedImportance}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t.importanceFilterPlaceholder} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t.allLevels}</SelectItem>
+                    <SelectItem value="essential">{t.aiCategories.essential}</SelectItem>
+                    <SelectItem value="very_important">{t.aiCategories.very_important}</SelectItem>
+                    <SelectItem value="important">{t.aiCategories.important}</SelectItem>
+                    <SelectItem value="recommended">{t.aiCategories.recommended}</SelectItem>
+                    <SelectItem value="optional">{t.aiCategories.optional}</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
-              <Accordion
-                type="single"
-                collapsible
-                className="w-full space-y-2"
-                value={openAccordionItem}
-                onValueChange={setOpenAccordionItem}
-              >
-                {filteredItems.length > 0 ? (
-                  filteredItems.map((item) => {
-                    const categoryStyle = getCategoryStyle(item.category)
-                    return (
-                      <AccordionItem
-                        value={item.id}
-                        key={item.id}
-                        className={`border dark:border-gray-700 rounded-lg transition-all duration-200 overflow-hidden ${
-                          openAccordionItem === item.id
-                            ? "bg-white dark:bg-gray-800 shadow-lg"
-                            : "bg-gray-50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-800"
-                        }`}
-                      >
-                        <AccordionTrigger
-                          className={`p-3 sm:p-4 hover:no-underline group w-full ${isRTL ? "text-right" : "text-left"}`}
-                        >
-                          <div className="flex items-center justify-between w-full gap-2 sm:gap-3">
-                            <div className="flex items-center gap-2 sm:gap-3 order-2 sm:order-1">
-                              <Checkbox
-                                id={`item-${item.id}`}
-                                checked={item.obtained}
-                                onCheckedChange={() => toggleItemObtained(item.id)}
-                                onClick={(e) => e.stopPropagation()}
-                                className="h-5 w-5 rounded border-gray-300 dark:border-gray-600 data-[state=checked]:bg-green-500 data-[state=checked]:text-white dark:data-[state=checked]:bg-green-600"
-                              />
-                              <Badge
-                                variant="outline"
-                                className={`text-xs transition-colors px-1.5 sm:px-2 py-0.5 flex items-center gap-1 shrink-0 max-w-[120px] sm:max-w-none ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText} border-${item.category === "other" ? "gray" : item.category.split("_")[0]}-200 dark:border-${item.category === "other" ? "gray" : item.category.split("_")[0]}-800`}
-                              >
-                                {categoryStyle.icon &&
-                                  React.cloneElement(categoryStyle.icon, { className: "h-3 w-3 flex-shrink-0" })}
-                                <span className="truncate">
-                                  {getCategoryDisplayName(item.category) || item.category}
-                                </span>
-                              </Badge>
-                            </div>
+              {(searchQuery || selectedCategory !== "all" || selectedImportance !== "all") && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("")
+                    setSelectedCategory("all")
+                    setSelectedImportance("all")
+                  }}
+                >
+                  {t.clearFiltersButton}
+                </Button>
+              )}
+            </div>
 
-                            <div
-                              className={`flex flex-col items-start gap-0.5 sm:gap-1 min-w-0 flex-1 ${isRTL ? "order-1 sm:order-2 text-right" : "order-2 sm:order-2 text-left"}`}
-                            >
-                              <span
-                                className={`font-medium text-sm sm:text-base text-gray-900 dark:text-white truncate w-full ${item.obtained ? "line-through text-gray-400 dark:text-gray-500" : ""}`}
-                              >
-                                {item.name}
-                              </span>
-                              <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                                <span className="truncate">
-                                  {item.quantity} {item.unit}
-                                </span>
-                                {item.shelf_life && (
-                                  <>
-                                    <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">•</span>
-                                    <span className="hidden sm:inline truncate">{item.shelf_life}</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-
-                            <div
-                              className={`flex flex-col xs:flex-row items-end xs:items-center gap-1 xs:gap-2 shrink-0 ${isRTL ? "order-3 sm:order-3 mr-auto" : "order-3 sm:order-3 ml-auto"}`}
-                            >
-                              {getImportanceBadge(item.importance, true)}
-
-                              {isEditing && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleRemoveItemConfirm(item)
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-                        </AccordionTrigger>
-
-                        <AccordionContent className="px-3 sm:px-4 pb-3 sm:pb-4">
-                          <div className="pt-2 border-t dark:border-gray-700">
-                            <div className="grid gap-3 sm:gap-4 mt-2">
-                              {item.description && (
-                                <div>
-                                  <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                    {t.description || "תיאור"}
-                                  </h4>
-                                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                    {item.description}
-                                  </p>
-                                </div>
-                              )}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                {item.recommended_quantity_per_person && (
-                                  <div>
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.recommended_quantity_per_person_label}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.recommended_quantity_per_person}
-                                    </p>
-                                  </div>
-                                )}
-                                {item.usage_instructions && (
-                                  <div>
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.usage_instructions_label}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.usage_instructions}
-                                    </p>
-                                  </div>
-                                )}
-                                {item.shelf_life && (
-                                  <div className="block sm:hidden">
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.shelf_life_label}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.shelf_life}
-                                    </p>
-                                  </div>
-                                )}
-                                {renderExpiryControls(item)}
-                              </div>
-                            </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    )
-                  })
-                ) : (
-                  <div className="text-center py-8">
-                    <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-600 dark:text-gray-400">
-                      {t.noItemsFound || "לא נמצאו פריטים התואמים את החיפוש"}
-                    </p>
-                    <Button variant="link" onClick={clearFilters} className="mt-2">
-                      {t.showAllItemsButton || "הצג את כל הפריטים"}
-                    </Button>
-                  </div>
+            {filteredItems.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 dark:text-gray-400">{t.noItemsFound}</p>
+                {(searchQuery || selectedCategory !== "all" || selectedImportance !== "all") && (
+                  <Button
+                    variant="link"
+                    onClick={() => {
+                      setSearchQuery("")
+                      setSelectedCategory("all")
+                      setSelectedImportance("all")
+                    }}
+                  >
+                    {t.showAllItemsButton}
+                  </Button>
                 )}
-              </Accordion>
-
-              <div className="mt-6">
-                {error && <div className="text-red-500 mb-4">{error}</div>}
-                {isEditing ? (
-                  <div className="flex flex-wrap gap-2 w-full">
-                    <Button variant="destructive" className="flex-1 gap-2" onClick={() => setIsEditing(false)}>
-                      <X className="h-4 w-4" />
-                      {t.cancelEditing}
-                    </Button>
-                    <Button variant="outline" className="flex-1 gap-2" onClick={handleAddItem}>
-                      <PlusCircle className="h-4 w-4" />
-                      {t.addItem}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 gap-2"
-                      onClick={handleUndo}
-                      disabled={itemHistory.length === 0}
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                {filteredItems.map((item) => {
+                  const categoryStyle = getCategoryStyle(item.category)
+                  return (
+                    <div
+                      key={item.id}
+                      className="border rounded-lg p-3 flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                     >
-                      <Undo className="h-4 w-4" />
-                      {t.undoAction}
-                    </Button>
-                    <Button className="flex-1 bg-purple-600 hover:bg-purple-700 gap-2" onClick={handleSaveChanges}>
-                      <Save className="h-4 w-4" />
-                      {t.saveChanges}
-                    </Button>
-                  </div>
-                ) : (
-                  <Button variant="outline" className="w-full gap-2" onClick={() => setIsEditing(true)}>
-                    <Edit2 className="h-4 w-4" />
-                    {t.editList}
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
+                      <Checkbox
+                        id={`item-${item.id}`}
+                        checked={item.obtained}
+                        onCheckedChange={(checked) => handleItemCheckboxChange(item.id, checked)}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap gap-2 items-start justify-between mb-1">
+                          <label
+                            htmlFor={`item-${item.id}`}
+                            className={`font-medium ${item.obtained ? "line-through text-gray-500 dark:text-gray-400" : ""}`}
+                          >
+                            {item.name}
+                          </label>
+                          {getImportanceBadge(item.importance)}
+                        </div>
 
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600 dark:text-gray-400 mb-1">
+                          <span className="flex items-center gap-1">
+                            <span
+                              className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText}`}
+                            >
+                              {categoryStyle.icon}
+                              <span className="ml-1">{t.aiCategories[item.category] || item.category}</span>
+                            </span>
+                          </span>
+                          <span>
+                            {item.quantity} {item.unit}
+                          </span>
+                        </div>
+
+                        {item.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{item.description}</p>
+                        )}
+
+                        <div className="flex justify-end mt-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveItem(item.id)}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                          >
+                            {t.removeItem}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <div className="mt-4 flex justify-between">
+              <Button variant="outline" onClick={() => setIsAddItemDialogOpen(true)}>
+                {t.addItem}
+              </Button>
+              <Button onClick={saveAIGeneratedList} disabled={isAILoading}>
+                {isAILoading ? t.aiGenerating : t.aiSaveList}
+              </Button>
+            </div>
+
+            {lastSavedMessage && (
+              <div className="mt-4 p-2 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded">
+                {lastSavedMessage}
+              </div>
+            )}
+          </Card>
+        )}
+      </div>
+
+      {/* Add Item Dialog */}
       <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>
-        <DialogContent
-          className={`max-w-md ${isRTL ? "rtl" : "ltr"} sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto`}
-        >
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t.addNewItem || "הוספת פריט חדש"}</DialogTitle>
+            <DialogTitle>{t.addNewItem}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="itemName">{t.itemName || "שם הפריט"} *</Label>
+              <label htmlFor="item-name" className="text-sm font-medium">
+                {t.itemName}
+              </label>
               <Input
-                id="itemName"
+                id="item-name"
                 value={newItem.name}
                 onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                className="w-full"
               />
             </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="itemCategory">{t.itemCategory || "קטגוריה"}</Label>
-              <Select value={newItem.category} onValueChange={(value) => setNewItem({ ...newItem, category: value })}>
-                <SelectTrigger id="itemCategory" className="w-full">
-                  <SelectValue placeholder={t.itemCategory} />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.keys(aiCategories)
-                    .filter(
-                      (key) =>
-                        ![
-                          "default_unit",
-                          "recommended_quantity_per_person_label",
-                          "usage_instructions_label",
-                          "shelf_life_label",
-                          "essential",
-                          "very_important",
-                          "important",
-                          "recommended",
-                          "optional",
-                        ].includes(key),
-                    )
-                    .map((key) => (
-                      <SelectItem key={key} value={key}>
-                        {aiCategories[key]}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <label htmlFor="item-category" className="text-sm font-medium">
+                  {t.itemCategory}
+                </label>
+                <Select value={newItem.category} onValueChange={(value) => setNewItem({ ...newItem, category: value })}>
+                  <SelectTrigger id="item-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(categoryColors).map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {t.aiCategories[category] || category}
                       </SelectItem>
                     ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid gap-2">
-                <Label htmlFor="itemQuantity">{t.itemQuantity || "כמות"}</Label>
+                <label htmlFor="item-importance" className="text-sm font-medium">
+                  {t.itemImportance}
+                </label>
+                <Select
+                  value={newItem.importance.toString()}
+                  onValueChange={(value) => setNewItem({ ...newItem, importance: Number.parseInt(value) })}
+                >
+                  <SelectTrigger id="item-importance">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">{t.aiCategories.essential}</SelectItem>
+                    <SelectItem value="4">{t.aiCategories.very_important}</SelectItem>
+                    <SelectItem value="3">{t.aiCategories.important}</SelectItem>
+                    <SelectItem value="2">{t.aiCategories.recommended}</SelectItem>
+                    <SelectItem value="1">{t.aiCategories.optional}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <label htmlFor="item-quantity" className="text-sm font-medium">
+                  {t.itemQuantity}
+                </label>
                 <Input
-                  id="itemQuantity"
+                  id="item-quantity"
                   type="number"
                   min="1"
                   value={newItem.quantity}
-                  onChange={(e) => setNewItem({ ...newItem, quantity: Number.parseInt(e.target.value) || 1 })}
-                  className="w-full"
+                  onChange={(e) => setNewItem({ ...newItem, quantity: Number.parseInt(e.target.value) })}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="itemUnit">{t.itemUnit || "יחידת מידה"}</Label>
+                <label htmlFor="item-unit" className="text-sm font-medium">
+                  {t.itemUnit}
+                </label>
                 <Input
-                  id="itemUnit"
+                  id="item-unit"
                   value={newItem.unit}
                   onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
-                  className="w-full"
                 />
               </div>
             </div>
-
             <div className="grid gap-2">
-              <Label htmlFor="itemImportance">{t.itemImportance || "חשיבות"}</Label>
-              <Select
-                value={String(newItem.importance)}
-                onValueChange={(value) => setNewItem({ ...newItem, importance: Number.parseInt(value) })}
-              >
-                <SelectTrigger id="itemImportance" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">{t.aiCategories?.essential || "הכרחי"} (5)</SelectItem>
-                  <SelectItem value="4">{t.aiCategories?.very_important || "חשוב מאוד"} (4)</SelectItem>
-                  <SelectItem value="3">{t.aiCategories?.important || "חשוב"} (3)</SelectItem>
-                  <SelectItem value="2">{t.aiCategories?.recommended || "מומלץ"} (2)</SelectItem>
-                  <SelectItem value="1">{t.aiCategories?.optional || "אופציונלי"} (1)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="itemDescription">{t.itemDescription || "תיאור"}</Label>
+              <label htmlFor="item-description" className="text-sm font-medium">
+                {t.itemDescription}
+              </label>
               <Textarea
-                id="itemDescription"
+                id="item-description"
                 value={newItem.description}
                 onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                className="w-full min-h-[80px]"
               />
             </div>
-
             <div className="grid gap-2">
-              <Label htmlFor="itemUsageInstructions">{t.itemUsageInstructions || "הוראות שימוש"}</Label>
+              <label htmlFor="item-usage" className="text-sm font-medium">
+                {t.itemUsageInstructions}
+              </label>
               <Textarea
-                id="itemUsageInstructions"
+                id="item-usage"
                 value={newItem.usage_instructions}
                 onChange={(e) => setNewItem({ ...newItem, usage_instructions: e.target.value })}
-                placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
-                className="w-full min-h-[100px]"
+                placeholder={t.usageInstructionsPlaceholder}
               />
             </div>
-
             <div className="grid gap-2">
-              <Label htmlFor="newItemExpiryDate">{t.expiryDate || "תאריך תפוגה"}</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    id="newItemExpiryDate"
-                    className={`w-full justify-start text-left font-normal ${!newItem.expiryDate && "text-muted-foreground"}`}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {newItem.expiryDate ? (
-                      format(parseISO(newItem.expiryDate), "PPP", { locale: currentLocale })
-                    ) : (
-                      <span>{t.setExpiryDate || "הגדר תאריך תפוגה"}</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={newItem.expiryDate ? parseISO(newItem.expiryDate) : undefined}
-                    onSelect={(date) =>
-                      setNewItem({ ...newItem, expiryDate: date ? format(date, "yyyy-MM-dd") : null })
-                    }
-                    initialFocus
-                    captionLayout="dropdown-buttons"
-                    fromYear={new Date().getFullYear()}
-                    toYear={new Date().getFullYear() + 20}
-                    locale={currentLocale}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-              <Checkbox
-                id="newItemSendReminder"
-                checked={newItem.sendExpiryReminder}
-                onCheckedChange={(checked) => setNewItem({ ...newItem, sendExpiryReminder: !!checked })}
+              <label htmlFor="item-recommended" className="text-sm font-medium">
+                {t.itemRecommendedQuantity}
+              </label>
+              <Input
+                id="item-recommended"
+                value={newItem.recommended_quantity_per_person}
+                onChange={(e) => setNewItem({ ...newItem, recommended_quantity_per_person: e.target.value })}
               />
-              <Label
-                htmlFor="newItemSendReminder"
-                className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-              >
-                {t.sendReminder || "שלח לי תזכורת"}
-              </Label>
-              {newItem.sendExpiryReminder ? (
-                <Bell className="h-4 w-4 text-purple-600" />
-              ) : (
-                <BellOff className="h-4 w-4 text-gray-400" />
-              )}
             </div>
           </div>
-          <DialogFooter className="flex flex-col sm:flex-row sm:justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsAddItemDialogOpen(false)} className="w-full sm:w-auto">
-              {t.cancel || "ביטול"}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddItemDialogOpen(false)}>
+              {t.cancel}
             </Button>
-            <Button
-              className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700"
-              onClick={handleSaveNewItem}
-              disabled={!newItem.name.trim()}
-            >
-              {t.add || "הוסף"}
-            </Button>
+            <Button onClick={handleAddItem}>{t.add}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-        <AlertDialogContent className={isRTL ? "rtl" : "ltr"}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t.removeItemConfirm}</AlertDialogTitle>
-            <AlertDialogDescription>{t.removeItemDescription}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className={isRTL ? "flex-row-reverse" : ""}>
-            <AlertDialogCancel>{t.cancelRemove}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRemoveItem} className="bg-red-500 hover:bg-red-600">
+      {/* Confirm Remove Dialog */}
+      <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.removeItemConfirm}</DialogTitle>
+            <DialogDescription>{t.removeItemDescription}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+              {t.cancelRemove}
+            </Button>
+            <Button variant="destructive" onClick={confirmRemoveItem}>
               {t.confirmRemove}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

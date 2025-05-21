@@ -72,7 +72,23 @@ export const EquipmentService = {
         .order("created_at", { ascending: false })
 
       if (error) throw error
-      return data || []
+
+      // Get item counts for each list
+      const listsWithCounts = await Promise.all(
+        (data || []).map(async (list) => {
+          const { count, error: countError } = await supabase
+            .from("equipment_items")
+            .select("*", { count: "exact", head: true })
+            .eq("list_id", list.id)
+
+          return {
+            ...list,
+            itemCount: countError ? 0 : count || 0,
+          }
+        }),
+      )
+
+      return listsWithCounts || []
     } catch (error) {
       console.error("Error fetching equipment lists:", error)
       return mockEquipmentLists // Fallback to mock data
@@ -121,6 +137,20 @@ export const EquipmentService = {
         return null
       }
 
+      console.log(
+        "Creating equipment list with data:",
+        JSON.stringify(
+          {
+            title: listData.name,
+            description: listData.description || "",
+            user_id: user.id,
+            itemCount: listData.items?.length || 0,
+          },
+          null,
+          2,
+        ),
+      )
+
       // Create the list
       const { data: list, error: listError } = await supabase
         .from("equipment_list")
@@ -134,27 +164,45 @@ export const EquipmentService = {
         .select()
         .single()
 
-      if (listError) throw listError
+      if (listError) {
+        console.error("Error creating equipment list:", listError)
+        throw listError
+      }
+
+      console.log("Created list:", list)
 
       // Create the items
       if (listData.items && listData.items.length > 0) {
         const itemsToInsert = listData.items.map((item) => ({
           list_id: list.id,
           name: item.name,
-          quantity: item.quantity,
+          quantity: Number(item.quantity) || 1,
           category: item.category,
           description: item.description || "",
           expiration_date: item.expiryDate,
           wants_expiry_reminder: item.sendExpiryReminder || false,
           obtained: item.obtained || false,
           usage_instructions: item.usage_instructions || "",
+          importance: item.importance || 3,
+          shelf_life: item.shelf_life || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }))
 
-        const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
+        console.log(`Inserting ${itemsToInsert.length} items for list ${list.id}`)
 
-        if (itemsError) throw itemsError
+        const { data: insertedItems, error: itemsError } = await supabase
+          .from("equipment_items")
+          .insert(itemsToInsert)
+          .select()
+
+        if (itemsError) {
+          console.error("Error creating equipment items:", itemsError)
+          throw itemsError
+        }
+
+        console.log(`Successfully inserted ${insertedItems?.length || 0} items`)
       }
 
       return list
@@ -174,8 +222,21 @@ export const EquipmentService = {
         return null
       }
 
+      console.log(
+        `Updating equipment list ${id} with data:`,
+        JSON.stringify(
+          {
+            title: listData.name,
+            description: listData.description || "",
+            itemCount: listData.items?.length || 0,
+          },
+          null,
+          2,
+        ),
+      )
+
       // Update the list
-      const { error: listError } = await supabase
+      const { data: updatedList, error: listError } = await supabase
         .from("equipment_list")
         .update({
           title: listData.name,
@@ -184,33 +245,58 @@ export const EquipmentService = {
         })
         .eq("id", id)
         .eq("user_id", user.id)
+        .select()
+        .single()
 
-      if (listError) throw listError
+      if (listError) {
+        console.error(`Error updating equipment list ${id}:`, listError)
+        throw listError
+      }
+
+      console.log("Updated list:", updatedList)
 
       // Delete existing items
       const { error: deleteError } = await supabase.from("equipment_items").delete().eq("list_id", id)
 
-      if (deleteError) throw deleteError
+      if (deleteError) {
+        console.error(`Error deleting items for list ${id}:`, deleteError)
+        throw deleteError
+      }
+
+      console.log(`Successfully deleted existing items for list ${id}`)
 
       // Create new items
       if (listData.items && listData.items.length > 0) {
         const itemsToInsert = listData.items.map((item) => ({
           list_id: id,
           name: item.name,
-          quantity: item.quantity,
+          quantity: Number(item.quantity) || 1,
           category: item.category,
           description: item.description || "",
           expiration_date: item.expiryDate,
           wants_expiry_reminder: item.sendExpiryReminder || false,
           obtained: item.obtained || false,
           usage_instructions: item.usage_instructions || "",
+          importance: item.importance || 3,
+          shelf_life: item.shelf_life || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }))
 
-        const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
+        console.log(`Inserting ${itemsToInsert.length} new items for list ${id}`)
 
-        if (itemsError) throw itemsError
+        const { data: insertedItems, error: itemsError } = await supabase
+          .from("equipment_items")
+          .insert(itemsToInsert)
+          .select()
+
+        if (itemsError) {
+          console.error(`Error inserting new items for list ${id}:`, itemsError)
+          throw itemsError
+        }
+
+        console.log(`Successfully inserted ${insertedItems?.length || 0} new items`)
       }
 
       return { id, ...listData }
@@ -230,15 +316,27 @@ export const EquipmentService = {
         return false
       }
 
+      console.log(`Deleting equipment list ${id}`)
+
       // Delete items first (foreign key constraint)
       const { error: itemsError } = await supabase.from("equipment_items").delete().eq("list_id", id)
 
-      if (itemsError) throw itemsError
+      if (itemsError) {
+        console.error(`Error deleting items for list ${id}:`, itemsError)
+        throw itemsError
+      }
+
+      console.log(`Successfully deleted items for list ${id}`)
 
       // Delete the list
       const { error: listError } = await supabase.from("equipment_list").delete().eq("id", id).eq("user_id", user.id)
 
-      if (listError) throw listError
+      if (listError) {
+        console.error(`Error deleting list ${id}:`, listError)
+        throw listError
+      }
+
+      console.log(`Successfully deleted list ${id}`)
 
       return true
     } catch (error) {
