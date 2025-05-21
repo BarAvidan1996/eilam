@@ -155,7 +155,6 @@ const baseTranslations = {
     allItemsTitle: "כל הפריטים ברשימה",
     searchItemPlaceholder: "חפש פריט...",
     categoryFilterPlaceholder: "קטגוריה",
-    allCategories: "כל הקטגוריות",
     importanceFilterPlaceholder: "חשיבות",
     allLevels: "כל הרמות",
     clearFiltersButton: "נקה",
@@ -363,12 +362,12 @@ const LoadingIndicator = ({ state, t }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between mb-1">
-        <span className="text-sm font-medium text-purple-700 dark:text-purple-300">{getStepText()}</span>
-        <span className="text-sm font-medium text-purple-700 dark:text-purple-300">{state.progress}%</span>
+        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{getStepText()}</span>
+        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{state.progress}%</span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
         <div
-          className="bg-purple-600 h-2.5 rounded-full transition-all duration-300 ease-in-out"
+          className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full transition-all duration-300 ease-in-out"
           style={{ width: `${state.progress}%` }}
         ></div>
       </div>
@@ -773,7 +772,7 @@ export default function EquipmentPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     )
   }
@@ -788,7 +787,7 @@ export default function EquipmentPage() {
         </div>
         <button
           onClick={() => setError("")}
-          className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >
           {t.tryAgain || "נסה שוב"}
         </button>
@@ -823,7 +822,7 @@ export default function EquipmentPage() {
             <button
               onClick={handleSaveListAndGenerateItems}
               disabled={isAILoading || !aiUserPrompt.trim()}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isAILoading ? t.aiGenerating : t.aiGenerateButton}
             </button>
@@ -838,14 +837,86 @@ export default function EquipmentPage() {
               {itemHistory.length > 0 && (
                 <button
                   onClick={handleUndo}
-                  className="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 text-sm"
+                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 text-sm"
                 >
                   {t.undoAction}
                 </button>
               )}
             </div>
 
+            {/* סיכום סטטוס הציוד */}
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
+              <h3 className="text-lg font-medium mb-3">{t.summaryTitle}</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{t.categoriesCount}</div>
+                  <div className="text-xl font-bold">
+                    {
+                      Object.keys(
+                        aiGeneratedItems.reduce((acc, item) => {
+                          acc[item.category] = true
+                          return acc
+                        }, {}),
+                      ).length
+                    }
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{t.totalReadiness}</div>
+                  <div className="text-xl font-bold">
+                    {Math.round(
+                      (aiGeneratedItems.filter((item) => item.obtained).length / aiGeneratedItems.length) * 100,
+                    )}
+                    %
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{t.missingEssentialItems}</div>
+                  <div className="text-xl font-bold text-red-600 dark:text-red-400">
+                    {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length}
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">{t.itemsChecked}</div>
+                  <div className="text-xl font-bold">
+                    {aiGeneratedItems.filter((item) => item.obtained).length}/{aiGeneratedItems.length}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* פריטים הכרחיים חסרים */}
+            {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-medium mb-3 text-red-600 dark:text-red-400">
+                  {t.missingEssentialItemsTitle}
+                </h3>
+                <div className="space-y-2">
+                  {aiGeneratedItems
+                    .filter((item) => item.importance >= 5 && !item.obtained)
+                    .slice(0, 3)
+                    .map((item) => (
+                      <div key={`missing-${item.id}`} className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        <span>{item.name}</span>
+                      </div>
+                    ))}
+                  {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length > 3 && (
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {t.andMoreMissing.replace(
+                        "{count}",
+                        (
+                          aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length - 3
+                        ).toString(),
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="mb-4">
+              <h3 className="text-lg font-medium mb-3">{t.allItemsTitle}</h3>
               <input
                 type="text"
                 value={searchQuery}
@@ -889,7 +960,7 @@ export default function EquipmentPage() {
                     setSelectedCategory("all")
                     setSelectedImportance("all")
                   }}
-                  className="text-sm text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                  className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   {t.clearFiltersButton}
                 </button>
@@ -906,7 +977,7 @@ export default function EquipmentPage() {
                       setSelectedCategory("all")
                       setSelectedImportance("all")
                     }}
-                    className="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300 mt-2"
+                    className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mt-2"
                   >
                     {t.showAllItemsButton}
                   </button>
@@ -982,7 +1053,7 @@ export default function EquipmentPage() {
               <button
                 onClick={saveAIGeneratedList}
                 disabled={isAILoading}
-                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isAILoading ? t.aiGenerating : t.aiSaveList}
               </button>
@@ -1123,7 +1194,7 @@ export default function EquipmentPage() {
               </button>
               <button
                 onClick={handleAddItem}
-                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded"
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
               >
                 {t.add}
               </button>
