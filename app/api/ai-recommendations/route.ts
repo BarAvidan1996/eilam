@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, structuredData } = await request.json()
+    const { prompt } = await request.json()
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
@@ -18,18 +18,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // שימוש במידע המובנה אם הוא קיים
-    const extractedData = structuredData || {}
-    console.log("Using structured data for recommendations:", extractedData)
-
-    // Prepare the prompt for OpenAI with recommended items list and structured data
+    // Prepare the prompt for OpenAI with recommended items list
     const systemPrompt = `
       אתה מומחה לציוד חירום ובטיחות. 
       תפקידך הוא לנתח את המידע על משק הבית ולהמליץ על רשימת ציוד חירום מותאמת אישית.
-      
-      המידע שחולץ מהפרומפט של המשתמש:
-      ${JSON.stringify(extractedData, null, 2)}
-      
       התייחס למספר האנשים, גילאים, צרכים מיוחדים, חיות מחמד וכל מידע רלוונטי אחר.
       
       חשוב מאוד: עליך להחזיר לפחות 15 פריטים בסך הכל, כאשר לפחות 8 מהם הם פריטים חיוניים (importance=5).
