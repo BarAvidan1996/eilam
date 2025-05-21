@@ -6,6 +6,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { ListChecks, ChevronLeft, ChevronRight, PlusCircle, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@supabase/supabase-js"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://lfmxtaefgvjbuipcdcya.supabase.co"
@@ -86,98 +96,91 @@ const translations = {
 }
 
 export default function EquipmentListsPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [equipmentLists, setEquipmentLists] = useState([]);
-  const [isRTL, setIsRTL] = useState(true);
-  const [error, setError] = useState("");
-  const [listToDelete, setListToDelete] = useState(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [language, setLanguage] = useState('he');
-  const [t, setT] = useState(translations.he);
+  const [isLoading, setIsLoading] = useState(true)
+  const [equipmentLists, setEquipmentLists] = useState([])
+  const [isRTL, setIsRTL] = useState(true)
+  const [error, setError] = useState("")
+  const [listToDelete, setListToDelete] = useState(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [language, setLanguage] = useState("he")
+  const [t, setT] = useState(translations.he)
 
   // Get language and direction
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const docLang = document.documentElement.lang || "he";
-      setLanguage(docLang);
-      setT(translations[docLang] || translations.he);
-      setIsRTL(docLang === "he" || docLang === "ar");
+      const docLang = document.documentElement.lang || "he"
+      setLanguage(docLang)
+      setT(translations[docLang] || translations.he)
+      setIsRTL(docLang === "he" || docLang === "ar")
     }
-  }, []);
+  }, [])
 
   // Fetch equipment lists
   useEffect(() => {
     const fetchLists = async () => {
-      setIsLoading(true);
-      setError("");
+      setIsLoading(true)
+      setError("")
 
       try {
-        const supabase = createSupabaseClient();
+        const supabase = createSupabaseClient()
         const { data, error } = await supabase
-          .from('equipment_lists')
-          .select('*, equipment_items(count)')
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        
-        // Process the data to include item counts
-        const processedData = data.map(list => ({
-          ...list,
-          itemCount: list.equipment_items?.[0]?.count || 0
-        }));
-        
-        setEquipmentLists(processedData);
-      } catch (error) {
-        console.error("Error fetching equipment lists:", error);
-        setError(t.errorLoading);
-        // Fallback to mock data
-        setEquipmentLists(mockEquipmentLists);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+          .from("equipment_lists")
+          .select("*, equipment_items(count)")
+          .order("created_at", { ascending: false })
 
-    fetchLists();
-  }, [t]);
+        if (error) throw error
+
+        // Process the data to include item counts
+        const processedData = data.map((list) => ({
+          ...list,
+          itemCount: list.equipment_items?.[0]?.count || 0,
+        }))
+
+        setEquipmentLists(processedData)
+      } catch (error) {
+        console.error("Error fetching equipment lists:", error)
+        setError(t.errorLoading)
+        // Fallback to mock data
+        setEquipmentLists(mockEquipmentLists)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchLists()
+  }, [t])
 
   // Handle delete list
   const handleDeleteList = async () => {
-    if (!listToDelete) return;
-    
+    if (!listToDelete) return
+
     try {
-      const supabase = createSupabaseClient();
-      
+      const supabase = createSupabaseClient()
+
       // Delete items first (foreign key constraint)
-      await supabase
-        .from('equipment_items')
-        .delete()
-        .eq('list_id', listToDelete.id);
-      
+      await supabase.from("equipment_items").delete().eq("list_id", listToDelete.id)
+
       // Delete the list
-      const { error } = await supabase
-        .from('equipment_lists')
-        .delete()
-        .eq('id', listToDelete.id);
-      
-      if (error) throw error;
-      
+      const { error } = await supabase.from("equipment_lists").delete().eq("id", listToDelete.id)
+
+      if (error) throw error
+
       // Update the list
-      setEquipmentLists(equipmentLists.filter(list => list.id !== listToDelete.id));
-      
+      setEquipmentLists(equipmentLists.filter((list) => list.id !== listToDelete.id))
     } catch (error) {
-      console.error("Error deleting list:", error);
-      setError(t.errorDeleting);
+      console.error("Error deleting list:", error)
+      setError(t.errorDeleting)
     } finally {
-      setListToDelete(null);
-      setIsDeleteDialogOpen(false);
+      setListToDelete(null)
+      setIsDeleteDialogOpen(false)
     }
-  };
+  }
 
   // Open delete dialog
   const openDeleteDialog = (list) => {
-    setListToDelete(list);
-    setIsDeleteDialogOpen(true);
-  };
+    setListToDelete(list)
+    setIsDeleteDialogOpen(true)
+  }
 
   if (isLoading) {
     return (
@@ -187,7 +190,7 @@ export default function EquipmentListsPage() {
           <p className="text-gray-600 dark:text-gray-300">{t.loading}</p>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -200,9 +203,7 @@ export default function EquipmentListsPage() {
       </header>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
-          {error}
-        </div>
+        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">{error}</div>
       )}
 
       <div className="flex flex-wrap gap-3 mb-6">
@@ -213,7 +214,10 @@ export default function EquipmentListsPage() {
           </Button>
         </Link>
         <Link href="/equipment?ai=true">
-          <Button variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/20">
+          <Button
+            variant="outline"
+            className="border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/20"
+          >
             <ListChecks className="mr-2 h-4 w-4" />
             {t.createWithAI}
           </Button>
@@ -231,7 +235,9 @@ export default function EquipmentListsPage() {
                     {list.description && (
                       <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{list.description}</p>
                     )}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{list.itemCount} {t.items}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {list.itemCount} {t.items}
+                    </p>
                   </div>
                   <div className="flex gap-2">
                     <Link href={`/equipment?listId=${list.id}`}>
@@ -240,8 +246,8 @@ export default function EquipmentListsPage() {
                         {t.viewList}
                       </Button>
                     </Link>
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       size="icon"
                       className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                       onClick={() => openDeleteDialog(list)}
@@ -265,5 +271,25 @@ export default function EquipmentListsPage() {
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {t.createNewList}
               </Button>
-            </Link>\
+            </Link>
           </CardContent>
+        </Card>
+      )}
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.confirmDelete}</AlertDialogTitle>
+            <AlertDialogDescription>{t.confirmDeleteDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteList} className="bg-red-600 hover:bg-red-700">
+              {t.delete}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
