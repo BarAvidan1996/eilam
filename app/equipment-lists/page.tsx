@@ -6,7 +6,6 @@ import { ListChecks, ChevronLeft, ChevronRight, PlusCircle, Edit3, Trash2, Refre
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -19,11 +18,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { Spinner } from "@/components/ui/spinner"
-
-// Force dynamic rendering to prevent document access during SSR
-export const dynamic = "force-dynamic"
 
 // Translations for this page
 const pageSpecificTexts = {
@@ -129,6 +123,34 @@ const pageSpecificTexts = {
   },
 }
 
+// Mock data for equipment lists
+const mockEquipmentLists = [
+  {
+    id: "1",
+    name: "רשימת ציוד לחירום",
+    description: "ציוד חיוני למקרה חירום",
+    itemCount: 12,
+    created_at: "2023-05-15T10:30:00Z",
+    updated_at: "2023-05-20T14:45:00Z",
+  },
+  {
+    id: "2",
+    name: "ציוד למקלט",
+    description: "פריטים שיש להחזיק במקלט",
+    itemCount: 8,
+    created_at: "2023-04-10T08:20:00Z",
+    updated_at: "2023-05-18T11:30:00Z",
+  },
+  {
+    id: "3",
+    name: "ערכת עזרה ראשונה",
+    description: "ציוד רפואי בסיסי",
+    itemCount: 15,
+    created_at: "2023-03-22T16:15:00Z",
+    updated_at: "2023-05-10T09:20:00Z",
+  },
+]
+
 export default function AllEquipmentListsPage() {
   const [language, setLanguage] = useState("he")
   const [isRTL, setIsRTL] = useState(true)
@@ -143,9 +165,6 @@ export default function AllEquipmentListsPage() {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false)
   const [listToDelete, setListToDelete] = useState(null)
 
-  const searchParams = useSearchParams()
-  const supabase = createClientComponentClient()
-
   // Get language from document only on client-side
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -157,98 +176,53 @@ export default function AllEquipmentListsPage() {
 
   const t = pageSpecificTexts[language] || pageSpecificTexts.he
 
-  const fetchLists = async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      // Get the current user's ID
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (!session) {
-        throw new Error("User not authenticated")
-      }
-
-      // Fetch equipment lists
-      const { data: lists, error: listsError } = await supabase
-        .from("equipment_list")
-        .select("id, title, description, created_at, updated_at")
-        .eq("user_id", session.user.id)
-        .order("updated_at", { ascending: false })
-
-      if (listsError) throw listsError
-
-      // For each list, fetch the count of items
-      const listsWithItemCounts = await Promise.all(
-        lists.map(async (list) => {
-          const { count, error: countError } = await supabase
-            .from("equipment_items")
-            .select("id", { count: "exact", head: true })
-            .eq("list_id", list.id)
-
-          if (countError) throw countError
-
-          return {
-            ...list,
-            itemCount: count || 0,
-          }
-        }),
-      )
-
-      setEquipmentLists(listsWithItemCounts)
-    } catch (err) {
-      console.error("AllEquipmentListsPage: Error fetching equipment lists:", err)
-      setError(t.errorLoadingLists)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Check for refresh parameter when searchParams changes
+  // Simulate fetching lists
   useEffect(() => {
+    const fetchLists = async () => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        // Simulate API call delay
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        // Use mock data instead of actual API call
+        setEquipmentLists(mockEquipmentLists)
+      } catch (err) {
+        console.error("Error fetching equipment lists:", err)
+        setError(t.errorLoadingLists)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     fetchLists()
-  }, [searchParams])
+  }, [t.errorLoadingLists])
 
   const handleEditList = (list) => {
     setEditingList(list)
-    setNewListName(list.title)
+    setNewListName(list.name)
     setIsEditModalOpen(true)
   }
 
-  const handleSaveListName = async () => {
+  const handleSaveListName = () => {
     if (!editingList || !newListName.trim()) return
 
-    try {
-      const { error } = await supabase
-        .from("equipment_list")
-        .update({
-          title: newListName.trim(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", editingList.id)
+    // Update locally
+    setEquipmentLists(
+      equipmentLists.map((list) =>
+        list.id === editingList.id
+          ? {
+              ...list,
+              name: newListName.trim(),
+              updated_at: new Date().toISOString(),
+            }
+          : list,
+      ),
+    )
 
-      if (error) throw error
-
-      // Update locally
-      setEquipmentLists(
-        equipmentLists.map((list) =>
-          list.id === editingList.id
-            ? {
-                ...list,
-                title: newListName.trim(),
-                updated_at: new Date().toISOString(),
-              }
-            : list,
-        ),
-      )
-
-      setIsEditModalOpen(false)
-      setEditingList(null)
-    } catch (err) {
-      console.error("Error updating list name:", err)
-    }
+    setIsEditModalOpen(false)
+    setEditingList(null)
   }
 
   const handleDeleteList = (list) => {
@@ -256,37 +230,30 @@ export default function AllEquipmentListsPage() {
     setIsDeleteAlertOpen(true)
   }
 
-  const confirmDelete = async () => {
+  const confirmDelete = () => {
     if (!listToDelete) return
-    setError(null)
 
-    try {
-      // First delete all items in the list
-      const { error: itemsError } = await supabase.from("equipment_items").delete().eq("list_id", listToDelete.id)
+    // Update locally
+    setEquipmentLists(equipmentLists.filter((list) => list.id !== listToDelete.id))
+    setIsDeleteAlertOpen(false)
+    setListToDelete(null)
+  }
 
-      if (itemsError) throw itemsError
+  const refreshLists = () => {
+    setIsLoading(true)
 
-      // Then delete the list itself
-      const { error: listError } = await supabase.from("equipment_list").delete().eq("id", listToDelete.id)
-
-      if (listError) throw listError
-
-      // Update locally
-      setEquipmentLists(equipmentLists.filter((list) => list.id !== listToDelete.id))
-    } catch (err) {
-      console.error("Error deleting list:", err)
-      setError(t.errorDeletingList)
-    } finally {
-      setIsDeleteAlertOpen(false)
-      setListToDelete(null)
-    }
+    // Simulate refresh
+    setTimeout(() => {
+      setEquipmentLists(mockEquipmentLists)
+      setIsLoading(false)
+    }, 1000)
   }
 
   if (isLoading && equipmentLists.length === 0) {
     return (
       <div className="min-h-full flex items-center justify-center">
         <div className="text-center">
-          <Spinner size="large" className="mx-auto mb-4" />
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">{t.loadingLists}</p>
         </div>
       </div>
@@ -305,7 +272,13 @@ export default function AllEquipmentListsPage() {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={fetchLists} disabled={isLoading} className="flex-shrink-0">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={refreshLists}
+                disabled={isLoading}
+                className="flex-shrink-0"
+              >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
               </Button>
             </TooltipTrigger>
@@ -319,7 +292,7 @@ export default function AllEquipmentListsPage() {
       {error && (
         <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
           <p>{error}</p>
-          <Button onClick={fetchLists} className="mt-4">
+          <Button onClick={refreshLists} className="mt-4">
             {t.retryButton}
           </Button>
         </div>
@@ -333,7 +306,7 @@ export default function AllEquipmentListsPage() {
                 <div className="flex justify-between items-center">
                   <div className="flex-1 min-w-0 mr-4">
                     <h2 className="text-xl font-semibold text-purple-700 dark:text-gray-100 break-words">
-                      {list.title}
+                      {list.name}
                     </h2>
                     <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 break-words">
                       {list.description || ""}
@@ -421,13 +394,6 @@ export default function AllEquipmentListsPage() {
         )
       )}
 
-      <style jsx global>{`
-        .dark .card h2, 
-        .dark h2.text-purple-700 {
-          color: #f9fafb !important;
-        }
-      `}</style>
-
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="sm:max-w-[425px] dark:bg-gray-850">
           <DialogHeader>
@@ -466,7 +432,7 @@ export default function AllEquipmentListsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="dark:text-white">{t.confirmDeleteTitle}</AlertDialogTitle>
             <AlertDialogDescription className="dark:text-gray-300">
-              {t.confirmDeleteDescription.replace("{listName}", listToDelete?.title || "")}
+              {t.confirmDeleteDescription.replace("{listName}", listToDelete?.name || "")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
