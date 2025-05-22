@@ -366,7 +366,7 @@ export default function EquipmentPage() {
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedImportance, setSelectedImportance] = useState("all")
   const [filteredItems, setFilteredItems] = useState([])
-  const [isEditing, setIsEditing] = useState(isEditing)
+  const [isEditing, setIsEditing] = useState(false)
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false)
   // Fix: Initialize locale states with null and set them in useEffect
   const [currentLocale, setCurrentLocale] = useState(null)
