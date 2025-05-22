@@ -11,7 +11,6 @@ import {
   PlusCircle,
   Trash2,
   Edit2,
-  FileText,
   AlertTriangle,
   ListChecks,
   Lightbulb,
@@ -22,7 +21,6 @@ import {
   Baby,
   Cat,
   Activity,
-  Droplets,
   Pill,
   HeartHandshake,
   UsersIcon,
@@ -32,6 +30,9 @@ import {
   Undo,
   Info,
   Sparkles,
+  Utensils,
+  Phone,
+  Wallet,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -91,7 +92,7 @@ const baseTranslations = {
     aiSavedSuccess: "הרשימה נשמרה בהצלחה!",
     aiGoToList: "עבור לרשימה",
     aiBack: "חזור",
-    aiFamilyComposition: "הרכב המשפחה",
+    aiFamilyComposition: "מאפייני בני הבית",
     aiAdults: "מבוגרים",
     aiChildren: "ילדים",
     aiBabies: "תינוקות",
@@ -235,12 +236,12 @@ const generateAIRecommendations = async (prompt) => {
 
 // Category icons and styles
 const categoryIcons = {
-  water_food: <Droplets className="h-5 w-5" />,
+  water_food: <Utensils className="h-5 w-5" />,
   medical: <Pill className="h-5 w-5" />,
   hygiene: <HeartHandshake className="h-5 w-5" />,
   lighting_energy: <Lightbulb className="h-5 w-5" />,
-  communication: <FileText className="h-5 w-5" />,
-  documents_money: <FileText className="h-5 w-5" />,
+  communication: <Phone className="h-5 w-5" />,
+  documents_money: <Wallet className="h-5 w-5" />,
   children: <Baby className="h-5 w-5" />,
   pets: <Cat className="h-5 w-5" />,
   elderly: <UsersIcon className="h-5 w-5" />,
@@ -254,7 +255,7 @@ const categoryColors = {
     text: "text-blue-800",
     darkBg: "dark:bg-blue-900/30",
     darkText: "dark:text-blue-400",
-    icon: <Droplets className="h-4 w-4 sm:h-5 sm:w-5" />,
+    icon: <Utensils className="h-4 w-4 sm:h-5 sm:w-5" />,
   },
   medical: {
     bg: "bg-red-100",
@@ -282,14 +283,14 @@ const categoryColors = {
     text: "text-purple-800",
     darkBg: "dark:bg-purple-900/30",
     darkText: "dark:text-purple-400",
-    icon: <FileText className="h-4 w-4 sm:h-5 sm:w-5" />,
+    icon: <Phone className="h-4 w-4 sm:h-5 sm:w-5" />,
   },
   documents_money: {
     bg: "bg-indigo-100",
     text: "text-indigo-800",
     darkBg: "dark:bg-indigo-900/30",
     darkText: "dark:text-indigo-400",
-    icon: <FileText className="h-4 w-4 sm:h-5 sm:w-5" />,
+    icon: <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />,
   },
   children: {
     bg: "bg-pink-100",
@@ -348,12 +349,16 @@ const LoadingIndicator = ({ state, t }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between mb-1">
-        <span className="text-sm font-medium text-[#005c72] dark:text-[#005c72]">{getStepText()}</span>
-        <span className="text-sm font-medium text-[#005c72] dark:text-[#005c72]">{state.progress}%</span>
+        <span className="text-sm font-medium text-sidebar-primary dark:text-sidebar-primary-foreground">
+          {getStepText()}
+        </span>
+        <span className="text-sm font-medium text-sidebar-primary dark:text-sidebar-primary-foreground">
+          {state.progress}%
+        </span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
         <div
-          className="bg-[#005c72] dark:bg-[#005c72] h-2.5 rounded-full transition-all duration-300 ease-in-out"
+          className="bg-sidebar-primary dark:bg-sidebar-primary h-2.5 rounded-full transition-all duration-300 ease-in-out"
           style={{ width: `${state.progress}%` }}
         ></div>
       </div>
@@ -872,7 +877,7 @@ export default function EquipmentPage() {
             <Button
               onClick={handleSaveListAndGenerateItems}
               disabled={!aiUserPrompt.trim() || isAILoading}
-              className="w-full bg-[#005c72] hover:bg-[#004a5d] dark:bg-[#005c72] dark:hover:bg-[#004a5d] text-white flex items-center justify-center gap-2"
+              className="w-full bg-sidebar-primary hover:bg-sidebar-primary/90 dark:bg-sidebar-primary dark:hover:bg-sidebar-primary/90 text-sidebar-primary-foreground dark:text-sidebar-primary-foreground flex items-center justify-center gap-2"
             >
               {isAILoading ? (
                 <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
@@ -959,16 +964,18 @@ export default function EquipmentPage() {
                     </TooltipProvider>
                   </div>
                 </Card>
-                <Card className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
-                  <h3 className="font-semibold text-sm text-purple-700 dark:text-purple-300 mb-1">
+                <Card className="bg-sidebar-primary/10 dark:bg-sidebar-primary/20 p-4 rounded-lg">
+                  <h3 className="font-semibold text-sm text-sidebar-primary dark:text-sidebar-primary-foreground mb-1">
                     {t.personalizedItemsCount || "פריטים מותאמים אישית"}
                   </h3>
                   <div className="flex items-center gap-2">
-                    <p className="text-2xl font-bold text-purple-900 dark:text-purple-200">{personalizedItemsCount}</p>
+                    <p className="text-2xl font-bold text-sidebar-primary dark:text-sidebar-primary-foreground">
+                      {personalizedItemsCount}
+                    </p>
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger>
-                          <Sparkles className="h-5 w-5 text-purple-500" />
+                          <Sparkles className="h-5 w-5 text-sidebar-primary dark:text-sidebar-primary-foreground" />
                         </TooltipTrigger>
                         <TooltipContent>
                           <p className="text-xs">{t.personalizedItemTooltip || "פריט שהותאם במיוחד לצרכים שלך"}</p>
@@ -1098,17 +1105,6 @@ export default function EquipmentPage() {
                     </div>
                     <p className="text-xl font-semibold">{aiGeneratedProfile.duration_hours || 72}</p>
                   </div>
-                  {aiGeneratedProfile.pet_types && Array.isArray(aiGeneratedProfile.pet_types)
-                    ? ` (${aiGeneratedProfile.pet_types.join(", ")})`
-                    : aiGeneratedProfile.pet_types
-                      ? ` (${String(aiGeneratedProfile.pet_types)})`
-                      : ""}
-
-                  {aiGeneratedProfile.children_ages && Array.isArray(aiGeneratedProfile.children_ages)
-                    ? ` (גילאים: ${aiGeneratedProfile.children_ages.join(", ")})`
-                    : aiGeneratedProfile.children_ages
-                      ? ` (גילאים: ${String(aiGeneratedProfile.children_ages)})`
-                      : ""}
 
                   {aiGeneratedProfile.special_needs && (
                     <div className="w-full mt-2">
@@ -1270,7 +1266,7 @@ export default function EquipmentPage() {
                           openAccordionItem === item.id
                             ? "bg-white dark:bg-gray-800 shadow-lg"
                             : "bg-gray-50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-800"
-                        } ${!item.is_mandatory ? "border-l-4 border-l-purple-400" : ""}`}
+                        } ${!item.is_mandatory ? "border-l-4 border-l-sidebar-primary dark:border-l-sidebar-primary" : ""}`}
                       >
                         <AccordionTrigger
                           className={`p-3 sm:p-4 hover:no-underline group w-full ${isRTL ? "text-right" : "text-left"}`}
@@ -1346,7 +1342,7 @@ export default function EquipmentPage() {
                                     <TooltipTrigger>
                                       <Badge
                                         variant="outline"
-                                        className="text-xs ml-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800"
+                                        className="text-xs ml-1 bg-sidebar-primary/10 text-sidebar-primary dark:bg-sidebar-primary/20 dark:text-sidebar-primary-foreground border-sidebar-primary/20 dark:border-sidebar-primary/40"
                                       >
                                         <Sparkles className="h-3 w-3 mr-1" />
                                         {t.personalizedItem}
@@ -1481,7 +1477,7 @@ export default function EquipmentPage() {
                       {t.undoAction}
                     </Button>
                     <Button
-                      className="flex-1 bg-[#005c72] hover:bg-[#004a5d] dark:bg-[#005c72] dark:hover:bg-[#004a5d] text-white gap-2"
+                      className="flex-1 bg-sidebar-primary hover:bg-sidebar-primary/90 dark:bg-sidebar-primary dark:hover:bg-sidebar-primary/90 text-sidebar-primary-foreground dark:text-sidebar-primary-foreground gap-2"
                       onClick={saveAIGeneratedList}
                     >
                       <Save className="h-4 w-4" />
@@ -1495,7 +1491,7 @@ export default function EquipmentPage() {
                       {t.editList}
                     </Button>
                     <Button
-                      className="flex-1 bg-[#005c72] hover:bg-[#004a5d] dark:bg-[#005c72] dark:hover:bg-[#004a5d] text-white gap-2"
+                      className="flex-1 bg-sidebar-primary hover:bg-sidebar-primary/90 dark:bg-sidebar-primary dark:hover:bg-sidebar-primary/90 text-sidebar-primary-foreground dark:text-sidebar-primary-foreground gap-2"
                       onClick={saveAIGeneratedList}
                     >
                       <Save className="h-4 w-4" />
@@ -1635,7 +1631,7 @@ export default function EquipmentPage() {
               {t.cancel || "ביטול"}
             </Button>
             <Button
-              className="w-full sm:w-auto bg-[#005c72] hover:bg-[#004a5d] text-white"
+              className="w-full sm:w-auto bg-sidebar-primary hover:bg-sidebar-primary/90 text-sidebar-primary-foreground"
               onClick={handleAddItem}
               disabled={!newItem.name.trim()}
             >
