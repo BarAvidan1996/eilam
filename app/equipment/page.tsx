@@ -349,12 +349,12 @@ const LoadingIndicator = ({ state, t }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between mb-1">
-        <span className="text-sm font-medium text-[#005c72] dark:text-white">{getStepText()}</span>
-        <span className="text-sm font-medium text-[#005c72] dark:text-white">{state.progress}%</span>
+        <span className="text-sm font-medium text-[#005c72] dark:text-[#d3e3fd]">{getStepText()}</span>
+        <span className="text-sm font-medium text-[#005c72] dark:text-[#d3e3fd]">{state.progress}%</span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
         <div
-          className="bg-[#005c72] dark:bg-white h-2.5 rounded-full transition-all duration-300 ease-in-out"
+          className="bg-[#005c72] dark:bg-[#005c72] h-2.5 rounded-full transition-all duration-300 ease-in-out"
           style={{ width: `${state.progress}%` }}
         ></div>
       </div>
@@ -873,10 +873,10 @@ export default function EquipmentPage() {
             <Button
               onClick={handleSaveListAndGenerateItems}
               disabled={!aiUserPrompt.trim() || isAILoading}
-              className="w-full bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-white dark:hover:bg-white/90 dark:text-[#1e293b] text-white flex items-center justify-center gap-2"
+              className="w-full bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#005c72] dark:hover:bg-[#005c72]/90 text-white flex items-center justify-center gap-2"
             >
               {isAILoading ? (
-                <div className="h-5 w-5 border-2 border-t-transparent border-white dark:border-[#1e293b] rounded-full animate-spin"></div>
+                <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
               ) : (
                 <ShieldCheck className="h-5 w-5" />
               )}
@@ -960,7 +960,7 @@ export default function EquipmentPage() {
                     </TooltipProvider>
                   </div>
                 </Card>
-                <Card className="bg-[#005c72]/10 dark:bg-white/10 p-4 rounded-lg">
+                <Card className="bg-[#005c72]/10 dark:bg-[#005c72]/20 p-4 rounded-lg">
                   <h3 className="font-semibold text-sm text-[#005c72] dark:text-white mb-1">
                     {t.personalizedItemsCount || "פריטים מותאמים אישית"}
                   </h3>
@@ -1062,24 +1062,6 @@ export default function EquipmentPage() {
                       )}
                     </div>
                     <p className="text-xl font-semibold">{aiGeneratedProfile.elderly || 0}</p>
-                  </div>
-                  <div className="min-w-28">
-                    <div className="flex items-center gap-1">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiPets}</p>
-                      {defaultFields.includes("pets") && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="h-3 w-3 text-red-500" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs">{t.defaultValueUsed}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
-                    <p className="text-xl font-semibold">{aiGeneratedProfile.pets || 0}</p>
                   </div>
                   <div className="min-w-28">
                     <div className="flex items-center gap-1">
@@ -1260,7 +1242,7 @@ export default function EquipmentPage() {
                           openAccordionItem === item.id
                             ? "bg-white dark:bg-gray-800 shadow-lg"
                             : "bg-gray-50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-800"
-                        } ${!item.is_mandatory ? "border-l-4 border-l-[#005c72] dark:border-l-white" : ""}`}
+                        } ${!item.is_mandatory ? "border-l-4 border-l-[#005c72] dark:border-l-[#005c72]" : ""}`}
                       >
                         <AccordionTrigger
                           className={`p-3 sm:p-4 hover:no-underline group w-full ${isRTL ? "text-right" : "text-left"}`}
@@ -1336,7 +1318,7 @@ export default function EquipmentPage() {
                                     <TooltipTrigger>
                                       <Badge
                                         variant="outline"
-                                        className="text-xs ml-1 bg-[#005c72]/10 text-[#005c72] dark:bg-white/10 dark:text-white border-[#005c72]/20 dark:border-white/40"
+                                        className="text-xs ml-1 bg-[#005c72]/10 text-[#005c72] dark:bg-[#005c72]/20 dark:text-white border-[#005c72]/20 dark:border-[#005c72]/40"
                                       >
                                         <Sparkles className="h-3 w-3 mr-1" />
                                         {t.personalizedItem}
@@ -1471,7 +1453,7 @@ export default function EquipmentPage() {
                       {t.undoAction}
                     </Button>
                     <Button
-                      className="flex-1 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-white dark:hover:bg-white/90 dark:text-[#1e293b] text-white gap-2"
+                      className="flex-1 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#005c72] dark:hover:bg-[#005c72]/90 text-white gap-2"
                       onClick={saveAIGeneratedList}
                     >
                       <Save className="h-4 w-4" />
@@ -1485,7 +1467,7 @@ export default function EquipmentPage() {
                       {t.editList}
                     </Button>
                     <Button
-                      className="flex-1 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-white dark:hover:bg-white/90 dark:text-[#1e293b] text-white gap-2"
+                      className="flex-1 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#005c72] dark:hover:bg-[#005c72]/90 text-white gap-2"
                       onClick={saveAIGeneratedList}
                     >
                       <Save className="h-4 w-4" />
@@ -1625,7 +1607,7 @@ export default function EquipmentPage() {
               {t.cancel || "ביטול"}
             </Button>
             <Button
-              className="w-full sm:w-auto bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-white dark:hover:bg-white/90 dark:text-[#1e293b] text-white"
+              className="w-full sm:w-auto bg-[#005c72] hover:bg-[#005c72]/90 text-white"
               onClick={handleAddItem}
               disabled={!newItem.name.trim()}
             >
