@@ -653,7 +653,7 @@ export default function EquipmentPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [aiUserPrompt, setAIUserPrompt] = useState("")
-  const [isAILoading, setIsAILoading] = useState(isAILoading)
+  const [isAILoading, setIsAILoading] = useState(false)
   const [aiGeneratedItems, setAIGeneratedItems] = useState([])
   const [aiGeneratedProfile, setAIGeneratedProfile] = useState(null)
   const [openAccordionItem, setOpenAccordionItem] = useState(null)
@@ -1074,28 +1074,28 @@ export default function EquipmentPage() {
     try {
       const response = await InvokeLLM({
         prompt: `Based on this personal description: "${aiUserPrompt}", 
-                I need you to create a personalized emergency equipment list.
-                
-                First, extract the following information from the description:
-                1. Household composition (number of adults, children, infants, elderly, pets)
-                2. Any special needs mentioned
-                3. Time duration for which the list is needed (default to 72 hours if not specified)
-                
-                Then, for each recommended item, provide:
-                - name (string)
-                - category (string from enum: water_food, medical, hygiene, lighting_energy, communication, documents_money, children, pets, elderly, special_needs, other) <- IMPORTANT: CHOOSE ONLY ONE VALUE FROM THIS LIST.
-                - quantity (number, calculated accurately based on household size and the specified duration. For example, if 2 adults and water is "3 liters per day per person" for 48 hours, then quantity should be 2*3*2 = 12)
-                - unit (string)
-                - importance (number 1-5, 5 is most important)
-                - description (string, brief explanation of the item and its use in emergencies)
-                - shelf_life (string, e.g., "1 year", "6 months", "N/A")
-                - usage_instructions (string, brief instructions or important notes for use)
-                - recommended_quantity_per_person (string, e.g. "3 liters per day", "1 kit for 2 persons")
-                - expiry_date (string, ISO date format, e.g. "2024-12-31", if applicable. Only return expiry_date or shelf_life_days, but not both.)
-                - shelf_life_days (number, how many days the item will last, instead of providing an exact expiry date)
-                
-                Response should be in ${language === "en" ? "English" : language === "ar" ? "Arabic" : language === "ru" ? "Russian" : "Hebrew"}.
-                Ensure quantities are accurately calculated for the household size and the extracted/specified duration.`,
+               I need you to create a personalized emergency equipment list.
+               
+               First, extract the following information from the description:
+               1. Household composition (number of adults, children, infants, elderly, pets)
+               2. Any special needs mentioned
+               3. Time duration for which the list is needed (default to 72 hours if not specified)
+               
+               Then, for each recommended item, provide:
+               - name (string)
+               - category (string from enum: water_food, medical, hygiene, lighting_energy, communication, documents_money, children, pets, elderly, special_needs, other) <- IMPORTANT: CHOOSE ONLY ONE VALUE FROM THIS LIST.
+               - quantity (number, calculated accurately based on household size and the specified duration. For example, if 2 adults and water is "3 liters per day per person" for 48 hours, then quantity should be 2*3*2 = 12)
+               - unit (string)
+               - importance (number 1-5, 5 is most important)
+               - description (string, brief explanation of the item and its use in emergencies)
+               - shelf_life (string, e.g., "1 year", "6 months", "N/A")
+               - usage_instructions (string, brief instructions or important notes for use)
+               - recommended_quantity_per_person (string, e.g. "3 liters per day", "1 kit for 2 persons")
+               - expiry_date (string, ISO date format, e.g. "2024-12-31", if applicable. Only return expiry_date or shelf_life_days, but not both.)
+               - shelf_life_days (number, how many days the item will last, instead of providing an exact expiry date)
+               
+               Response should be in ${language === "en" ? "English" : language === "ar" ? "Arabic" : language === "ru" ? "Russian" : "Hebrew"}.
+               Ensure quantities are accurately calculated for the household size and the extracted/specified duration.`,
         response_json_schema: {
           type: "object",
           properties: {
@@ -1535,7 +1535,6 @@ export default function EquipmentPage() {
                   <h3 className="font-semibold text-sm text-purple-700 dark:text-purple-300 mb-1">
                     {t.categoriesCount || "קטגוריות"}
                   </h3>
-                  \
                   <p className="text-2xl font-bold text-purple-900 dark:text-purple-200">
                     {new Set(aiGeneratedItems.map((item) => item.category)).size}
                   </p>
