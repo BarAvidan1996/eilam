@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -394,7 +394,6 @@ export default function EquipmentPage() {
     sendExpiryReminder: false,
     usage_instructions: "",
     recommended_quantity_per_person: "",
-    is_mandatory: false,
   })
   const [itemHistory, setItemHistory] = useState([])
   const [itemToRemove, setItemToRemove] = useState(null)
@@ -693,7 +692,6 @@ export default function EquipmentPage() {
       sendExpiryReminder: false,
       usage_instructions: "",
       recommended_quantity_per_person: "",
-      is_mandatory: false,
     })
   }
 
@@ -1200,20 +1198,11 @@ export default function EquipmentPage() {
                               />
                               <Badge
                                 variant="outline"
-                                className={`text-xs transition-colors px-1.5 sm:px-2 py-0.5 flex items-center gap-1 shrink-0 max-w-[120px] sm:max-w-none ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText} border-${item.category === "other" ? "gray" : item.category.split("_")[0]}-200 dark:border-${item.category === "other" ? "gray" : item.category.split("_")[0]}-800`}
+                                className={`text-xs transition-colors px-1.5 sm:px-2 py-0.5 flex items-center gap-1 shrink-0 max-w-[120px] sm:max-w-none ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText}`}
                               >
-                                {categoryStyle.icon &&
-                                  React.cloneElement(categoryStyle.icon, { className: "h-3 w-3 flex-shrink-0" })}
+                                {categoryColors[item.category]?.icon || categoryColors.other.icon}
                                 <span className="truncate">{t.aiCategories[item.category] || item.category}</span>
                               </Badge>
-                              {item.is_mandatory && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs px-1.5 sm:px-2 py-0.5 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800"
-                                >
-                                  {t.mandatoryItem || "פריט חובה"}
-                                </Badge>
-                              )}
                             </div>
 
                             <div
@@ -1480,15 +1469,6 @@ export default function EquipmentPage() {
                   <SelectItem value="1">{t.aiCategories?.optional || "אופציונלי"} (1)</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-              <Checkbox
-                id="is_mandatory"
-                checked={newItem.is_mandatory}
-                onCheckedChange={(checked) => setNewItem({ ...newItem, is_mandatory: !!checked })}
-              />
-              <Label htmlFor="is_mandatory">{t.mandatoryItem || "פריט חובה"}</Label>
             </div>
 
             <div className="grid gap-2">
