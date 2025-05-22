@@ -1,4 +1,5 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { v4 as uuidv4 } from "uuid"
 
 // Create a singleton Supabase client for browser
 let supabaseInstance = null
@@ -221,10 +222,14 @@ export const EquipmentService = {
       const userId = session.user.id
       console.log("ℹ️ Creating list for user:", userId)
 
-      // Create the list
+      // Generate a UUID for the list
+      const listId = uuidv4()
+
+      // Create the list with explicit ID
       const { data: list, error: listError } = await supabase
         .from("equipment_list")
         .insert({
+          id: listId,
           user_id: userId,
           title: listData.name,
           description: listData.description || "",
@@ -242,7 +247,8 @@ export const EquipmentService = {
       // Create the items
       if (listData.items && listData.items.length > 0) {
         const itemsToInsert = listData.items.map((item) => ({
-          list_id: list.id,
+          id: uuidv4(), // Generate UUID for each item
+          list_id: listId,
           name: item.name,
           category: item.category || "other",
           quantity: Number(item.quantity) || 1,
@@ -325,6 +331,7 @@ export const EquipmentService = {
       // Create new items
       if (listData.items && listData.items.length > 0) {
         const itemsToInsert = listData.items.map((item) => ({
+          id: uuidv4(), // Generate UUID for each item
           list_id: id,
           name: item.name,
           category: item.category || "other",
