@@ -1735,9 +1735,9 @@ export default function EquipmentPage() {
                               />
                               <Badge
                                 variant="outline"
-                                className={`text-xs transition-colors px-1.5 sm:px-2 py-0.5 flex items-center gap-1 shrink-0 max-w-[120px] sm:max-w-none ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText} border-${item.category === "other" ? "gray" : item.category.split("_")[0]}-200 dark:border-${item.category === "other" ? "gray" : item.category.split("_")[0]}-800`}
+                                className={`text-xs transition-colors px-1.5 sm:px-2 py-0.5 flex items-center gap-1 shrink-0 max-w-[120px] sm:max-w-none ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText}`}
                               >
-                                {categoryIcons[item.category] || categoryIcons.other}
+                                {categoryStyle.icon}
                                 <span className="truncate">
                                   {getCategoryDisplayName(item.category) || item.category}
                                 </span>
@@ -1821,16 +1821,14 @@ export default function EquipmentPage() {
                                     </p>
                                   </div>
                                 )}
-                                {item.shelf_life && (
-                                  <div className="block sm:hidden">
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.shelf_life_label}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.shelf_life}
-                                    </p>
-                                  </div>
-                                )}
+                                <div>
+                                  <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                    {t.aiCategories.shelf_life_label || "חיי מדף"}
+                                  </h4>
+                                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                    {item.shelf_life || "לא צוין"}
+                                  </p>
+                                </div>
                                 {renderExpiryControls(item)}
                               </div>
                             </div>
@@ -1986,7 +1984,7 @@ export default function EquipmentPage() {
               <Textarea
                 id="itemDescription"
                 value={newItem.description}
-                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
                 className="w-full min-h-[80px]"
               />
             </div>
