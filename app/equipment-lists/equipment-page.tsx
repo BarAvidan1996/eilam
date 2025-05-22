@@ -862,87 +862,87 @@ export default function EquipmentPage() {
   }
 
   useEffect(() => {
-  const loadPageContext = async () => {
-    setIsLoading(true);
-    // ... קוד קיים לטעינת תרגומים ...
+    const loadPageContext = async () => {
+      setIsLoading(true)
+      // ... קוד קיים לטעינת תרגומים ...
 
-    setIsListContextLoading(true);
-    const urlParams = new URLSearchParams(window.location.search);
-    const listId = urlParams.get("listId");
+      setIsListContextLoading(true)
+      const urlParams = new URLSearchParams(window.location.search)
+      const listId = urlParams.get("listId")
 
-    if (listId) {
-      try {
-        const listData = await EquipmentList.get(listId);
-        if (listData) {
-          setCurrentListName(listData.name);
+      if (listId) {
+        try {
+          const listData = await EquipmentList.get(listId)
+          if (listData) {
+            setCurrentListName(listData.name)
 
-          // המרת הפריטים למבנה שהממשק מצפה לו
-          const itemsWithDetails = (listData.items || []).map((item) => ({
-            ...item,
-            id: item.id || Math.random().toString(36).substr(2, 9),
-            obtained: typeof item.obtained === "boolean" ? item.obtained : false,
-            importance: item.importance || 3,
-            description: item.description || "",
-            shelf_life: item.shelf_life || "",
-            usage_instructions: item.usage_instructions || "",
-            recommended_quantity_per_person: item.recommended_quantity_per_person || "",
-            expiryDate: item.expiryDate || null,
-            sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
-            sms_notification: typeof item.sms_notification === "boolean" ? item.sms_notification : false,
-            personalized_note: item.personalized_note || "",
-            is_mandatory: item.is_mandatory || false
-          }));
+            // המרת הפריטים למבנה שהממשק מצפה לו
+            const itemsWithDetails = (listData.items || []).map((item) => ({
+              ...item,
+              id: item.id || Math.random().toString(36).substr(2, 9),
+              obtained: typeof item.obtained === "boolean" ? item.obtained : false,
+              importance: item.importance || 3,
+              description: item.description || "",
+              shelf_life: item.shelf_life || "",
+              usage_instructions: item.usage_instructions || "",
+              recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+              expiryDate: item.expiryDate || null,
+              sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
+              sms_notification: typeof item.sms_notification === "boolean" ? item.sms_notification : false,
+              personalized_note: item.personalized_note || "",
+              is_mandatory: item.is_mandatory || false,
+            }))
 
-          setAIGeneratedItems(itemsWithDetails);
-          setFilteredItems(itemsWithDetails);
+            setAIGeneratedItems(itemsWithDetails)
+            setFilteredItems(itemsWithDetails)
 
-          // ניסיון לפענח את פרטי הפרופיל מה-JSON
-          try {
-            const profileData = listData.description ? JSON.parse(listData.description) : null;
-            setAIGeneratedProfile({
-              adults: profileData?.adults || 1,
-              children: profileData?.children || 0,
-              babies: profileData?.babies || 0,
-              elderly: profileData?.elderly || 0,
-              pets: profileData?.pets || 0,
-              special_needs: profileData?.special_needs || currentTranslations.notSpecified || "לא צוין",
-              duration_hours: profileData?.duration_hours || 72,
-              loadedFromExisting: true,
-            });
-          } catch (e) {
-            console.warn("Could not parse profile data:", e);
-            setAIGeneratedProfile({
-              adults: 1,
-              children: 0,
-              babies: 0,
-              elderly: 0,
-              pets: 0,
-              special_needs: translations.notSpecified || "לא צוין",
-              duration_hours: 72,
-              loadedFromExisting: true,
-            });
+            // ניסיון לפענח את פרטי הפרופיל מה-JSON
+            try {
+              const profileData = listData.description ? JSON.parse(listData.description) : null
+              setAIGeneratedProfile({
+                adults: profileData?.adults || 1,
+                children: profileData?.children || 0,
+                babies: profileData?.babies || 0,
+                elderly: profileData?.elderly || 0,
+                pets: profileData?.pets || 0,
+                special_needs: profileData?.special_needs || translations.notSpecified || "לא צוין",
+                duration_hours: profileData?.duration_hours || 72,
+                loadedFromExisting: true,
+              })
+            } catch (e) {
+              console.warn("Could not parse profile data:", e)
+              setAIGeneratedProfile({
+                adults: 1,
+                children: 0,
+                babies: 0,
+                elderly: 0,
+                pets: 0,
+                special_needs: translations.notSpecified || "לא צוין",
+                duration_hours: 72,
+                loadedFromExisting: true,
+              })
+            }
+          } else {
+            console.warn(`List with ID ${listId} not found.`)
+            setCurrentListName("")
+            setAIGeneratedProfile(null)
           }
-        } else {
-          console.warn(`List with ID ${listId} not found.`);
-          setCurrentListName("");
-          setAIGeneratedProfile(null);
+        } catch (error) {
+          console.error("Error loading equipment list:", error)
+          setCurrentListName("")
+          setAIGeneratedProfile(null)
         }
-      } catch (error) {
-        console.error("Error loading equipment list:", error);
-        setCurrentListName("");
-        setAIGeneratedProfile(null);
+      } else {
+        setCurrentListName("")
+        setAIGeneratedItems([])
+        setFilteredItems([])
+        setAIGeneratedProfile(null)
       }
-    } else {
-      setCurrentListName("");
-      setAIGeneratedItems([]);
-      setFilteredItems([]);
-      setAIGeneratedProfile(null);
+      setIsListContextLoading(false)
     }
-    setIsListContextLoading(false);
-  };
 
-  loadPageContext();
-}, [language]);
+    loadPageContext()
+  }, [language])
 
   useEffect(() => {
     if (aiGeneratedItems.length > 0) {
@@ -998,4 +998,663 @@ export default function EquipmentPage() {
   }
 
   const getTotalReadinessPercentage = () => {
-    if (
+    if (aiGeneratedItems.length === 0) return 0
+    const obtainedCount = getObtainedItemsCount()
+    return Math.round((obtainedCount / aiGeneratedItems.length) * 100)
+  }
+
+  const handleAddItem = () => {
+    if (!newItem.name.trim()) {
+      return
+    }
+
+    // Save current state to history for undo
+    setItemHistory([...itemHistory, [...aiGeneratedItems]])
+
+    const itemToAdd = {
+      ...newItem,
+      id: Math.random().toString(36).substr(2, 9),
+    }
+
+    setAIGeneratedItems([...aiGeneratedItems, itemToAdd])
+    setNewItem({
+      name: "",
+      category: "water_food",
+      quantity: 1,
+      unit: t.aiCategories?.default_unit || "יחידות",
+      importance: 3,
+      description: "",
+      expiryDate: null,
+      sendExpiryReminder: false,
+      usage_instructions: "",
+      recommended_quantity_per_person: "",
+      shelf_life: "",
+      sms_notification: false,
+    })
+    setIsAddItemDialogOpen(false)
+  }
+
+  const handleRemoveItem = (itemId) => {
+    setItemToRemove(itemId)
+    setIsConfirmDialogOpen(true)
+  }
+
+  const confirmRemoveItem = () => {
+    // Save current state to history for undo
+    setItemHistory([...itemHistory, [...aiGeneratedItems]])
+
+    const updatedItems = aiGeneratedItems.filter((item) => item.id !== itemToRemove)
+    setAIGeneratedItems(updatedItems)
+    setIsConfirmDialogOpen(false)
+    setItemToRemove(null)
+  }
+
+  const handleUndoLastAction = () => {
+    if (itemHistory.length > 0) {
+      const lastState = itemHistory[itemHistory.length - 1]
+      setAIGeneratedItems(lastState)
+      setItemHistory(itemHistory.slice(0, -1))
+    }
+  }
+
+  const handleToggleObtained = (itemId) => {
+    // Save current state to history for undo
+    setItemHistory([...itemHistory, [...aiGeneratedItems]])
+
+    const updatedItems = aiGeneratedItems.map((item) => {
+      if (item.id === itemId) {
+        return { ...item, obtained: !item.obtained }
+      }
+      return item
+    })
+    setAIGeneratedItems(updatedItems)
+  }
+
+  const handleUpdateItem = (itemId, updatedFields) => {
+    // Save current state to history for undo
+    setItemHistory([...itemHistory, [...aiGeneratedItems]])
+
+    const updatedItems = aiGeneratedItems.map((item) => {
+      if (item.id === itemId) {
+        return { ...item, ...updatedFields }
+      }
+      return item
+    })
+    setAIGeneratedItems(updatedItems)
+  }
+
+  const handleSaveChanges = async () => {
+    setIsAILoading(true)
+    setError("")
+    setLastSavedMessage("")
+
+    try {
+      const urlParams = new URLSearchParams(window.location.search)
+      const listId = urlParams.get("listId")
+
+      if (!listId) {
+        setError(t.errorNoListToUpdate || "לא נבחרה רשימה לעדכון.")
+        setIsAILoading(false)
+        return
+      }
+
+      const listToUpdate = {
+        name: currentListName,
+        items: aiGeneratedItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          category: item.category,
+          quantity: Number(item.quantity) || 1,
+          unit: item.unit || t.aiCategories?.default_unit || "יחידות",
+          obtained: typeof item.obtained === "boolean" ? item.obtained : false,
+          expiryDate: item.expiryDate || null,
+          sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
+          description: item.description || "",
+          importance: item.importance || 3,
+          shelf_life: item.shelf_life || null,
+          usage_instructions: item.usage_instructions || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+          sms_notification: typeof item.sms_notification === "boolean" ? item.sms_notification : false,
+          personalized_note: item.personalized_note || "",
+          is_mandatory: item.is_mandatory || false,
+        })),
+        profile: aiGeneratedProfile,
+      }
+
+      await EquipmentList.update(listId, listToUpdate)
+      setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
+      setIsEditing(false)
+    } catch (error) {
+      console.error("Error saving changes:", error)
+      setError(t.errorSavingChanges || "שגיאה בשמירת השינויים.")
+    } finally {
+      setIsAILoading(false)
+    }
+  }
+
+  // Render the equipment page UI
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <style>{headerStyles}</style>
+
+      <h1 className="text-3xl font-bold mb-4">{t.pageTitle}</h1>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">{t.pageDescription}</p>
+
+      {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+
+      {lastSavedMessage && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          {lastSavedMessage}
+        </div>
+      )}
+
+      {isListContextLoading ? (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-col md:flex-row justify-between items-start mb-6">
+            <div className="mb-4 md:mb-0">
+              <h2 className="text-xl font-semibold mb-2">{currentListName || t.selectListPrompt}</h2>
+              {aiGeneratedProfile && (
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  {t.aiFamilyComposition}: {aiGeneratedProfile.adults} {t.aiAdults},
+                  {aiGeneratedProfile.children > 0 && ` ${aiGeneratedProfile.children} ${t.aiChildren},`}
+                  {aiGeneratedProfile.babies > 0 && ` ${aiGeneratedProfile.babies} ${t.aiBabies},`}
+                  {aiGeneratedProfile.pets > 0 && ` ${aiGeneratedProfile.pets} ${t.aiPets}`}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={() => setIsAddItemDialogOpen(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    {t.addItem}
+                  </button>
+                  <button
+                    onClick={handleSaveChanges}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    disabled={isAILoading}
+                  >
+                    {isAILoading ? (
+                      <span className="flex items-center">
+                        <span className="animate-spin mr-2">⟳</span> {t.saveChanges}
+                      </span>
+                    ) : (
+                      t.saveChanges
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                  >
+                    {t.cancelEditing}
+                  </button>
+                  {itemHistory.length > 0 && (
+                    <button
+                      onClick={handleUndoLastAction}
+                      className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50"
+                    >
+                      {t.undoAction}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    {t.editList}
+                  </button>
+                  <button
+                    onClick={handleSaveListAndGenerateItems}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    disabled={isAILoading}
+                  >
+                    {isAILoading ? (
+                      <span className="flex items-center">
+                        <span className="animate-spin mr-2">⟳</span> {t.saveChanges}
+                      </span>
+                    ) : (
+                      t.saveChanges
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {aiGeneratedItems.length > 0 && (
+            <div className="mb-8">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.categoriesCount}</h3>
+                  <p className="text-2xl font-bold">{new Set(aiGeneratedItems.map((item) => item.category)).size}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.totalReadiness}</h3>
+                  <p className="text-2xl font-bold">{getTotalReadinessPercentage()}%</p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.missingEssentialItems}</h3>
+                  <p className="text-2xl font-bold">{getMissingEssentialItems().length}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.itemsChecked}</h3>
+                  <p className="text-2xl font-bold">
+                    {getObtainedItemsCount()} / {aiGeneratedItems.length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                  <h2 className="text-xl font-semibold mb-2 sm:mb-0">{t.allItemsTitle}</h2>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={t.searchItemPlaceholder}
+                      className="px-3 py-2 border rounded"
+                    />
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="px-3 py-2 border rounded"
+                    >
+                      <option value="all">{t.allCategories}</option>
+                      {Object.keys(aiCategories)
+                        .filter(
+                          (key) =>
+                            !key.includes("_label") &&
+                            !key.includes("essential") &&
+                            !key.includes("important") &&
+                            !key.includes("recommended") &&
+                            !key.includes("optional") &&
+                            !key.includes("default_unit"),
+                        )
+                        .map((category) => (
+                          <option key={category} value={category}>
+                            {aiCategories[category]}
+                          </option>
+                        ))}
+                    </select>
+                    <select
+                      value={selectedImportance}
+                      onChange={(e) => setSelectedImportance(e.target.value)}
+                      className="px-3 py-2 border rounded"
+                    >
+                      <option value="all">{t.allLevels}</option>
+                      <option value="הכרחי">{t.aiCategories.essential}</option>
+                      <option value="חשוב מאוד">{t.aiCategories.very_important}</option>
+                      <option value="חשוב">{t.aiCategories.important}</option>
+                      <option value="מומלץ">{t.aiCategories.recommended}</option>
+                      <option value="אופציונלי">{t.aiCategories.optional}</option>
+                    </select>
+                    <button
+                      onClick={clearFilters}
+                      className="px-3 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                    >
+                      {t.clearFiltersButton}
+                    </button>
+                  </div>
+                </div>
+
+                {filteredItems.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">{t.noItemsFound}</p>
+                    <button
+                      onClick={clearFilters}
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      {t.showAllItemsButton}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 ${
+                          item.obtained
+                            ? "border-green-500"
+                            : item.importance >= 5
+                              ? "border-red-500"
+                              : item.importance >= 4
+                                ? "border-orange-500"
+                                : item.importance >= 3
+                                  ? "border-yellow-500"
+                                  : item.importance >= 2
+                                    ? "border-blue-500"
+                                    : "border-gray-500"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-semibold">{item.name}</h3>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {getImportanceBadge(item.importance, true)}
+                              <Badge
+                                variant="outline"
+                                className={`text-xs px-2 py-1 ${getCategoryStyle(item.category).bg} ${
+                                  getCategoryStyle(item.category).text
+                                } ${getCategoryStyle(item.category).darkBg} ${getCategoryStyle(item.category).darkText}`}
+                              >
+                                {getCategoryStyle(item.category).icon}
+                                <span className="ml-1">{getCategoryDisplayName(item.category)}</span>
+                              </Badge>
+                            </div>
+                          </div>
+                          {isEditing ? (
+                            <button
+                              onClick={() => handleRemoveItem(item.id)}
+                              className="text-red-500 hover:text-red-700"
+                              aria-label={t.deleteItem}
+                            >
+                              &times;
+                            </button>
+                          ) : (
+                            <div className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={item.obtained}
+                                onChange={() => handleToggleObtained(item.id)}
+                                disabled={!isEditing}
+                                className="h-5 w-5 text-blue-600"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          <span className="font-medium">{t.quantity}:</span> {item.quantity} {item.unit}
+                        </div>
+
+                        {item.description && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <span className="font-medium">{t.description}:</span> {item.description}
+                          </div>
+                        )}
+
+                        {item.shelf_life && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <span className="font-medium">{t.aiCategories.shelf_life_label}:</span> {item.shelf_life}
+                          </div>
+                        )}
+
+                        {item.usage_instructions && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <span className="font-medium">{t.aiCategories.usage_instructions_label}:</span>{" "}
+                            {item.usage_instructions}
+                          </div>
+                        )}
+
+                        {item.expiryDate && (
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                            <span className="font-medium">{t.expiryLabel}</span> {item.expiryDate}
+                          </div>
+                        )}
+
+                        {isEditing && (
+                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => handleUpdateItem(item.id, { quantity: e.target.value })}
+                                min="1"
+                                className="px-2 py-1 border rounded text-sm"
+                                placeholder={t.quantity}
+                              />
+                              <input
+                                type="text"
+                                value={item.unit}
+                                onChange={(e) => handleUpdateItem(item.id, { unit: e.target.value })}
+                                className="px-2 py-1 border rounded text-sm"
+                                placeholder={t.itemUnit}
+                              />
+                              <select
+                                value={item.category}
+                                onChange={(e) => handleUpdateItem(item.id, { category: e.target.value })}
+                                className="px-2 py-1 border rounded text-sm col-span-2"
+                              >
+                                {Object.keys(aiCategories)
+                                  .filter(
+                                    (key) =>
+                                      !key.includes("_label") &&
+                                      !key.includes("essential") &&
+                                      !key.includes("important") &&
+                                      !key.includes("recommended") &&
+                                      !key.includes("optional") &&
+                                      !key.includes("default_unit"),
+                                  )
+                                  .map((category) => (
+                                    <option key={category} value={category}>
+                                      {aiCategories[category]}
+                                    </option>
+                                  ))}
+                              </select>
+                              <select
+                                value={item.importance}
+                                onChange={(e) => handleUpdateItem(item.id, { importance: Number(e.target.value) })}
+                                className="px-2 py-1 border rounded text-sm col-span-2"
+                              >
+                                <option value="5">{t.aiCategories.essential}</option>
+                                <option value="4">{t.aiCategories.very_important}</option>
+                                <option value="3">{t.aiCategories.important}</option>
+                                <option value="2">{t.aiCategories.recommended}</option>
+                                <option value="1">{t.aiCategories.optional}</option>
+                              </select>
+                              <input
+                                type="text"
+                                value={item.shelf_life || ""}
+                                onChange={(e) => handleUpdateItem(item.id, { shelf_life: e.target.value })}
+                                className="px-2 py-1 border rounded text-sm col-span-2"
+                                placeholder={t.itemShelfLife}
+                              />
+                              <input
+                                type="text"
+                                value={item.usage_instructions || ""}
+                                onChange={(e) => handleUpdateItem(item.id, { usage_instructions: e.target.value })}
+                                className="px-2 py-1 border rounded text-sm col-span-2"
+                                placeholder={t.itemUsageInstructions}
+                              />
+                              <input
+                                type="text"
+                                value={item.expiryDate || ""}
+                                onChange={(e) => handleUpdateItem(item.id, { expiryDate: e.target.value })}
+                                className="px-2 py-1 border rounded text-sm col-span-2"
+                                placeholder={t.expiryDate}
+                              />
+                              <div className="col-span-2 flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.sendExpiryReminder}
+                                  onChange={(e) => handleUpdateItem(item.id, { sendExpiryReminder: e.target.checked })}
+                                  className="mr-2"
+                                />
+                                <label className="text-sm">{t.sendReminder}</label>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {isAddItemDialogOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h2 className="text-xl font-semibold mb-4">{t.addNewItem}</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">{t.itemName}</label>
+                <input
+                  type="text"
+                  value={newItem.name}
+                  onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t.itemCategory}</label>
+                <select
+                  value={newItem.category}
+                  onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                  className="w-full px-3 py-2 border rounded"
+                >
+                  {Object.keys(aiCategories)
+                    .filter(
+                      (key) =>
+                        !key.includes("_label") &&
+                        !key.includes("essential") &&
+                        !key.includes("important") &&
+                        !key.includes("recommended") &&
+                        !key.includes("optional") &&
+                        !key.includes("default_unit"),
+                    )
+                    .map((category) => (
+                      <option key={category} value={category}>
+                        {aiCategories[category]}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t.itemQuantity}</label>
+                  <input
+                    type="number"
+                    value={newItem.quantity}
+                    onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                    min="1"
+                    className="w-full px-3 py-2 border rounded"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t.itemUnit}</label>
+                  <input
+                    type="text"
+                    value={newItem.unit}
+                    onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                    className="w-full px-3 py-2 border rounded"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t.itemImportance}</label>
+                <select
+                  value={newItem.importance}
+                  onChange={(e) => setNewItem({ ...newItem, importance: Number(e.target.value) })}
+                  className="w-full px-3 py-2 border rounded"
+                >
+                  <option value="5">{t.aiCategories.essential}</option>
+                  <option value="4">{t.aiCategories.very_important}</option>
+                  <option value="3">{t.aiCategories.important}</option>
+                  <option value="2">{t.aiCategories.recommended}</option>
+                  <option value="1">{t.aiCategories.optional}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t.itemDescription}</label>
+                <textarea
+                  value={newItem.description}
+                  onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                  className="w-full px-3 py-2 border rounded"
+                  rows="2"
+                ></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t.itemShelfLife}</label>
+                <input
+                  type="text"
+                  value={newItem.shelf_life}
+                  onChange={(e) => setNewItem({ ...newItem, shelf_life: e.target.value })}
+                  className="w-full px-3 py-2 border rounded"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t.itemUsageInstructions}</label>
+                <textarea
+                  value={newItem.usage_instructions}
+                  onChange={(e) => setNewItem({ ...newItem, usage_instructions: e.target.value })}
+                  className="w-full px-3 py-2 border rounded"
+                  rows="2"
+                  placeholder={t.usageInstructionsPlaceholder}
+                ></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t.expiryDate}</label>
+                <input
+                  type="text"
+                  value={newItem.expiryDate || ""}
+                  onChange={(e) => setNewItem({ ...newItem, expiryDate: e.target.value })}
+                  className="w-full px-3 py-2 border rounded"
+                  placeholder={t.setExpiryDate}
+                />
+              </div>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={newItem.sendExpiryReminder}
+                  onChange={(e) => setNewItem({ ...newItem, sendExpiryReminder: e.target.checked })}
+                  className="mr-2"
+                />
+                <label className="text-sm">{t.sendReminder}</label>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-6">
+              <button
+                onClick={() => setIsAddItemDialogOpen(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              >
+                {t.cancel}
+              </button>
+              <button
+                onClick={handleAddItem}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                disabled={!newItem.name.trim()}
+              >
+                {t.add}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isConfirmDialogOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h2 className="text-xl font-semibold mb-2">{t.removeItemConfirm}</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">{t.removeItemDescription}</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setIsConfirmDialogOpen(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              >
+                {t.cancelRemove}
+              </button>
+              <button onClick={confirmRemoveItem} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+                {t.confirmRemove}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
