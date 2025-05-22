@@ -1487,7 +1487,7 @@ export default function EquipmentPage() {
               {t.cancel || "ביטול"}
             </Button>
             <Button
-              className="w-full sm:w-auto bg-[#005c72] hover:bg-[#004a5d]"
+              className="w-full sm:w-auto bg-[#005c72] hover:bg-[#004a5d] text-white"
               onClick={handleAddItem}
               disabled={!newItem.name.trim()}
             >
