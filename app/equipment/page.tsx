@@ -612,18 +612,47 @@ export default function EquipmentPage() {
         })),
       }
 
-      // שמירת הרשימה
-      const savedList = await EquipmentService.createList(listToSave)
+      try {
+        // שמירת הרשימה
+        const savedList = await EquipmentService.createList(listToSave)
+        setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
 
-      setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
+        // מעבר לדף רשימות הציוד אחרי שניה
+        setTimeout(() => {
+          router.push("/equipment-lists")
+        }, 1000)
+      } catch (error) {
+        // בדיקה אם השגיאה קשורה לאימות
+        if (
+          error.message &&
+          (error.message.includes("User not authenticated") ||
+            error.message.includes("Auth session missing") ||
+            error.message.includes("No authenticated user found"))
+        ) {
+          // הצגת הודעה ידידותית למשתמש
+          setError("עליך להתחבר למערכת כדי לשמור רשימות. הרשימה תישמר באופן אנונימי בינתיים.")
 
-      // מעבר לדף רשימות הציוד אחרי שניה
-      setTimeout(() => {
-        router.push("/equipment-lists")
-      }, 1000)
+          // ניסיון לשמור באופן אנונימי
+          try {
+            const savedList = await EquipmentService.createList(listToSave)
+            setLastSavedMessage("הרשימה נשמרה באופן אנונימי. התחבר למערכת כדי לראות את כל הרשימות שלך.")
+
+            // מעבר לדף רשימות הציוד אחרי שניה
+            setTimeout(() => {
+              router.push("/equipment-lists")
+            }, 1000)
+          } catch (anonError) {
+            console.error("Error saving list anonymously:", anonError)
+            setError("לא ניתן לשמור את הרשימה. נסה להתחבר למערכת ולנסות שוב.")
+          }
+        } else {
+          console.error("Error saving list:", error)
+          setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.")
+        }
+      }
     } catch (error) {
-      console.error("Error saving list:", error)
-      setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.")
+      console.error("Error preparing list data:", error)
+      setError("שגיאה בהכנת נתוני הרשימה. נסה שוב.")
     } finally {
       setIsAILoading(false)
     }

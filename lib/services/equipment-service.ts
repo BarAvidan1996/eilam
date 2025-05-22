@@ -20,10 +20,13 @@ export const EquipmentService = {
         error,
       } = await supabase.auth.getUser()
 
-      if (error) throw error
+      if (error) {
+        console.warn("Auth error getting current user:", error.message)
+        return null
+      }
       return user
     } catch (error) {
-      console.error("Error getting current user:", error)
+      console.warn("Error getting current user:", error)
       return null
     }
   },
@@ -33,16 +36,14 @@ export const EquipmentService = {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
-      if (!user) {
-        console.warn("No authenticated user found")
-        return []
-      }
+      // אם אין משתמש מחובר, נשתמש במשתמש אנונימי
+      const userId = user ? user.id : "anonymous_user"
 
       // Get all lists for the user
       const { data, error } = await supabase
         .from("equipment_list")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
 
       if (error) throw error
@@ -87,17 +88,15 @@ export const EquipmentService = {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
-      if (!user) {
-        console.warn("No authenticated user found")
-        return null
-      }
+      // אם אין משתמש מחובר, נשתמש במשתמש אנונימי
+      const userId = user ? user.id : "anonymous_user"
 
       // Get the list
       const { data: list, error: listError } = await supabase
         .from("equipment_list")
         .select("*")
         .eq("id", id)
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .single()
 
       if (listError) throw listError
@@ -150,16 +149,14 @@ export const EquipmentService = {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
-      if (!user) {
-        console.warn("No authenticated user found")
-        throw new Error("User not authenticated")
-      }
+      // אם אין משתמש מחובר, נשתמש במשתמש אנונימי
+      const userId = user ? user.id : "anonymous_user"
 
       // Create the list
       const { data: list, error: listError } = await supabase
         .from("equipment_list")
         .insert({
-          user_id: user.id,
+          user_id: userId,
           title: listData.name,
           description: listData.description || "",
         })
@@ -206,10 +203,8 @@ export const EquipmentService = {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
-      if (!user) {
-        console.warn("No authenticated user found")
-        throw new Error("User not authenticated")
-      }
+      // אם אין משתמש מחובר, נשתמש במשתמש אנונימי
+      const userId = user ? user.id : "anonymous_user"
 
       // Update the list
       const { error: listError } = await supabase
@@ -220,7 +215,7 @@ export const EquipmentService = {
           updated_at: new Date().toISOString(),
         })
         .eq("id", id)
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
 
       if (listError) throw listError
 
@@ -267,13 +262,11 @@ export const EquipmentService = {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
-      if (!user) {
-        console.warn("No authenticated user found")
-        throw new Error("User not authenticated")
-      }
+      // אם אין משתמש מחובר, נשתמש במשתמש אנונימי
+      const userId = user ? user.id : "anonymous_user"
 
       // Delete the list (items will be deleted automatically due to CASCADE constraint)
-      const { error } = await supabase.from("equipment_list").delete().eq("id", id).eq("user_id", user.id)
+      const { error } = await supabase.from("equipment_list").delete().eq("id", id).eq("user_id", userId)
 
       if (error) throw error
 
