@@ -1442,34 +1442,28 @@ export default function EquipmentPage() {
           </div>
         </div>
       )
-    } else if (item.expiryDate) {
-      // Display only if a date is set (either by user or defaulted from AI)
+    } else {
+      // תמיד להציג את תאריך התפוגה במצב צפייה, ללא תנאים מיותרים
       return (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          <span className="font-medium">{t.expiryDate || "תאריך תפוגה"}: </span>
-          {format(parseISO(item.expiryDate), "PPP", { locale: currentLocale })}
-          {item.sendExpiryReminder && <Bell className="h-3 w-3 text-purple-600 inline-block ml-1 rtl:mr-1" />}
-          {item.sms_notification && (
-            <span className="inline-block ml-1 rtl:mr-1">
-              <span className="text-purple-600 text-xs">(SMS)</span>
-            </span>
-          )}
-        </p>
-      )
-    } else if (item.aiSuggestedExpiryDate && !isEditing) {
-      // Fallback for display mode if only AI suggestion exists
-      return (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-          <span className="font-medium">{t.expiryDate || "תאריך תפוגה"}: </span>
-          {format(parseISO(item.aiSuggestedExpiryDate), "PPP", { locale: currentLocale })}
-          {/* Reminder icon could be shown here too if `sendExpiryReminder` can be true without a user-set `expiryDate` */}
-        </p>
+        <div>
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+            {item.expiryDate ? (
+              <>
+                {format(parseISO(item.expiryDate), "d בMMMM yyyy", { locale: currentLocale })}
+                {item.sendExpiryReminder && <Bell className="h-3 w-3 text-purple-600 inline-block mr-1 rtl:ml-1" />}
+              </>
+            ) : item.aiSuggestedExpiryDate ? (
+              <>
+                {format(parseISO(item.aiSuggestedExpiryDate), "d בMMMM yyyy", { locale: currentLocale })}
+                <span className="text-xs text-gray-400 mr-1 rtl:ml-1">(מוצע ע"י AI)</span>
+              </>
+            ) : (
+              t.noExpiryDate || "אין תאריך תפוגה"
+            )}
+          </p>
+        </div>
       )
     }
-    // If no expiry date is set (neither by user nor AI), and not in editing mode, show nothing or "No expiry date"
-    return !isEditing ? (
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t.noExpiryDate || "אין תאריך תפוגה"}</p>
-    ) : null
   }
 
   return (
@@ -1836,63 +1830,7 @@ export default function EquipmentPage() {
                                   <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
                                     {t.expiryDate || "תאריך תפוגה"}
                                   </h4>
-                                  {isEditing ? (
-                                    <div className="space-y-2">
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <Button
-                                            variant="outline"
-                                            className={`w-full justify-start text-left font-normal ${!item.expiryDate && "text-muted-foreground"}`}
-                                          >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {item.expiryDate ? (
-                                              format(parseISO(item.expiryDate), "PPP", { locale: currentLocale })
-                                            ) : (
-                                              <span>{t.setExpiryDate || "הגדר תאריך תפוגה"}</span>
-                                            )}
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                          <Calendar
-                                            mode="single"
-                                            selected={item.expiryDate ? parseISO(item.expiryDate) : undefined}
-                                            onSelect={(date) => handleExpiryDateChange(item.id, date)}
-                                            initialFocus
-                                            captionLayout="dropdown-buttons"
-                                            fromYear={new Date().getFullYear()}
-                                            toYear={new Date().getFullYear() + 20}
-                                            locale={currentLocale}
-                                          />
-                                        </PopoverContent>
-                                      </Popover>
-                                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                                        <Checkbox
-                                          id={`reminder-${item.id}`}
-                                          checked={!!item.sendExpiryReminder}
-                                          onCheckedChange={() => toggleExpiryReminder(item.id)}
-                                        />
-                                        <Label
-                                          htmlFor={`reminder-${item.id}`}
-                                          className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-                                        >
-                                          {t.sendReminder || "שלח לי תזכורת"}
-                                        </Label>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.expiryDate ? (
-                                        <>
-                                          {format(parseISO(item.expiryDate), "d בMMMM yyyy", { locale: currentLocale })}
-                                          {item.sendExpiryReminder && (
-                                            <Bell className="h-3 w-3 text-purple-600 inline-block mr-1 rtl:ml-1" />
-                                          )}
-                                        </>
-                                      ) : (
-                                        t.noExpiryDate || "אין תאריך תפוגה"
-                                      )}
-                                    </p>
-                                  )}
+                                  {renderExpiryControls(item)}
                                 </div>
                               </div>
                             </div>
