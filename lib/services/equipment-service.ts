@@ -27,18 +27,18 @@ export const EquipmentService = {
       } = await supabase.auth.getSession()
 
       if (sessionError) {
-        console.error("Session error:", sessionError.message)
+        console.error("❌ Session error:", sessionError.message || sessionError.details || sessionError)
         return null
       }
 
       if (!session) {
-        console.warn("No active session found")
+        console.warn("⚠️ No active session found")
         return null
       }
 
       return session.user
     } catch (error) {
-      console.error("Error getting current user:", error)
+      console.error("❌ Error getting current user:", error.message || error.details || error)
       return null
     }
   },
@@ -55,7 +55,10 @@ export const EquipmentService = {
       } = await supabase.auth.getSession()
 
       if (sessionError || !session) {
-        console.warn("No active session found for getEquipmentLists")
+        console.warn(
+          "⚠️ No active session found for getEquipmentLists:",
+          sessionError?.message || sessionError?.details || sessionError,
+        )
         return []
       }
 
@@ -68,7 +71,10 @@ export const EquipmentService = {
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        console.error("❌ Error fetching lists:", error.message || error.details || error)
+        throw error
+      }
 
       // For each list, get the count of items
       if (data && data.length > 0) {
@@ -80,7 +86,10 @@ export const EquipmentService = {
               .eq("list_id", list.id)
 
             if (countError) {
-              console.error(`Error getting item count for list ${list.id}:`, countError)
+              console.error(
+                `❌ Error getting item count for list ${list.id}:`,
+                countError.message || countError.details || countError,
+              )
               return { ...list, itemCount: 0 }
             }
 
@@ -100,7 +109,7 @@ export const EquipmentService = {
 
       return data || []
     } catch (error) {
-      console.error("Error fetching equipment lists:", error)
+      console.error("❌ Error fetching equipment lists:", error.message || error.details || error)
       throw error
     }
   },
@@ -117,7 +126,10 @@ export const EquipmentService = {
       } = await supabase.auth.getSession()
 
       if (sessionError || !session) {
-        console.warn("No active session found for getEquipmentList")
+        console.warn(
+          "⚠️ No active session found for getEquipmentList:",
+          sessionError?.message || sessionError?.details || sessionError,
+        )
         return null
       }
 
@@ -131,7 +143,10 @@ export const EquipmentService = {
         .eq("user_id", userId)
         .single()
 
-      if (listError) throw listError
+      if (listError) {
+        console.error("❌ Error fetching list:", listError.message || listError.details || listError)
+        throw listError
+      }
 
       // Get the items for this list
       const { data: items, error: itemsError } = await supabase
@@ -140,7 +155,10 @@ export const EquipmentService = {
         .eq("list_id", id)
         .order("created_at", { ascending: true })
 
-      if (itemsError) throw itemsError
+      if (itemsError) {
+        console.error("❌ Error fetching items:", itemsError.message || itemsError.details || itemsError)
+        throw itemsError
+      }
 
       // Transform the data to match the frontend model
       const transformedItems = (items || []).map((item) => ({
@@ -171,7 +189,7 @@ export const EquipmentService = {
         updated_at: list.updated_at,
       }
     } catch (error) {
-      console.error(`Error fetching equipment list ${id}:`, error)
+      console.error(`❌ Error fetching equipment list ${id}:`, error.message || error.details || error)
       throw error
     }
   },
@@ -180,6 +198,7 @@ export const EquipmentService = {
     try {
       const supabase = getSupabaseClient()
       if (!supabase) {
+        console.error("❌ Supabase client not available")
         throw new Error("Supabase client not available")
       }
 
@@ -190,17 +209,17 @@ export const EquipmentService = {
       } = await supabase.auth.getSession()
 
       if (sessionError) {
-        console.error("Session error in createList:", sessionError.message)
-        throw new Error("Session error: " + sessionError.message)
+        console.error("❌ Session error in createList:", sessionError.message || sessionError.details || sessionError)
+        throw new Error("Session error: " + (sessionError.message || "Unknown error"))
       }
 
       if (!session) {
-        console.error("No active session found in createList")
+        console.error("❌ No active session found in createList")
         throw new Error("No active session found. Please log in again.")
       }
 
       const userId = session.user.id
-      console.log("Creating list for user:", userId)
+      console.log("ℹ️ Creating list for user:", userId)
 
       // Create the list
       const { data: list, error: listError } = await supabase
@@ -214,11 +233,11 @@ export const EquipmentService = {
         .single()
 
       if (listError) {
-        console.error("Error creating list:", listError)
+        console.error("❌ Error creating list:", listError.message || listError.details || listError)
         throw listError
       }
 
-      console.log("List created successfully:", list)
+      console.log("✅ List created successfully:", list)
 
       // Create the items
       if (listData.items && listData.items.length > 0) {
@@ -244,16 +263,16 @@ export const EquipmentService = {
         const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
 
         if (itemsError) {
-          console.error("Error creating items:", itemsError)
+          console.error("❌ Error creating items:", itemsError.message || itemsError.details || itemsError)
           throw itemsError
         }
 
-        console.log("Items created successfully")
+        console.log("✅ Items created successfully")
       }
 
       return list
     } catch (error) {
-      console.error("Error creating equipment list:", error)
+      console.error("❌ Error creating equipment list:", error.message || error.details || error)
       throw error
     }
   },
@@ -270,7 +289,10 @@ export const EquipmentService = {
       } = await supabase.auth.getSession()
 
       if (sessionError || !session) {
-        console.warn("No active session found for updateList")
+        console.warn(
+          "⚠️ No active session found for updateList:",
+          sessionError?.message || sessionError?.details || sessionError,
+        )
         throw new Error("User not authenticated")
       }
 
@@ -287,12 +309,18 @@ export const EquipmentService = {
         .eq("id", id)
         .eq("user_id", userId)
 
-      if (listError) throw listError
+      if (listError) {
+        console.error("❌ Error updating list:", listError.message || listError.details || listError)
+        throw listError
+      }
 
       // Delete existing items
       const { error: deleteError } = await supabase.from("equipment_items").delete().eq("list_id", id)
 
-      if (deleteError) throw deleteError
+      if (deleteError) {
+        console.error("❌ Error deleting items:", deleteError.message || deleteError.details || deleteError)
+        throw deleteError
+      }
 
       // Create new items
       if (listData.items && listData.items.length > 0) {
@@ -317,12 +345,15 @@ export const EquipmentService = {
 
         const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
 
-        if (itemsError) throw itemsError
+        if (itemsError) {
+          console.error("❌ Error creating new items:", itemsError.message || itemsError.details || itemsError)
+          throw itemsError
+        }
       }
 
       return { id, ...listData }
     } catch (error) {
-      console.error(`Error updating equipment list ${id}:`, error)
+      console.error(`❌ Error updating equipment list ${id}:`, error.message || error.details || error)
       throw error
     }
   },
@@ -339,7 +370,10 @@ export const EquipmentService = {
       } = await supabase.auth.getSession()
 
       if (sessionError || !session) {
-        console.warn("No active session found for deleteList")
+        console.warn(
+          "⚠️ No active session found for deleteList:",
+          sessionError?.message || sessionError?.details || sessionError,
+        )
         throw new Error("User not authenticated")
       }
 
@@ -348,11 +382,14 @@ export const EquipmentService = {
       // Delete the list (items will be deleted automatically due to CASCADE constraint)
       const { error } = await supabase.from("equipment_list").delete().eq("id", id).eq("user_id", userId)
 
-      if (error) throw error
+      if (error) {
+        console.error("❌ Error deleting list:", error.message || error.details || error)
+        throw error
+      }
 
       return true
     } catch (error) {
-      console.error(`Error deleting equipment list ${id}:`, error)
+      console.error(`❌ Error deleting equipment list ${id}:`, error.message || error.details || error)
       throw error
     }
   },
