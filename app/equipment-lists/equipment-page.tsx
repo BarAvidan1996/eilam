@@ -155,7 +155,7 @@ const baseTranslations = {
     cancelEditing: "בטל עריכה",
     addItem: "הוסף פריט",
     saveChanges: "שמור שינויים",
-    addNewItem: "הוספת פריט חדש",
+    addNewItem: "Add New Item",
     itemName: "שם הפריט",
     itemCategory: "קטגוריה",
     itemQuantity: "כמות",
@@ -1378,9 +1378,9 @@ export default function EquipmentPage() {
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
                 {item.expiryDate ? (
-                  format(parseISO(item.expiryDate), "PPP", { locale: currentLocale })
+                  format(new Date(item.expiryDate), "PPP", { locale: currentLocale })
                 ) : item.aiSuggestedExpiryDate ? (
-                  format(parseISO(item.aiSuggestedExpiryDate), "PPP", { locale: currentLocale })
+                  format(new Date(item.aiSuggestedExpiryDate), "PPP", { locale: currentLocale })
                 ) : (
                   <span>{t.setExpiryDate || "הגדר תאריך תפוגה"}</span>
                 )}
@@ -1389,7 +1389,7 @@ export default function EquipmentPage() {
             <PopoverContent className="w-auto p-0">
               <Calendar
                 mode="single"
-                selected={dateForPicker ? parseISO(dateForPicker) : undefined}
+                selected={dateForPicker ? new Date(dateForPicker) : undefined}
                 onSelect={(date) => handleExpiryDateChange(item.id, date)}
                 initialFocus
                 captionLayout="dropdown-buttons"
@@ -1449,12 +1449,12 @@ export default function EquipmentPage() {
           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
             {item.expiryDate ? (
               <>
-                {format(parseISO(item.expiryDate), "d בMMMM yyyy", { locale: currentLocale })}
+                {format(new Date(item.expiryDate), "d בMMMM yyyy", { locale: currentLocale })}
                 {item.sendExpiryReminder && <Bell className="h-3 w-3 text-purple-600 inline-block mr-1 rtl:ml-1" />}
               </>
             ) : item.aiSuggestedExpiryDate ? (
               <>
-                {format(parseISO(item.aiSuggestedExpiryDate), "d בMMMM yyyy", { locale: currentLocale })}
+                {format(new Date(item.aiSuggestedExpiryDate), "d בMMMM yyyy", { locale: currentLocale })}
                 <span className="text-xs text-gray-400 mr-1 rtl:ml-1">(מוצע ע"י AI)</span>
               </>
             ) : (
@@ -2033,7 +2033,7 @@ export default function EquipmentPage() {
                 <PopoverContent className="w-auto p-0">
                   <Calendar
                     mode="single"
-                    selected={newItem.expiryDate ? parseISO(newItem.expiryDate) : undefined}
+                    selected={newItem.expiryDate ? new Date(newItem.expiryDate) : undefined}
                     onSelect={(date) =>
                       setNewItem({ ...newItem, expiryDate: date ? format(date, "yyyy-MM-dd") : null })
                     }
