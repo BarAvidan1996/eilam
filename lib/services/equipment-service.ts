@@ -15,6 +15,28 @@ const getSupabaseClient = () => {
   return supabaseInstance
 }
 
+// בדוק את מבנה הטבלה
+async function checkTableStructure() {
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) return null
+
+    // בדוק את מבנה הטבלה equipment_items
+    const { data, error } = await supabase.rpc("get_table_definition", { table_name: "equipment_items" })
+
+    if (error) {
+      console.error("❌ Error checking table structure:", error.message || error.details || error)
+      return null
+    }
+
+    console.log("📊 Table structure:", data)
+    return data
+  } catch (error) {
+    console.error("❌ Error checking table structure:", error.message || error.details || error)
+    return null
+  }
+}
+
 export const EquipmentService = {
   async getCurrentUser() {
     try {
@@ -169,7 +191,7 @@ export const EquipmentService = {
         quantity: Number(item.quantity) || 1,
         unit: item.unit || "יחידות",
         obtained: item.obtained || false,
-        importance: item.importance || 3,
+        importance: item.importance_level || 3, // שינוי שם העמודה
         description: item.description || "",
         shelf_life: item.shelf_life || "",
         usage_instructions: item.usage_instructions || "",
@@ -202,6 +224,9 @@ export const EquipmentService = {
         console.error("❌ Supabase client not available")
         throw new Error("Supabase client not available")
       }
+
+      // בדוק את מבנה הטבלה
+      await checkTableStructure()
 
       // קבל את הסשן הנוכחי
       const {
@@ -246,6 +271,9 @@ export const EquipmentService = {
 
       // Create the items
       if (listData.items && listData.items.length > 0) {
+        // הדפס את המבנה של הפריט הראשון לצורך דיבוג
+        console.log("📦 First item structure:", JSON.stringify(listData.items[0], null, 2))
+
         const itemsToInsert = listData.items.map((item) => ({
           id: uuidv4(), // Generate UUID for each item
           list_id: listId,
@@ -254,7 +282,7 @@ export const EquipmentService = {
           quantity: Number(item.quantity) || 1,
           unit: item.unit || "יחידות",
           description: item.description || "",
-          importance: item.importance || 3,
+          importance_level: item.importance || 3, // שינוי שם העמודה
           obtained: item.obtained || false,
           expiration_date: item.expiryDate || null,
           wants_expiry_reminder: item.sendExpiryReminder || false,
@@ -265,6 +293,9 @@ export const EquipmentService = {
           personalized_note: item.personalized_note || "",
           is_mandatory: item.is_mandatory || false,
         }))
+
+        // הדפס את המבנה של הפריט הראשון אחרי המרה
+        console.log("📦 First item after transformation:", JSON.stringify(itemsToInsert[0], null, 2))
 
         const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
 
@@ -338,7 +369,7 @@ export const EquipmentService = {
           quantity: Number(item.quantity) || 1,
           unit: item.unit || "יחידות",
           description: item.description || "",
-          importance: item.importance || 3,
+          importance_level: item.importance || 3, // שינוי שם העמודה
           obtained: item.obtained || false,
           expiration_date: item.expiryDate || null,
           wants_expiry_reminder: item.sendExpiryReminder || false,
