@@ -1230,6 +1230,24 @@ export default function EquipmentPage() {
                               className={`flex flex-col xs:flex-row items-end xs:items-center gap-1 xs:gap-2 shrink-0 ${isRTL ? "order-3 sm:order-3 mr-auto" : "order-3 sm:order-3 ml-auto"}`}
                             >
                               {getImportanceBadge(item.importance, true)}
+                              {item.is_mandatory && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                                      >
+                                        <ShieldCheck className="h-3 w-3 mr-1" />
+                                        {t.mandatoryItem}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">ציוד מומלץ על-פי פיקוד העורף</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
 
                               {isEditing && (
                                 <Button
