@@ -607,11 +607,7 @@ const headerStyles = `
   /* אין צורך יותר להסתיר את .accordion-chevron אם נסיר את החץ הידני */
 `
 
-interface EquipmentPageProps {
-  initialList?: any
-}
-
-export default function EquipmentPage({ initialList }: EquipmentPageProps) {
+export default function EquipmentPage() {
   const navigate = useNavigate()
   document.title = "תיקון עדכון רשימות - גישה מקיפה יותר"
   const language = document.documentElement.lang || "he"
@@ -871,64 +867,6 @@ export default function EquipmentPage({ initialList }: EquipmentPageProps) {
       // ... קוד קיים לטעינת תרגומים ...
 
       setIsListContextLoading(true)
-
-      // אם יש רשימה התחלתית, השתמש בה
-      if (initialList) {
-        setCurrentListName(initialList.name)
-
-        // המרת הפריטים למבנה שהממשק מצפה לו
-        const itemsWithDetails = (initialList.items || []).map((item) => ({
-          ...item,
-          id: item.id || Math.random().toString(36).substr(2, 9),
-          obtained: typeof item.obtained === "boolean" ? item.obtained : false,
-          importance: item.importance || 3,
-          description: item.description || "",
-          shelf_life: item.shelf_life || "",
-          usage_instructions: item.usage_instructions || "",
-          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
-          expiryDate: item.expiryDate || null,
-          sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
-          sms_notification: typeof item.sms_notification === "boolean" ? item.sms_notification : false,
-          personalized_note: item.personalized_note || "",
-          is_mandatory: item.is_mandatory || false,
-        }))
-
-        setAIGeneratedItems(itemsWithDetails)
-        setFilteredItems(itemsWithDetails)
-
-        // ניסיון לפענח את פרטי הפרופיל מה-JSON
-        try {
-          const profileData = initialList.description ? JSON.parse(initialList.description) : null
-          setAIGeneratedProfile({
-            adults: profileData?.adults || 1,
-            children: profileData?.children || 0,
-            babies: profileData?.babies || 0,
-            elderly: profileData?.elderly || 0,
-            pets: profileData?.pets || 0,
-            special_needs: profileData?.special_needs || translations.notSpecified || "לא צוין",
-            duration_hours: profileData?.duration_hours || 72,
-            loadedFromExisting: true,
-          })
-        } catch (e) {
-          console.warn("Could not parse profile data:", e)
-          setAIGeneratedProfile({
-            adults: 1,
-            children: 0,
-            babies: 0,
-            elderly: 0,
-            pets: 0,
-            special_needs: translations.notSpecified || "לא צוין",
-            duration_hours: 72,
-            loadedFromExisting: true,
-          })
-        }
-
-        setIsListContextLoading(false)
-        setIsLoading(false)
-        return
-      }
-
-      // אם אין רשימה התחלתית, המשך כרגיל
       const urlParams = new URLSearchParams(window.location.search)
       const listId = urlParams.get("listId")
 
@@ -1004,7 +942,7 @@ export default function EquipmentPage({ initialList }: EquipmentPageProps) {
     }
 
     loadPageContext()
-  }, [language, initialList])
+  }, [language])
 
   useEffect(() => {
     if (aiGeneratedItems.length > 0) {
