@@ -148,9 +148,32 @@ ${prompt}
       const jsonString = jsonMatch ? jsonMatch[0] : content
       const data = JSON.parse(jsonString)
 
-      // Ensure the profile is included
+      // Ensure the profile is included and properly formatted
       if (!data.profile && extractedData) {
         data.profile = extractedData
+      } else if (data.profile) {
+        // Ensure children_ages is an array
+        if (data.profile.children_ages && !Array.isArray(data.profile.children_ages)) {
+          if (typeof data.profile.children_ages === "object") {
+            data.profile.children_ages = Object.values(data.profile.children_ages)
+          } else {
+            data.profile.children_ages = [data.profile.children_ages]
+          }
+        }
+
+        // Ensure special_needs is a string
+        if (data.profile.special_needs && typeof data.profile.special_needs === "object") {
+          data.profile.special_needs = JSON.stringify(data.profile.special_needs)
+        }
+
+        // Ensure pet_types is an array
+        if (data.profile.pet_types && !Array.isArray(data.profile.pet_types)) {
+          if (typeof data.profile.pet_types === "object") {
+            data.profile.pet_types = Object.values(data.profile.pet_types)
+          } else {
+            data.profile.pet_types = [data.profile.pet_types]
+          }
+        }
       }
 
       // Ensure mandatory items are properly marked

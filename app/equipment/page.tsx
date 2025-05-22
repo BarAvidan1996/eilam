@@ -1098,6 +1098,17 @@ export default function EquipmentPage() {
                     </div>
                     <p className="text-xl font-semibold">{aiGeneratedProfile.duration_hours || 72}</p>
                   </div>
+                  {aiGeneratedProfile.pet_types && Array.isArray(aiGeneratedProfile.pet_types)
+                    ? ` (${aiGeneratedProfile.pet_types.join(", ")})`
+                    : aiGeneratedProfile.pet_types
+                      ? ` (${String(aiGeneratedProfile.pet_types)})`
+                      : ""}
+
+                  {aiGeneratedProfile.children_ages && Array.isArray(aiGeneratedProfile.children_ages)
+                    ? ` (גילאים: ${aiGeneratedProfile.children_ages.join(", ")})`
+                    : aiGeneratedProfile.children_ages
+                      ? ` (גילאים: ${String(aiGeneratedProfile.children_ages)})`
+                      : ""}
 
                   {aiGeneratedProfile.special_needs && (
                     <div className="w-full mt-2">
@@ -1117,7 +1128,9 @@ export default function EquipmentPage() {
                         )}
                       </div>
                       <p className="text-gray-700 dark:text-gray-300 text-sm bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
-                        {aiGeneratedProfile.special_needs}
+                        {typeof aiGeneratedProfile.special_needs === "object"
+                          ? JSON.stringify(aiGeneratedProfile.special_needs)
+                          : aiGeneratedProfile.special_needs}
                       </p>
                     </div>
                   )}
