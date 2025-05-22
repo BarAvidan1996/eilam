@@ -1351,9 +1351,6 @@ export default function EquipmentPage() {
     if (isEditing) {
       return (
         <div className="mt-3 space-y-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md">
-          <Label htmlFor={`expiryDate-${item.id}`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {t.expiryDate || "תאריך תפוגה"}
-          </Label>
           <div className="grid gap-2">
             <Label htmlFor={`shelf-life-${item.id}`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
               {t.itemShelfLife || "אורך חיים"}
@@ -1366,6 +1363,9 @@ export default function EquipmentPage() {
               placeholder="לדוגמה: שנה, 6 חודשים, וכו'"
             />
           </div>
+          <Label htmlFor={`expiryDate-${item.id}`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t.expiryDate || "תאריך תפוגה"}
+          </Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -1373,7 +1373,6 @@ export default function EquipmentPage() {
                 className={`w-full justify-start text-left font-normal ${!dateForPicker && "text-muted-foreground"}`}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {/* Display the user-set expiryDate if available, otherwise the AI suggestion or prompt */}
                 {item.expiryDate ? (
                   format(parseISO(item.expiryDate), "PPP", { locale: currentLocale })
                 ) : item.aiSuggestedExpiryDate ? (
@@ -1387,7 +1386,7 @@ export default function EquipmentPage() {
               <Calendar
                 mode="single"
                 selected={dateForPicker ? parseISO(dateForPicker) : undefined}
-                onSelect={(date) => handleExpiryDateChange(item.id, date)} // This updates item.expiryDate
+                onSelect={(date) => handleExpiryDateChange(item.id, date)}
                 initialFocus
                 captionLayout="dropdown-buttons"
                 fromYear={new Date().getFullYear()}
@@ -1396,8 +1395,6 @@ export default function EquipmentPage() {
               />
             </PopoverContent>
           </Popover>
-          {/* No longer explicitly show "AI Suggested Expiry" if user hasn't set one, 
-              as it's now the placeholder/initial value of the date picker. */}
           <div className="flex items-center space-x-2 mt-2 rtl:space-x-reverse">
             <Checkbox
               id={`reminder-${item.id}`}
@@ -1989,7 +1986,7 @@ export default function EquipmentPage() {
               <Textarea
                 id="itemDescription"
                 value={newItem.description}
-                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
                 className="w-full min-h-[80px]"
               />
             </div>
