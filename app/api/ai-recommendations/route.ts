@@ -8,19 +8,110 @@ const openai = new OpenAI({
 
 // Define mandatory items that must be included
 const MANDATORY_ITEMS = [
-  "מים",
-  "מזון יבש/משומר",
-  "ערכת עזרה ראשונה",
-  "תרופות קבועות",
-  "רדיו",
-  "פנסים",
-  "מטענים ניידים",
-  "ציוד ייחודי לתינוקות/קשישים/חיות מחמד",
-  "עותקים של מסמכים חשובים",
-  "מטף כיבוי אש",
-  "דלק לרכב",
-  "משחקים ופעילויות לילדים",
-  "ציוד בסיסי לחיות מחמד",
+  {
+    name: "מים (3 ליטר לאדם ליום)",
+    category: "water_food",
+    importance: 5,
+    description: "מים לשתייה ולשימוש בסיסי. פריט חובה של פיקוד העורף.",
+    shelf_life: "שנה",
+    usage_instructions: "יש לאחסן במקום קריר ויבש. מומלץ להחליף כל שנה.",
+  },
+  {
+    name: "מזון יבש/משומר",
+    category: "water_food",
+    importance: 5,
+    description: "מזון שאינו דורש קירור או בישול. פריט חובה של פיקוד העורף.",
+    shelf_life: "שנה",
+    usage_instructions: "יש לבדוק תאריכי תפוגה ולהחליף בהתאם.",
+  },
+  {
+    name: "ערכת עזרה ראשונה",
+    category: "medical",
+    importance: 5,
+    description: "ערכה בסיסית לטיפול בפציעות קלות. פריט חובה של פיקוד העורף.",
+    shelf_life: "שנתיים",
+    usage_instructions: "יש לבדוק שלמות ותקינות הפריטים אחת לחצי שנה.",
+  },
+  {
+    name: "תרופות קבועות + מרשמים מודפסים",
+    category: "medical",
+    importance: 5,
+    description: "תרופות קבועות לבני המשפחה ומרשמים מודפסים. פריט חובה של פיקוד העורף.",
+    shelf_life: "בהתאם לתרופה",
+    usage_instructions: "יש לוודא מלאי לפחות לשבוע ימים ולבדוק תאריכי תפוגה.",
+  },
+  {
+    name: "רדיו + סוללות",
+    category: "communication",
+    importance: 5,
+    description: "רדיו המופעל על סוללות לקבלת עדכונים. פריט חובה של פיקוד העורף.",
+    shelf_life: "5 שנים",
+    usage_instructions: "יש לבדוק תקינות אחת לחודש ולהחליף סוללות בהתאם.",
+  },
+  {
+    name: "פנסים + סוללות",
+    category: "lighting_energy",
+    importance: 5,
+    description: "פנסים לתאורת חירום. פריט חובה של פיקוד העורף.",
+    shelf_life: "5 שנים",
+    usage_instructions: "יש לבדוק תקינות אחת לחודש ולהחליף סוללות בהתאם.",
+  },
+  {
+    name: "מטענים ניידים לטלפונים",
+    category: "communication",
+    importance: 5,
+    description: "מטענים ניידים לטעינת טלפונים ניידים. פריט חובה של פיקוד העורף.",
+    shelf_life: "3 שנים",
+    usage_instructions: "יש לוודא שהמטענים טעונים במלואם.",
+  },
+  {
+    name: "ציוד ייחודי לתינוקות/קשישים/חיות מחמד",
+    category: "other",
+    importance: 5,
+    description: "ציוד ייחודי בהתאם לצרכים המיוחדים של בני המשפחה. פריט חובה של פיקוד העורף.",
+    shelf_life: "בהתאם לפריט",
+    usage_instructions: "יש להתאים לצרכים הספציפיים של המשפחה.",
+  },
+  {
+    name: "עותקים של מסמכים חשובים",
+    category: "documents_money",
+    importance: 5,
+    description: "עותקים של תעודות זהות, דרכונים, רישיונות וכו'. פריט חובה של פיקוד העורף.",
+    shelf_life: "לא רלוונטי",
+    usage_instructions: "יש לשמור במקום אטום למים ולעדכן בהתאם לשינויים.",
+  },
+  {
+    name: "מטף כיבוי אש",
+    category: "other",
+    importance: 5,
+    description: "מטף לכיבוי שריפות קטנות. פריט חובה של פיקוד העורף.",
+    shelf_life: "5 שנים",
+    usage_instructions: "יש לבדוק תקינות אחת לשנה ולתחזק בהתאם להוראות היצרן.",
+  },
+  {
+    name: "חצי מיכל דלק ברכב",
+    category: "other",
+    importance: 5,
+    description: "שמירה על לפחות חצי מיכל דלק ברכב. פריט חובה של פיקוד העורף.",
+    shelf_life: "לא רלוונטי",
+    usage_instructions: "יש לוודא שהרכב תמיד עם לפחות חצי מיכל דלק.",
+  },
+  {
+    name: "משחקים ופעילויות לילדים",
+    category: "children",
+    importance: 5,
+    description: "משחקים ופעילויות להפגת מתח ושעמום. פריט חובה של פיקוד העורף.",
+    shelf_life: "לא רלוונטי",
+    usage_instructions: "יש להתאים לגיל הילדים ולהעדפותיהם.",
+  },
+  {
+    name: "ציוד בסיסי לחיות מחמד",
+    category: "pets",
+    importance: 5,
+    description: "מזון, מים, ותרופות לחיות המחמד. פריט חובה של פיקוד העורף.",
+    shelf_life: "בהתאם לפריט",
+    usage_instructions: "יש להתאים לסוג חיית המחמד ולצרכיה.",
+  },
 ]
 
 export async function POST(request: NextRequest) {
@@ -31,32 +122,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    // Use the extracted data to create a more personalized prompt for the AI
+    // Create mandatory items first
+    const mandatoryItems = MANDATORY_ITEMS.map((item) => ({
+      id: crypto.randomUUID(),
+      name: item.name,
+      category: item.category,
+      quantity: calculateQuantity(item.name, extractedData),
+      unit: getUnitForItem(item.name),
+      importance: item.importance,
+      description: item.description,
+      shelf_life: item.shelf_life,
+      usage_instructions: item.usage_instructions,
+      recommended_quantity_per_person: getRecommendedQuantityPerPerson(item.name),
+      obtained: false,
+      expiryDate: null,
+      aiSuggestedExpiryDate: null,
+      sendExpiryReminder: false,
+      personalized_note: "",
+      is_mandatory: true,
+    }))
+
+    // Use the extracted data to create a personalized prompt for the AI
     const enhancedPrompt = `
 יצירת רשימת ציוד חירום מותאמת אישית למשפחה
 
-חלק 1: פריטי חובה של פיקוד העורף - חובה לכלול את כולם!
-יש לכלול את כל פריטי החובה הבאים ולסמן אותם כ-is_mandatory=true:
-
-1. מים (3 ליטר לאדם ליום) - is_mandatory=true
-2. מזון יבש/משומר - is_mandatory=true
-3. ערכת עזרה ראשונה - is_mandatory=true
-4. תרופות קבועות + מרשמים מודפסים - is_mandatory=true
-5. רדיו + סוללות - is_mandatory=true
-6. פנסים + סוללות - is_mandatory=true
-7. מטענים ניידים לטלפונים - is_mandatory=true
-8. ציוד ייחודי לתינוקות/קשישים/חיות מחמד - is_mandatory=true
-9. עותקים של מסמכים חשובים - is_mandatory=true
-10. מטף כיבוי אש - is_mandatory=true
-11. חצי מיכל דלק ברכב - is_mandatory=true
-12. משחקים ופעילויות לילדים - is_mandatory=true
-13. ציוד בסיסי לחיות מחמד - is_mandatory=true
-
-חשוב מאוד: כל 13 הפריטים הללו חייבים להיות ברשימה הסופית ומסומנים כ-is_mandatory=true.
-
-חלק 2: התאמה אישית מעמיקה - חובה להוסיף פריטים ספציפיים!
 המידע על המשפחה:
-
 ${
   extractedData
     ? `
@@ -76,9 +166,8 @@ ${
 הפרומפט המקורי של המשתמש:
 ${prompt}
 
-חשוב מאוד: עליך להוסיף לפחות 10 פריטים ייחודיים ומותאמים אישית מעבר לרשימת החובה, בהתבסס על המאפיינים הספציפיים של המשפחה. 
-אל תסתפק רק ברשימת החובה - חובה להוסיף פריטים מותאמים אישית!
-פריטים מותאמים אישית יסומנו כ-is_mandatory=false.
+המשימה שלך היא ליצור לפחות 10 פריטים מותאמים אישית (ולא יותר מ-15) בהתבסס על המאפיינים הספציפיים של המשפחה.
+אל תכלול פריטים שכבר נמצאים ברשימת החובה של פיקוד העורף.
 
 הנה כיצד להתאים את הרשימה באופן מושלם:
 
@@ -115,9 +204,6 @@ ${prompt}
 
 החזר את התשובה בפורמט JSON הבא:
 {
-  "profile": {
-    // פרטי המשפחה כפי שחולצו
-  },
   "items": [
     {
       "id": "unique-id",
@@ -125,7 +211,7 @@ ${prompt}
       "category": "קטגוריה",
       "quantity": מספר,
       "unit": "יחידת מידה",
-      "importance": דירוג חשיבות (1-5, כאשר 5 הוא פריט חובה של פיקוד העורף),
+      "importance": דירוג חשיבות (1-4, כאשר 4 הוא חשוב מאוד),
       "description": "תיאור מותאם אישית המסביר למה פריט זה חשוב ספציפית למשפחה זו",
       "shelf_life": "חיי מדף",
       "usage_instructions": "הוראות שימוש מותאמות אישית",
@@ -135,10 +221,12 @@ ${prompt}
       "aiSuggestedExpiryDate": "YYYY-MM-DD",
       "sendExpiryReminder": false,
       "personalized_note": "הערה מותאמת אישית המסבירה את החשיבות הספציפית של פריט זה למשפחה זו",
-      "is_mandatory": boolean // האם זה פריט חובה של פיקוד העורף
+      "is_mandatory": false
     }
   ]
 }
+
+חשוב: כל הפריטים שתיצור חייבים להיות מסומנים כ-is_mandatory=false כי הם פריטים מותאמים אישית ולא פריטי חובה של פיקוד העורף.
 `
 
     // Call OpenAI API
@@ -148,7 +236,7 @@ ${prompt}
         {
           role: "system",
           content:
-            "אתה מומחה לציוד חירום שיוצר רשימות מותאמות אישית לחלוטין לפי צרכים ספציפיים של משפחות. תפקידך ליצור רשימה שכוללת את כל פריטי החובה של פיקוד העורף, ובנוסף להוסיף פריטים ייחודיים ומותאמים אישית לכל מאפיין של המשפחה. חשוב מאוד שתוסיף פריטים ספציפיים לכל אחד מהמאפיינים שחולצו (ילדים, חיות מחמד, צרכים מיוחדים וכו') ושתסביר בדיוק למה כל פריט חשוב למשפחה הספציפית הזו. אל תסתפק רק ברשימת החובה - חובה להוסיף פריטים מותאמים אישית!",
+            "אתה מומחה לציוד חירום שיוצר רשימות מותאמות אישית לחלוטין לפי צרכים ספציפיים של משפחות. תפקידך ליצור רשימה של פריטים ייחודיים ומותאמים אישית לכל מאפיין של המשפחה. חשוב מאוד שתוסיף פריטים ספציפיים לכל אחד מהמאפיינים שחולצו (ילדים, חיות מחמד, צרכים מיוחדים וכו') ושתסביר בדיוק למה כל פריט חשוב למשפחה הספציפית הזו.",
         },
         {
           role: "user",
@@ -168,91 +256,41 @@ ${prompt}
       const jsonString = jsonMatch ? jsonMatch[0] : content
       const data = JSON.parse(jsonString)
 
-      // Ensure the profile is included and properly formatted
-      if (!data.profile && extractedData) {
-        data.profile = extractedData
-      } else if (data.profile) {
-        // Ensure children_ages is an array
-        if (data.profile.children_ages && !Array.isArray(data.profile.children_ages)) {
-          if (typeof data.profile.children_ages === "object") {
-            data.profile.children_ages = Object.values(data.profile.children_ages)
-          } else {
-            data.profile.children_ages = [data.profile.children_ages]
-          }
-        }
-
-        // Ensure special_needs is a string
-        if (data.profile.special_needs && typeof data.profile.special_needs === "object") {
-          data.profile.special_needs = JSON.stringify(data.profile.special_needs)
-        }
-
-        // Ensure pet_types is an array
-        if (data.profile.pet_types && !Array.isArray(data.profile.pet_types)) {
-          if (typeof data.profile.pet_types === "object") {
-            data.profile.pet_types = Object.values(data.profile.pet_types)
-          } else {
-            data.profile.pet_types = [data.profile.pet_types]
-          }
-        }
-      }
-
-      // Ensure all mandatory items are included and properly marked
+      // Ensure all personalized items are marked as non-mandatory
       if (data.items && Array.isArray(data.items)) {
-        // Check if all mandatory items are included
-        const mandatoryItemsIncluded = MANDATORY_ITEMS.every((mandatoryItem) => {
-          return data.items.some((item) => item.name.includes(mandatoryItem) && item.is_mandatory === true)
+        data.items.forEach((item) => {
+          item.is_mandatory = false
+          // Ensure importance is not 5 (reserved for mandatory items)
+          if (item.importance >= 5) {
+            item.importance = 4
+          }
         })
-
-        // If not all mandatory items are included, add them
-        if (!mandatoryItemsIncluded) {
-          console.warn("Not all mandatory items were included or properly marked. Adding missing items.")
-
-          // Find which mandatory items are missing or not properly marked
-          MANDATORY_ITEMS.forEach((mandatoryItem) => {
-            const existingItem = data.items.find((item) => item.name.includes(mandatoryItem))
-
-            if (existingItem) {
-              // Item exists but might not be marked as mandatory
-              existingItem.is_mandatory = true
-              existingItem.importance = Math.max(existingItem.importance, 5) // Ensure high importance
-            } else {
-              // Item doesn't exist, add it
-              data.items.push({
-                id: crypto.randomUUID(),
-                name: mandatoryItem,
-                category: getCategoryForMandatoryItem(mandatoryItem),
-                quantity: getDefaultQuantityForItem(mandatoryItem, data.profile),
-                unit: getDefaultUnitForItem(mandatoryItem),
-                importance: 5,
-                description: `פריט חובה של פיקוד העורף`,
-                obtained: false,
-                is_mandatory: true,
-              })
-            }
-          })
-        }
-
-        // Count how many personalized items we have
-        const personalizedItems = data.items.filter((item) => !item.is_mandatory)
-        const mandatoryItems = data.items.filter((item) => item.is_mandatory)
-
-        console.log(
-          `Generated ${personalizedItems.length} personalized items and ${mandatoryItems.length} mandatory items`,
-        )
-
-        // If we don't have enough personalized items, log a warning
-        if (personalizedItems.length < 10) {
-          console.warn(
-            `Warning: Only ${personalizedItems.length} personalized items were generated. We need at least 10.`,
-          )
-        }
       }
 
-      return NextResponse.json(data)
+      // Combine mandatory and personalized items
+      const allItems = [...mandatoryItems, ...(data.items || [])]
+
+      // Create the final response
+      const finalResponse = {
+        profile: extractedData || {},
+        items: allItems,
+      }
+
+      console.log(
+        `Generated ${mandatoryItems.length} mandatory items and ${data.items?.length || 0} personalized items`,
+      )
+
+      return NextResponse.json(finalResponse)
     } catch (error) {
       console.error("Error parsing OpenAI response:", error)
       console.log("Raw response:", content)
-      return NextResponse.json({ error: "Failed to parse AI response", raw: content }, { status: 500 })
+
+      // If we can't parse the AI response, at least return the mandatory items
+      return NextResponse.json({
+        profile: extractedData || {},
+        items: mandatoryItems,
+        error: "Failed to parse AI response for personalized items",
+      })
     }
   } catch (error) {
     console.error("Error generating AI recommendations:", error)
@@ -260,30 +298,34 @@ ${prompt}
   }
 }
 
-// Helper functions for default values
-function getCategoryForMandatoryItem(itemName: string): string {
-  if (itemName.includes("מים") || itemName.includes("מזון")) return "water_food"
-  if (itemName.includes("עזרה ראשונה") || itemName.includes("תרופות")) return "medical"
-  if (itemName.includes("פנס") || itemName.includes("סוללות") || itemName.includes("מטענים")) return "lighting_energy"
-  if (itemName.includes("רדיו")) return "communication"
-  if (itemName.includes("מסמכים")) return "documents_money"
-  if (itemName.includes("ילדים") || itemName.includes("משחקים")) return "children"
-  if (itemName.includes("חיות מחמד")) return "pets"
-  return "other"
-}
+// Helper functions for calculating quantities and units
+function calculateQuantity(itemName: string, profile: any): number {
+  if (!profile) return 1
 
-function getDefaultQuantityForItem(itemName: string, profile: any): number {
+  const totalPeople = (profile.adults || 2) + (profile.children || 0) + (profile.babies || 0) + (profile.elderly || 0)
+  const days = Math.ceil((profile.duration_hours || 48) / 24)
+
   if (itemName.includes("מים")) {
-    const totalPeople =
-      (profile?.adults || 2) + (profile?.children || 0) + (profile?.babies || 0) + (profile?.elderly || 0)
-    const days = Math.ceil((profile?.duration_hours || 48) / 24)
     return 3 * totalPeople * days // 3 liters per person per day
+  } else if (itemName.includes("מזון")) {
+    return totalPeople * days // 1 unit per person per day
+  } else if (itemName.includes("חיות מחמד") && profile.pets) {
+    return profile.pets // 1 unit per pet
+  } else if (itemName.includes("משחקים") && profile.children) {
+    return profile.children // 1 unit per child
   }
+
   return 1
 }
 
-function getDefaultUnitForItem(itemName: string): string {
+function getUnitForItem(itemName: string): string {
   if (itemName.includes("מים")) return "ליטרים"
   if (itemName.includes("מזון")) return "מנות"
   return "יחידות"
+}
+
+function getRecommendedQuantityPerPerson(itemName: string): string {
+  if (itemName.includes("מים")) return "3 ליטר ליום"
+  if (itemName.includes("מזון")) return "מנה ליום"
+  return ""
 }
