@@ -203,24 +203,6 @@ export default function EquipmentListsPage() {
         <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">{error}</div>
       )}
 
-      <div className="flex flex-wrap gap-3 mb-6">
-        <Link href="/equipment">
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            {t.createNewList}
-          </Button>
-        </Link>
-        <Link href="/equipment?ai=true">
-          <Button
-            variant="outline"
-            className="border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/20"
-          >
-            <ListChecks className="mr-2 h-4 w-4" />
-            {t.createWithAI}
-          </Button>
-        </Link>
-      </div>
-
       {equipmentLists.length > 0 ? (
         <div className="space-y-4">
           {equipmentLists.map((list) => (
