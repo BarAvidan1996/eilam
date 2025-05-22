@@ -653,7 +653,7 @@ export default function EquipmentPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [aiUserPrompt, setAIUserPrompt] = useState("")
-  const [isAILoading, setIsAILoading] = useState(false)
+  const [isAILoading, setIsAILoading] = useState(isAILoading)
   const [aiGeneratedItems, setAIGeneratedItems] = useState([])
   const [aiGeneratedProfile, setAIGeneratedProfile] = useState(null)
   const [openAccordionItem, setOpenAccordionItem] = useState(null)
@@ -677,6 +677,7 @@ export default function EquipmentPage() {
     sendExpiryReminder: false,
     usage_instructions: "",
     recommended_quantity_per_person: "",
+    sms_notification: false, // הוספת שדה חדש להתראת SMS
   })
   const [itemHistory, setItemHistory] = useState([])
   const [itemToRemove, setItemToRemove] = useState(null)
@@ -865,6 +866,7 @@ export default function EquipmentPage() {
           importance: item.importance || 3,
           shelf_life: item.shelf_life || null,
           usage_instructions: item.usage_instructions || "",
+          sms_notification: typeof item.sms_notification === "boolean" ? item.sms_notification : false,
         })),
         profile: aiGeneratedProfile,
       }
@@ -941,6 +943,7 @@ export default function EquipmentPage() {
               expiryDate: item.expiryDate || null,
               aiSuggestedExpiryDate: item.aiSuggestedExpiryDate || null,
               sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
+              sms_notification: typeof item.sms_notification === "boolean" ? item.sms_notification : false,
             }))
 
             setAIGeneratedItems(itemsWithDetails)
@@ -1174,6 +1177,7 @@ export default function EquipmentPage() {
               ? calculateSuggestedExpiry(item.expiry_date, item.shelf_life_days)
               : null, // Store AI suggestion separately
           sendExpiryReminder: false,
+          sms_notification: false,
         }))
         setAIGeneratedProfile(response.profile)
         setAIGeneratedItems(itemsWithStatus)
@@ -1223,6 +1227,7 @@ export default function EquipmentPage() {
       sendExpiryReminder: false,
       usage_instructions: "",
       recommended_quantity_per_person: "",
+      sms_notification: false,
     })
     setIsAddItemDialogOpen(true)
   }
@@ -1234,6 +1239,7 @@ export default function EquipmentPage() {
       ...newItem,
       id: Math.random().toString(36).substr(2, 9),
       obtained: false,
+      sms_notification: newItem.sms_notification || false,
     }
 
     updateItemsWithHistory([...aiGeneratedItems, itemWithId])
@@ -1282,6 +1288,7 @@ export default function EquipmentPage() {
       importance: item.importance || 3,
       shelf_life: item.shelf_life || null,
       usage_instructions: item.usage_instructions || "",
+      sms_notification: typeof item.sms_notification === "boolean" ? item.sms_notification : false,
     }))
 
     try {
@@ -1395,6 +1402,28 @@ export default function EquipmentPage() {
               <BellOff className="h-4 w-4 text-gray-400" />
             )}
           </div>
+          <div className="flex items-center space-x-2 mt-2 rtl:space-x-reverse">
+            <Checkbox
+              id={`sms-notification-${item.id}`}
+              checked={!!item.sms_notification}
+              onCheckedChange={(checked) => handleItemChange(item.id, "sms_notification", !!checked)}
+              aria-label="הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה"
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label
+                htmlFor={`sms-notification-${item.id}`}
+                className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+              >
+                הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                ההודעה תישלח למספר הטלפון שהוזן בעת הרישום.{" "}
+                <a href={createPageUrl("ProfilePage")} className="text-blue-600 hover:underline">
+                  עריכת פרטי משתמש
+                </a>
+              </p>
+            </div>
+          </div>
         </div>
       )
     } else if (item.expiryDate) {
@@ -1404,6 +1433,11 @@ export default function EquipmentPage() {
           <span className="font-medium">{t.expiryDate || "תאריך תפוגה"}: </span>
           {format(parseISO(item.expiryDate), "PPP", { locale: currentLocale })}
           {item.sendExpiryReminder && <Bell className="h-3 w-3 text-purple-600 inline-block ml-1 rtl:mr-1" />}
+          {item.sms_notification && (
+            <span className="inline-block ml-1 rtl:mr-1">
+              <span className="text-purple-600 text-xs">(SMS)</span>
+            </span>
+          )}
         </p>
       )
     } else if (item.aiSuggestedExpiryDate && !isEditing) {
@@ -1989,6 +2023,30 @@ export default function EquipmentPage() {
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+
+            <div className="flex flex-col space-y-2">
+              <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                <Checkbox
+                  id="newItemSmsNotification"
+                  checked={newItem.sms_notification}
+                  onCheckedChange={(checked) => setNewItem({ ...newItem, sms_notification: !!checked })}
+                />
+                <div className="grid gap-1.5 leading-none">
+                  <Label
+                    htmlFor="newItemSmsNotification"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+                  >
+                    הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    ההודעה תישלח למספר הטלפון שהוזן בעת הרישום.{" "}
+                    <a href={createPageUrl("ProfilePage")} className="text-blue-600 hover:underline">
+                      עריכת פרטי משתמש
+                    </a>
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center space-x-2 rtl:space-x-reverse">

@@ -349,8 +349,8 @@ const LoadingIndicator = ({ state, t }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between mb-1">
-        <span className="text-sm font-medium text-[#005c72] dark:text-[#d3e3fd]">{getStepText()}</span>
-        <span className="text-sm font-medium text-[#005c72] dark:text-[#d3e3fd]">{state.progress}%</span>
+        <span className="text-sm font-medium text-[#005c72] dark:text-white">{getStepText()}</span>
+        <span className="text-sm font-medium text-[#005c72] dark:text-white">{state.progress}%</span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
         <div
@@ -1062,6 +1062,24 @@ export default function EquipmentPage() {
                       )}
                     </div>
                     <p className="text-xl font-semibold">{aiGeneratedProfile.elderly || 0}</p>
+                  </div>
+                  <div className="min-w-28">
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiPets}</p>
+                      {defaultFields.includes("pets") && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3 text-red-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <p className="text-xl font-semibold">{aiGeneratedProfile.pets || 0}</p>
                   </div>
                   <div className="min-w-28">
                     <div className="flex items-center gap-1">
