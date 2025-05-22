@@ -1318,8 +1318,8 @@ export default function EquipmentPage() {
   }
 
   const handleExpiryDateChange = (itemId, date) => {
+    console.log(`Setting expiry date for item ${itemId} to:`, date)
     const formattedDate = date ? format(date, "yyyy-MM-dd") : null
-    console.log(`Setting expiry date for item ${itemId} to:`, formattedDate) // הוספת לוג לדיבוג
     handleItemChange(itemId, "expiryDate", formattedDate)
   }
 
@@ -1790,7 +1790,6 @@ export default function EquipmentPage() {
                             </div>
                           </div>
                         </AccordionTrigger>
-
                         <AccordionContent className="px-3 sm:px-4 pb-3 sm:pb-4">
                           <div className="pt-2 border-t dark:border-gray-700">
                             <div className="grid gap-3 sm:gap-4 mt-2">
@@ -1838,7 +1837,7 @@ export default function EquipmentPage() {
                                     {t.expiryDate || "תאריך תפוגה"}
                                   </h4>
                                   {isEditing ? (
-                                    <div className="flex flex-col gap-2">
+                                    <div className="space-y-2">
                                       <Popover>
                                         <PopoverTrigger asChild>
                                           <Button
@@ -1882,15 +1881,15 @@ export default function EquipmentPage() {
                                     </div>
                                   ) : (
                                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.expiryDate
-                                        ? format(parseISO(item.expiryDate), "PPP", { locale: currentLocale })
-                                        : item.aiSuggestedExpiryDate
-                                          ? format(parseISO(item.aiSuggestedExpiryDate), "PPP", {
-                                              locale: currentLocale,
-                                            })
-                                          : t.noExpiryDate || "אין תאריך תפוגה"}
-                                      {item.sendExpiryReminder && (
-                                        <Bell className="h-3 w-3 text-purple-600 inline-block ml-1 rtl:mr-1" />
+                                      {item.expiryDate ? (
+                                        <>
+                                          {format(parseISO(item.expiryDate), "d בMMMM yyyy", { locale: currentLocale })}
+                                          {item.sendExpiryReminder && (
+                                            <Bell className="h-3 w-3 text-purple-600 inline-block mr-1 rtl:ml-1" />
+                                          )}
+                                        </>
+                                      ) : (
+                                        t.noExpiryDate || "אין תאריך תפוגה"
                                       )}
                                     </p>
                                   )}
