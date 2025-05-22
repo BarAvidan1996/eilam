@@ -323,7 +323,8 @@ const generateFallbackRecommendations = (prompt: string) => {
 
 const generateRecommendations = async (prompt: string) => {
   try {
-    const response = await fetch("/api/ai-recommendations", {
+    // קודם כל, חלץ את הנתונים מהפרומפט
+    const extractResponse = await fetch("/api/extract-data", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -331,13 +332,61 @@ const generateRecommendations = async (prompt: string) => {
       body: JSON.stringify({ prompt }),
     })
 
-    if (!response.ok) {
-      console.error("Error calling AI recommendations API:", await response.json())
-      console.log("Using fallback recommendations generator")
+    if (!extractResponse.ok) {
+      console.error("Error extracting data from prompt:", await extractResponse.text())
       return generateFallbackRecommendations(prompt)
     }
 
+    const extractedData = await extractResponse.json()
+    console.log("Extracted data:", extractedData)
+
+    // עכשיו, השתמש בנתונים המחולצים כדי ליצור פרומפט מותאם אישית ל-AI
+    const customizedPrompt = `
+יצירת רשימת ציוד חירום מותאמת אישית עבור משפחה עם המאפיינים הבאים:
+
+- מבוגרים: ${extractedData.adults}
+- ילדים: ${extractedData.children}${extractedData.children_ages && extractedData.children_ages.length > 0 ? ` (גילאים: ${extractedData.children_ages.join(", ")})` : ""}
+- תינוקות: ${extractedData.babies}
+- קשישים: ${extractedData.elderly}
+- חיות מחמד: ${extractedData.pets}${extractedData.pet_types && extractedData.pet_types.length > 0 ? ` (${extractedData.pet_types.join(", ")})` : ""}
+- צרכים מיוחדים: ${extractedData.special_needs || "אין"}
+- משך זמן: ${extractedData.duration_hours} שעות
+- מיקום: ${extractedData.location || "לא צוין"}
+
+הפרומפט המקורי של המשתמש:
+${prompt}
+
+צור רשימת ציוד חירום מותאמת אישית למשפחה זו, עם דגש מיוחד על הצרכים הייחודיים שלהם.
+`
+
+    // שלח את הפרומפט המותאם אישית ל-API
+    const response = await fetch("/api/ai-recommendations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        prompt: customizedPrompt,
+        extractedData: extractedData, // שלח גם את הנתונים המחולצים כדי שה-API יוכל להשתמש בהם ישירות
+      }),
+    })
+
+    if (!response.ok) {
+      console.error("Error calling AI recommendations API:", await response.json())
+      console.log("Using fallback recommendations generator")
+      return {
+        profile: extractedData,
+        items: generateFallbackRecommendations(prompt).items,
+      }
+    }
+
     const data = await response.json()
+
+    // וודא שהפרופיל מכיל את הנתונים המחולצים
+    if (!data.profile) {
+      data.profile = extractedData
+    }
+
     return data
   } catch (error) {
     console.error("Error generating AI recommendations:", error)
