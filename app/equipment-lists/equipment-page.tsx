@@ -155,7 +155,7 @@ const baseTranslations = {
     cancelEditing: "בטל עריכה",
     addItem: "הוסף פריט",
     saveChanges: "שמור שינויים",
-    addNewItem: "Add New Item",
+    addNewItem: "הוספת פריט חדש",
     itemName: "שם הפריט",
     itemCategory: "קטגוריה",
     itemQuantity: "כמות",
@@ -1380,7 +1380,7 @@ export default function EquipmentPage() {
                 {item.expiryDate ? (
                   format(new Date(item.expiryDate), "PPP", { locale: currentLocale })
                 ) : item.aiSuggestedExpiryDate ? (
-                  format(new Date(item.aiSuggestedExpiryDate), "PPP", { locale: currentLocale })
+                  format(new Date(item.aiSuggestedExpiryDate), "PPP", { locale: currentLocale })}
                 ) : (
                   <span>{t.setExpiryDate || "הגדר תאריך תפוגה"}</span>
                 )}
@@ -1535,6 +1535,7 @@ export default function EquipmentPage() {
                   <h3 className="font-semibold text-sm text-purple-700 dark:text-purple-300 mb-1">
                     {t.categoriesCount || "קטגוריות"}
                   </h3>
+                  \
                   <p className="text-2xl font-bold text-purple-900 dark:text-purple-200">
                     {new Set(aiGeneratedItems.map((item) => item.category)).size}
                   </p>
@@ -2024,7 +2025,7 @@ export default function EquipmentPage() {
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {newItem.expiryDate ? (
-                      format(parseISO(newItem.expiryDate), "PPP", { locale: currentLocale })
+                      format(new Date(newItem.expiryDate), "PPP", { locale: currentLocale })
                     ) : (
                       <span>{t.setExpiryDate || "הגדר תאריך תפוגה"}</span>
                     )}
