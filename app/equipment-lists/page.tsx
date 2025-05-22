@@ -347,8 +347,12 @@ export default function EquipmentListsPage() {
 
                   <div className="flex items-center gap-2">
                     {/* Primary action - View List */}
-                    <Link href={`/equipment?listId=${list.id}`}>
-                      <Button variant="outline" size="sm" className="dark:text-gray-300 dark:border-gray-600">
+                    <Link href={`/equipment-lists/equipment-page?listId=${list.id}`}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
+                      >
                         <span className="hidden sm:inline mr-2">{t.viewList}</span>
                         {isRTL ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       </Button>
