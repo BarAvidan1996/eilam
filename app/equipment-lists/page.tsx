@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ListChecks, ChevronLeft, ChevronRight, PlusCircle, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { createClient } from "@supabase/supabase-js"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,42 +16,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { EquipmentService } from "@/lib/services/equipment-service"
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://lfmxtaefgvjbuipcdcya.supabase.co"
-const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbXh0YWVmZ3ZqYnVpcGNkY3lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyOTg5NDksImV4cCI6MjA1OTg3NDk0OX0.Rl-QQhQxQXTzgJLQYQKRGJDEQQDcnrJCBj0aCxRKAXs"
-
-// Create a singleton Supabase client
-const createSupabaseClient = () => {
-  return createClient(supabaseUrl, supabaseAnonKey)
-}
-
-// Mock data for equipment lists
-const mockEquipmentLists = [
-  {
-    id: "1",
-    title: "רשימת ציוד לחירום",
-    description: "ציוד חיוני למקרה חירום",
-    itemCount: 12,
-    created_at: "2023-10-15T10:30:00Z",
-  },
-  {
-    id: "2",
-    title: "ציוד למקלט",
-    description: "פריטים שיש להחזיק במקלט",
-    itemCount: 8,
-    created_at: "2023-10-10T14:20:00Z",
-  },
-  {
-    id: "3",
-    title: "ערכת עזרה ראשונה",
-    description: "ציוד רפואי בסיסי",
-    itemCount: 15,
-    created_at: "2023-09-28T09:15:00Z",
-  },
-]
+import { format } from "date-fns"
+import { he } from "date-fns/locale"
 
 // Translations
 const translations = {
@@ -74,6 +39,7 @@ const translations = {
     delete: "מחק",
     errorLoading: "שגיאה בטעינת רשימות הציוד",
     errorDeleting: "שגיאה במחיקת הרשימה",
+    createdAt: "נוצר ב:",
   },
   en: {
     pageTitle: "Equipment Lists",
@@ -93,6 +59,7 @@ const translations = {
     delete: "Delete",
     errorLoading: "Error loading equipment lists",
     errorDeleting: "Error deleting the list",
+    createdAt: "Created at:",
   },
 }
 
@@ -124,27 +91,11 @@ export default function EquipmentListsPage() {
 
       try {
         const data = await EquipmentService.getEquipmentLists()
-
-        if (data && data.length > 0) {
-          // Process the data to include item counts
-          const processedData = data.map((list) => ({
-            ...list,
-            id: list.id,
-            title: list.title,
-            description: list.description,
-            itemCount: 0, // We'll update this when we implement counting
-          }))
-
-          setEquipmentLists(processedData)
-        } else {
-          // Fallback to mock data or empty array
-          setEquipmentLists([])
-        }
+        setEquipmentLists(data || [])
       } catch (error) {
         console.error("Error fetching equipment lists:", error)
         setError(t.errorLoading)
-        // Fallback to mock data
-        setEquipmentLists(mockEquipmentLists)
+        setEquipmentLists([])
       } finally {
         setIsLoading(false)
       }
@@ -158,9 +109,7 @@ export default function EquipmentListsPage() {
     if (!listToDelete) return
 
     try {
-      const success = await EquipmentService.deleteEquipmentList(listToDelete.id)
-
-      if (!success) throw new Error("Failed to delete list")
+      await EquipmentService.deleteList(listToDelete.id)
 
       // Update the list
       setEquipmentLists(equipmentLists.filter((list) => list.id !== listToDelete.id))
@@ -177,6 +126,15 @@ export default function EquipmentListsPage() {
   const openDeleteDialog = (list) => {
     setListToDelete(list)
     setIsDeleteDialogOpen(true)
+  }
+
+  // Format date
+  const formatDate = (dateString) => {
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: language === "he" ? he : undefined })
+    } catch (e) {
+      return dateString
+    }
   }
 
   if (isLoading) {
@@ -203,6 +161,15 @@ export default function EquipmentListsPage() {
         <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">{error}</div>
       )}
 
+      <div className="mb-6">
+        <Link href="/equipment">
+          <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            {t.createNewList}
+          </Button>
+        </Link>
+      </div>
+
       {equipmentLists.length > 0 ? (
         <div className="space-y-4">
           {equipmentLists.map((list) => (
@@ -214,12 +181,18 @@ export default function EquipmentListsPage() {
                     {list.description && (
                       <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">{list.description}</p>
                     )}
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {list.itemCount} {t.items}
-                    </p>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {list.itemCount} {t.items}
+                      </p>
+                      <span className="hidden sm:inline text-gray-400">•</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t.createdAt} {formatDate(list.created_at)}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex gap-2">
-                    <Link href={`/equipment?listId=${list.id}`}>
+                    <Link href={`/equipment-lists/equipment-page?listId=${list.id}`}>
                       <Button variant="outline" size="sm" className="dark:text-gray-300 dark:border-gray-600">
                         {isRTL ? <ChevronLeft className="ml-1 h-4 w-4" /> : <ChevronRight className="mr-1 h-4 w-4" />}
                         {t.viewList}

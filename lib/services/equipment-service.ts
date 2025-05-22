@@ -11,33 +11,6 @@ const createSupabaseClient = () => {
   return createClient(supabaseUrl, supabaseAnonKey)
 }
 
-// Mock data for equipment lists when not using Supabase
-const mockEquipmentLists = [
-  {
-    id: "1",
-    name: "רשימת ציוד לחירום",
-    description: "ציוד חיוני למקרה חירום",
-    items: [
-      {
-        id: "item1",
-        name: "מים",
-        category: "water_food",
-        quantity: 9,
-        unit: "ליטרים",
-        obtained: false,
-        importance: 5,
-        description: "מים לשתייה ובישול",
-        shelf_life: "שנה",
-        usage_instructions: "3 ליטרים לאדם ליום",
-        recommended_quantity_per_person: "3 ליטרים ליום",
-        expiryDate: null,
-        sendExpiryReminder: false,
-      },
-      // ... other items
-    ],
-  },
-]
-
 export const EquipmentService = {
   async getCurrentUser() {
     try {
@@ -65,6 +38,7 @@ export const EquipmentService = {
         return []
       }
 
+      // Get all lists for the user
       const { data, error } = await supabase
         .from("equipment_list")
         .select("*")
@@ -72,10 +46,39 @@ export const EquipmentService = {
         .order("created_at", { ascending: false })
 
       if (error) throw error
+
+      // For each list, get the count of items
+      if (data && data.length > 0) {
+        const listsWithItemCounts = await Promise.all(
+          data.map(async (list) => {
+            const { count, error: countError } = await supabase
+              .from("equipment_items")
+              .select("*", { count: "exact", head: true })
+              .eq("list_id", list.id)
+
+            if (countError) {
+              console.error(`Error getting item count for list ${list.id}:`, countError)
+              return { ...list, itemCount: 0 }
+            }
+
+            return {
+              id: list.id,
+              title: list.title,
+              description: list.description,
+              created_at: list.created_at,
+              updated_at: list.updated_at,
+              itemCount: count || 0,
+            }
+          }),
+        )
+
+        return listsWithItemCounts
+      }
+
       return data || []
     } catch (error) {
       console.error("Error fetching equipment lists:", error)
-      return mockEquipmentLists // Fallback to mock data
+      throw error
     }
   },
 
@@ -100,36 +103,65 @@ export const EquipmentService = {
       if (listError) throw listError
 
       // Get the items for this list
-      const { data: items, error: itemsError } = await supabase.from("equipment_items").select("*").eq("list_id", id)
+      const { data: items, error: itemsError } = await supabase
+        .from("equipment_items")
+        .select("*")
+        .eq("list_id", id)
+        .order("created_at", { ascending: true })
 
       if (itemsError) throw itemsError
 
-      return { ...list, items: items || [] }
+      // Transform the data to match the frontend model
+      const transformedItems = (items || []).map((item) => ({
+        id: item.id,
+        name: item.name,
+        category: item.category || "other",
+        quantity: Number(item.quantity) || 1,
+        unit: item.unit || "יחידות",
+        obtained: item.obtained || false,
+        importance: item.importance || 3,
+        description: item.description || "",
+        shelf_life: item.shelf_life || "",
+        usage_instructions: item.usage_instructions || "",
+        recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+        expiryDate: item.expiration_date || null,
+        sendExpiryReminder: item.wants_expiry_reminder || false,
+        sms_notification: item.sms_notification || false,
+        personalized_note: item.personalized_note || "",
+        is_mandatory: item.is_mandatory || false,
+      }))
+
+      return {
+        id: list.id,
+        name: list.title,
+        description: list.description || "",
+        items: transformedItems,
+        created_at: list.created_at,
+        updated_at: list.updated_at,
+      }
     } catch (error) {
       console.error(`Error fetching equipment list ${id}:`, error)
-      return mockEquipmentLists[0] // Fallback to first mock list
+      throw error
     }
   },
 
-  async createEquipmentList(listData) {
+  async createList(listData) {
     try {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
       if (!user) {
         console.warn("No authenticated user found")
-        return null
+        throw new Error("User not authenticated")
       }
 
       // Create the list
       const { data: list, error: listError } = await supabase
         .from("equipment_list")
         .insert({
+          user_id: user.id,
           title: listData.name,
           description: listData.description || "",
-          user_id: user.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
         })
         .select()
         .single()
@@ -141,15 +173,20 @@ export const EquipmentService = {
         const itemsToInsert = listData.items.map((item) => ({
           list_id: list.id,
           name: item.name,
-          quantity: item.quantity,
-          category: item.category,
+          category: item.category || "other",
+          quantity: Number(item.quantity) || 1,
+          unit: item.unit || "יחידות",
           description: item.description || "",
-          expiration_date: item.expiryDate,
-          wants_expiry_reminder: item.sendExpiryReminder || false,
+          importance: item.importance || 3,
           obtained: item.obtained || false,
+          expiration_date: item.expiryDate || null,
+          wants_expiry_reminder: item.sendExpiryReminder || false,
+          sms_notification: item.sms_notification || false,
           usage_instructions: item.usage_instructions || "",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          shelf_life: item.shelf_life || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+          personalized_note: item.personalized_note || "",
+          is_mandatory: item.is_mandatory || false,
         }))
 
         const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
@@ -160,18 +197,18 @@ export const EquipmentService = {
       return list
     } catch (error) {
       console.error("Error creating equipment list:", error)
-      return { id: "mock-id-" + Date.now(), ...listData } // Return mock data with generated ID
+      throw error
     }
   },
 
-  async updateEquipmentList(id, listData) {
+  async updateList(id, listData) {
     try {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
       if (!user) {
         console.warn("No authenticated user found")
-        return null
+        throw new Error("User not authenticated")
       }
 
       // Update the list
@@ -197,15 +234,20 @@ export const EquipmentService = {
         const itemsToInsert = listData.items.map((item) => ({
           list_id: id,
           name: item.name,
-          quantity: item.quantity,
-          category: item.category,
+          category: item.category || "other",
+          quantity: Number(item.quantity) || 1,
+          unit: item.unit || "יחידות",
           description: item.description || "",
-          expiration_date: item.expiryDate,
-          wants_expiry_reminder: item.sendExpiryReminder || false,
+          importance: item.importance || 3,
           obtained: item.obtained || false,
+          expiration_date: item.expiryDate || null,
+          wants_expiry_reminder: item.sendExpiryReminder || false,
+          sms_notification: item.sms_notification || false,
           usage_instructions: item.usage_instructions || "",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          shelf_life: item.shelf_life || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+          personalized_note: item.personalized_note || "",
+          is_mandatory: item.is_mandatory || false,
         }))
 
         const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
@@ -216,34 +258,54 @@ export const EquipmentService = {
       return { id, ...listData }
     } catch (error) {
       console.error(`Error updating equipment list ${id}:`, error)
-      return { id, ...listData } // Return the data that was passed in
+      throw error
     }
   },
 
-  async deleteEquipmentList(id) {
+  async deleteList(id) {
     try {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
       if (!user) {
         console.warn("No authenticated user found")
-        return false
+        throw new Error("User not authenticated")
       }
 
-      // Delete items first (foreign key constraint)
-      const { error: itemsError } = await supabase.from("equipment_items").delete().eq("list_id", id)
+      // Delete the list (items will be deleted automatically due to CASCADE constraint)
+      const { error } = await supabase.from("equipment_list").delete().eq("id", id).eq("user_id", user.id)
 
-      if (itemsError) throw itemsError
-
-      // Delete the list
-      const { error: listError } = await supabase.from("equipment_list").delete().eq("id", id).eq("user_id", user.id)
-
-      if (listError) throw listError
+      if (error) throw error
 
       return true
     } catch (error) {
       console.error(`Error deleting equipment list ${id}:`, error)
-      return false
+      throw error
     }
+  },
+
+  // Aliases for backward compatibility
+  createEquipmentList: function (listData) {
+    return this.createList(listData)
+  },
+
+  updateEquipmentList: function (id, listData) {
+    return this.updateList(id, listData)
+  },
+
+  deleteEquipmentList: function (id) {
+    return this.deleteList(id)
+  },
+
+  get: function (id) {
+    return this.getEquipmentList(id)
+  },
+
+  create: function (listData) {
+    return this.createList(listData)
+  },
+
+  update: function (id, listData) {
+    return this.updateList(id, listData)
   },
 }

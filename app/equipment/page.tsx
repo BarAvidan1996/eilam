@@ -6,16 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Label } from "@/components/ui/label"
 import {
-  PlusCircle,
   Trash2,
-  Edit2,
   AlertTriangle,
   ListChecks,
   Lightbulb,
   ShieldCheck,
-  Save,
   Filter,
   Search,
   Baby,
@@ -24,10 +20,7 @@ import {
   Pill,
   HeartHandshake,
   UsersIcon,
-  X,
-  Package,
   RotateCcw,
-  Undo,
   Info,
   Sparkles,
   Utensils,
@@ -37,17 +30,6 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { useRouter } from "next/navigation"
 // Fix: Import locales dynamically to prevent initialization errors during prerendering
 import { createClient } from "@supabase/supabase-js"
@@ -597,63 +579,55 @@ export default function EquipmentPage() {
 
   // Save AI generated list
   const saveAIGeneratedList = async () => {
-    setIsAILoading(true)
-    setError("")
+    setIsAILoading(true);
+    setError("");
 
     if (!currentListName) {
-      setError(t.listNameCannotBeEmpty || "שם הרשימה אינו יכול להיות ריק.")
-      setIsAILoading(false)
-      return
+      setError(t.listNameCannotBeEmpty || "שם הרשימה אינו יכול להיות ריק.");
+      setIsAILoading(false);
+      return;
     }
 
     try {
-      const supabase = createSupabaseClient()
-
-      // Get the current session
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-
-      if (sessionError) {
-        throw new Error(sessionError.message)
-      }
-
-      if (!sessionData.session) {
-        throw new Error("Auth session missing!")
-      }
-
-      const userId = sessionData.session.user.id
-
-      if (!userId) {
-        router.push("/login")
-        return
-      }
-
-      const newList = {
+      // הכנת הנתונים לשמירה
+      const listToSave = {
         name: currentListName,
         description: aiGeneratedProfile ? JSON.stringify(aiGeneratedProfile) : "",
-        user_id: userId,
-        items: aiGeneratedItems.map((item) => ({
-          ...item,
-          id: crypto.randomUUID(),
-        })),
-      }
+        items: aiGeneratedItems.map(item => ({
+          name: item.name,
+          category: item.category || "other",
+          quantity: Number(item.quantity) || 1,
+          unit: item.unit || "יחידות",
+          obtained: item.obtained || false,
+          importance: item.importance || 3,
+          description: item.description || "",
+          expiryDate: item.expiryDate || null,
+          sendExpiryReminder: item.sendExpiryReminder || false,
+          sms_notification: item.sms_notification || false,
+          usage_instructions: item.usage_instructions || "",
+          shelf_life: item.shelf_life || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+          personalized_note: item.personalized_note || "",
+          is_mandatory: item.is_mandatory || false
+        }))
+      };
 
-      const { data, error: saveError } = await EquipmentList.createList(newList)
+      // שמירת הרשימה
+      const savedList = await EquipmentService.createList(listToSave);
 
-      if (saveError) {
-        throw new Error(saveError.message)
-      }
-
-      setLastSavedMessage(t.aiSavedSuccess || "הרשימה נשמרה בהצלחה!")
+      setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!");
+      
+      // מעבר לדף רשימות הציוד אחרי שניה
       setTimeout(() => {
-        router.push(`/equipment-lists?list=${data.id}`)
-      }, 1500)
+        router.push('/equipment-lists');
+      }, 1000);
     } catch (error) {
-      console.error("Error saving list:", error)
-      setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.")
+      console.error("Error saving list:", error);
+      setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.");
     } finally {
-      setIsAILoading(false)
+      setIsAILoading(false);
     }
-  }
+  };
 
   // Filter items based on search query, category, importance, and item type
   const filterItems = (items) => {
@@ -815,7 +789,7 @@ export default function EquipmentPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-          <strong className="font-bold">שגיאה: </strong>
+          <strong className="font-bold">שגיאה: </strong> 
           <span className="block sm:inline">{error}</span>
         </div>
         <button
@@ -1402,253 +1376,4 @@ export default function EquipmentPage() {
                                 )}
                                 {item.shelf_life && (
                                   <div className="block sm:hidden">
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.shelf_life_label}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.shelf_life}
-                                    </p>
-                                  </div>
-                                )}
-                                {item.personalized_note && (
-                                  <div>
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      הערה מותאמת אישית
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.personalized_note}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    )
-                  })
-                ) : (
-                  <div className="text-center py-8">
-                    <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-600 dark:text-gray-400">
-                      {t.noItemsFound || "לא נמצאו פריטים התואמים את החיפוש"}
-                    </p>
-                    <Button
-                      variant="link"
-                      onClick={() => {
-                        setSearchQuery("")
-                        setSelectedCategory("all")
-                        setSelectedImportance("all")
-                        setSelectedItemType("all")
-                      }}
-                      className="mt-2"
-                    >
-                      {t.showAllItemsButton || "הצג את כל הפריטים"}
-                    </Button>
-                  </div>
-                )}
-              </Accordion>
-
-              <div className="mt-6">
-                {error && <div className="text-red-500 mb-4">{error}</div>}
-                {isEditing ? (
-                  <div className="flex flex-wrap gap-2 w-full">
-                    <Button variant="destructive" className="flex-1 gap-2" onClick={() => setIsEditing(false)}>
-                      <X className="h-4 w-4" />
-                      {t.cancelEditing}
-                    </Button>
-                    <Button variant="outline" className="flex-1 gap-2" onClick={() => setIsAddItemDialogOpen(true)}>
-                      <PlusCircle className="h-4 w-4" />
-                      {t.addItem}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1 gap-2"
-                      onClick={handleUndo}
-                      disabled={itemHistory.length === 0}
-                    >
-                      <Undo className="h-4 w-4" />
-                      {t.undoAction}
-                    </Button>
-                    <Button
-                      className="flex-1 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#005c72] dark:hover:bg-[#005c72]/90 text-white gap-2"
-                      onClick={saveAIGeneratedList}
-                    >
-                      <Save className="h-4 w-4" />
-                      {t.saveChanges}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2 w-full">
-                    <Button variant="outline" className="flex-1 gap-2" onClick={() => setIsEditing(true)}>
-                      <Edit2 className="h-4 w-4" />
-                      {t.editList}
-                    </Button>
-                    <Button
-                      className="flex-1 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#005c72] dark:hover:bg-[#005c72]/90 text-white gap-2"
-                      onClick={saveAIGeneratedList}
-                    >
-                      <Save className="h-4 w-4" />
-                      {t.aiSaveList}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
-
-      <Dialog open={isAddItemDialogOpen} onOpenChange={setIsAddItemDialogOpen}>
-        <DialogContent
-          className={`max-w-md ${isRTL ? "rtl" : "ltr"} sm:max-w-lg md:max-w-xl max-h-[90vh] overflow-y-auto`}
-        >
-          <DialogHeader>
-            <DialogTitle>{t.addNewItem || "הוספת פריט חדש"}</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="itemName">{t.itemName || "שם הפריט"} *</Label>
-              <Input
-                id="itemName"
-                value={newItem.name}
-                onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                className="w-full"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="itemCategory">{t.itemCategory || "קטגוריה"}</Label>
-              <Select value={newItem.category} onValueChange={(value) => setNewItem({ ...newItem, category: value })}>
-                <SelectTrigger id="itemCategory" className="w-full">
-                  <SelectValue placeholder={t.itemCategory} />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.keys(t.aiCategories)
-                    .filter(
-                      (key) =>
-                        ![
-                          "default_unit",
-                          "recommended_quantity_per_person_label",
-                          "usage_instructions_label",
-                          "shelf_life_label",
-                          "essential",
-                          "very_important",
-                          "important",
-                          "recommended",
-                          "optional",
-                        ].includes(key),
-                    )
-                    .map((key) => (
-                      <SelectItem key={key} value={key}>
-                        {t.aiCategories[key]}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="itemQuantity">{t.itemQuantity || "כמות"}</Label>
-                <Input
-                  id="itemQuantity"
-                  type="number"
-                  min="1"
-                  value={newItem.quantity}
-                  onChange={(e) => setNewItem({ ...newItem, quantity: Number.parseInt(e.target.value) || 1 })}
-                  className="w-full"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="itemUnit">{t.itemUnit || "יחידת מידה"}</Label>
-                <Input
-                  id="itemUnit"
-                  value={newItem.unit}
-                  onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
-                  className="w-full"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="itemImportance">{t.itemImportance || "חשיבות"}</Label>
-              <Select
-                value={String(newItem.importance)}
-                onValueChange={(value) => setNewItem({ ...newItem, importance: Number.parseInt(value) })}
-              >
-                <SelectTrigger id="itemImportance" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">{t.aiCategories?.essential || "הכרחי"} (5)</SelectItem>
-                  <SelectItem value="4">{t.aiCategories?.very_important || "חשוב מאוד"} (4)</SelectItem>
-                  <SelectItem value="3">{t.aiCategories?.important || "חשוב"} (3)</SelectItem>
-                  <SelectItem value="2">{t.aiCategories?.recommended || "מומלץ"} (2)</SelectItem>
-                  <SelectItem value="1">{t.aiCategories?.optional || "אופציונלי"} (1)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-              <Checkbox
-                id="is_mandatory"
-                checked={newItem.is_mandatory}
-                onCheckedChange={(checked) => setNewItem({ ...newItem, is_mandatory: !!checked })}
-              />
-              <Label htmlFor="is_mandatory">{t.mandatoryItem || "פריט חובה"}</Label>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="itemDescription">{t.itemDescription || "תיאור"}</Label>
-              <Textarea
-                id="itemDescription"
-                value={newItem.description}
-                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                className="w-full min-h-[80px]"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="itemUsageInstructions">{t.itemUsageInstructions || "הוראות שימוש"}</Label>
-              <Textarea
-                id="itemUsageInstructions"
-                value={newItem.usage_instructions}
-                onChange={(e) => setNewItem({ ...newItem, usage_instructions: e.target.value })}
-                placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
-                className="w-full min-h-[100px]"
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex flex-col sm:flex-row sm:justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsAddItemDialogOpen(false)} className="w-full sm:w-auto">
-              {t.cancel || "ביטול"}
-            </Button>
-            <Button
-              className="w-full sm:w-auto bg-[#005c72] hover:bg-[#005c72]/90 text-white"
-              onClick={handleAddItem}
-              disabled={!newItem.name.trim()}
-            >
-              {t.add || "הוסף"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-        <AlertDialogContent className={isRTL ? "rtl" : "ltr"}>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t.removeItemConfirm}</AlertDialogTitle>
-            <AlertDialogDescription>{t.removeItemDescription}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className={isRTL ? "flex-row-reverse" : ""}>
-            <AlertDialogCancel>{t.cancelRemove}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRemoveItem} className="bg-red-500 hover:bg-red-600">
-              {t.confirmRemove}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  )
-}
+                                    <h4 className=\"text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300
