@@ -1,4 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
+import OpenAI from "openai"
+
+// Initialize OpenAI
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,178 +14,78 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    // חילוץ עובדות מהפרומפט באמצעות OpenAI
-    const extractedFacts = await extractFacts(prompt)
+    // Create a detailed prompt for OpenAI
+    const detailedPrompt = `
+חלץ מידע מהטקסט הבא:
 
-    // המרת העובדות למבנה נתונים מובנה
-    const structuredData = await convertFactsToStructuredData(extractedFacts, prompt)
+"${prompt}"
 
-    return NextResponse.json(structuredData)
-  } catch (error) {
-    console.error("Error extracting data:", error)
-    // במקרה של שגיאה, החזר ערכי ברירת מחדל עם סימון שכולם ערכי ברירת מחדל
-    return NextResponse.json({
-      adults: 2,
-      children: 0,
-      children_ages: [],
-      babies: 0,
-      elderly: 0,
-      pets: 0,
-      pet_types: [],
-      special_needs: "",
-      duration_hours: 72,
-      location: "",
-      using_defaults: ["adults", "children", "babies", "elderly", "pets", "duration_hours", "special_needs"],
-    })
-  }
-}
+אני צריך לחלץ את המידע הבא:
+1. מספר המבוגרים
+2. מספר הילדים
+3. גילאי הילדים (אם צוינו)
+4. מספר התינוקות
+5. מספר הקשישים
+6. מספר חיות המחמד
+7. סוגי חיות המחמד (אם צוינו)
+8. צרכים מיוחדים (כגון מוגבלויות, אלרגיות, מחלות כרוניות)
+9. משך הזמן בשעות שעבורו נדרשת ההיערכות
+10. מיקום המגורים (אם צוין)
+11. פרטים נוספים על תנאי המגורים (קומה, גודל דירה, מחסן וכו')
 
-// פונקציה לחילוץ עובדות מהפרומפט באמצעות OpenAI
-async function extractFacts(prompt: string) {
-  try {
-    const openaiApiKey = process.env.OPENAI_API_KEY
-
-    if (!openaiApiKey) {
-      throw new Error("OpenAI API key is missing")
-    }
-
-    const factExtractionPrompt = `
-חלץ את העובדות והפרטים האישיים החשובים מהטקסט הבא, כדי לעזור בבניית רשימת ציוד חירום מותאמת אישית.
-
-התמקד בפרטים הבאים והחזר אותם בנקודות או במשפטים קצרים בלבד:
-- מספר מבוגרים (גיל 18-65)
-- מספר ילדים (גיל 2-12) וגילאיהם
-- מספר תינוקות (מתחת לגיל 2)
-- מספר קשישים (מעל גיל 65)
-- חיות מחמד (סוג וכמות)
-- מצבים רפואיים או צרכים מיוחדים (אלרגיות, אסטמה, מוגבלויות וכו')
-- משך זמן בשעות שהציוד צריך להספיק
-- מיקום מגורים (דירה, בית פרטי, קומה וכו')
-
-אל תסיק או תייצר מידע חדש שלא מופיע בטקסט המקורי.
-
-טקסט המשתמש: ${prompt}
-`
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "אתה מחלץ עובדות חשובות מתוך תיאורים אישיים עבור היערכות לחירום.",
-          },
-          {
-            role: "user",
-            content: factExtractionPrompt,
-          },
-        ],
-        temperature: 0,
-        max_tokens: 500,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    const facts = data.choices[0].message.content.trim()
-
-    console.log("Extracted facts:", facts)
-    return facts
-  } catch (error) {
-    console.error("Error extracting facts:", error)
-    throw error
-  }
-}
-
-// פונקציה להמרת העובדות למבנה נתונים מובנה
-async function convertFactsToStructuredData(facts: string, originalPrompt: string) {
-  try {
-    const openaiApiKey = process.env.OPENAI_API_KEY
-
-    if (!openaiApiKey) {
-      throw new Error("OpenAI API key is missing")
-    }
-
-    const structuringPrompt = `
-המר את העובדות הבאות למבנה JSON מובנה לפי הפורמט המוגדר.
-
-העובדות שחולצו:
-${facts}
-
-הטקסט המקורי:
-${originalPrompt}
-
-החזר JSON בפורמט הבא בדיוק, ללא הסברים נוספים:
+החזר את התשובה בפורמט JSON הבא:
 {
-  "adults": מספר המבוגרים (ברירת מחדל 2 אם לא צוין),
-  "children": מספר הילדים (ברירת מחדל 0 אם לא צוין),
+  "adults": מספר המבוגרים (ברירת מחדל: 2 אם לא צוין),
+  "children": מספר הילדים (ברירת מחדל: 0 אם לא צוין),
   "children_ages": [גילאי הילדים] (מערך ריק אם לא צוין),
-  "babies": מספר התינוקות (ברירת מחדל 0 אם לא צוין),
-  "elderly": מספר הקשישים (ברירת מחדל 0 אם לא צוין),
-  "pets": מספר חיות המחמד (ברירת מחדל 0 אם לא צוין),
+  "babies": מספר התינוקות (ברירת מחדל: 0 אם לא צוין),
+  "elderly": מספר הקשישים (ברירת מחדל: 0 אם לא צוין),
+  "pets": מספר חיות המחמד (ברירת מחדל: 0 אם לא צוין),
   "pet_types": ["סוגי חיות המחמד"] (מערך ריק אם לא צוין),
-  "special_needs": "תיאור הצרכים המיוחדים" (ריק אם לא צוין),
-  "duration_hours": משך הזמן בשעות (ברירת מחדל 72 אם לא צוין),
-  "location": "תיאור המיקום" (ריק אם לא צוין),
-  "using_defaults": ["רשימת השדות שמשתמשים בערכי ברירת מחדל"]
+  "special_needs": "תיאור הצרכים המיוחדים" (ברירת מחדל: "לא צוין" אם לא צוין),
+  "duration_hours": משך הזמן בשעות (ברירת מחדל: 72 אם לא צוין),
+  "location": "מיקום המגורים" (ברירת מחדל: "לא צוין" אם לא צוין),
+  "housing_details": "פרטים על תנאי המגורים" (ברירת מחדל: "לא צוין" אם לא צוין),
+  "using_defaults": ["רשימת השדות שבהם נעשה שימוש בערכי ברירת מחדל"]
 }
 
-חשוב: בשדה "using_defaults", כלול את שמות כל השדות שבהם השתמשת בערך ברירת מחדל כי המידע לא הופיע בטקסט המקורי.
+חשוב: אם אתה משתמש בערך ברירת מחדל עבור שדה כלשהו, הוסף את שם השדה למערך "using_defaults".
+אם יש צרכים מיוחדים מרובים, הפרד אותם עם פסיקים ורווחים, לדוגמה: "אלרגיה לבוטנים, אסטמה".
 `
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: "אתה מומחה בהמרת מידע טקסטואלי למבנה JSON מובנה.",
-          },
-          {
-            role: "user",
-            content: structuringPrompt,
-          },
-        ],
-        temperature: 0,
-        max_tokens: 1000,
-      }),
+    // Call OpenAI API
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: "אתה מומחה בחילוץ מידע מטקסט. אתה מחזיר תמיד תשובות בפורמט JSON בלבד.",
+        },
+        {
+          role: "user",
+          content: detailedPrompt,
+        },
+      ],
+      temperature: 0.3,
+      max_tokens: 1000,
     })
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    const jsonString = data.choices[0].message.content.trim()
-
-    // ניקוי ה-JSON במקרה שיש טקסט נוסף לפני או אחרי
-    const jsonMatch = jsonString.match(/\{[\s\S]*\}/)
-    const cleanJsonString = jsonMatch ? jsonMatch[0] : jsonString
-
-    console.log("Structured data JSON:", cleanJsonString)
+    const content = response.choices[0].message.content
 
     try {
-      const structuredData = JSON.parse(cleanJsonString)
-      return structuredData
-    } catch (parseError) {
-      console.error("Error parsing JSON:", parseError, "Raw JSON string:", cleanJsonString)
-      throw new Error("Failed to parse structured data JSON")
+      // Extract JSON from the response
+      const jsonMatch = content.match(/\{[\s\S]*\}/)
+      const jsonString = jsonMatch ? jsonMatch[0] : content
+      const extractedData = JSON.parse(jsonString)
+
+      return NextResponse.json(extractedData)
+    } catch (error) {
+      console.error("Error parsing OpenAI response:", error)
+      console.log("Raw response:", content)
+      return NextResponse.json({ error: "Failed to parse extracted data" }, { status: 500 })
     }
   } catch (error) {
-    console.error("Error converting facts to structured data:", error)
-    throw error
+    console.error("Error extracting data:", error)
+    return NextResponse.json({ error: "Failed to extract data from prompt" }, { status: 500 })
   }
 }
