@@ -1242,6 +1242,8 @@ export default function EquipmentPage() {
       id: Math.random().toString(36).substr(2, 9),
       obtained: false,
       shelf_life: newItem.shelf_life || "",
+      expiryDate: newItem.expiryDate, // וודא שתאריך התפוגה נשמר
+      sendExpiryReminder: newItem.sendExpiryReminder || false,
       sms_notification: newItem.sms_notification || false,
     }
 
@@ -1310,12 +1312,14 @@ export default function EquipmentPage() {
   }
 
   const handleItemChange = (itemId, field, value) => {
+    console.log(`Updating item ${itemId}, field ${field} to value:`, value) // הוספת לוג לדיבוג
     const updatedItems = aiGeneratedItems.map((item) => (item.id === itemId ? { ...item, [field]: value } : item))
     setAIGeneratedItems(updatedItems)
   }
 
   const handleExpiryDateChange = (itemId, date) => {
     const formattedDate = date ? format(date, "yyyy-MM-dd") : null
+    console.log(`Setting expiry date for item ${itemId} to:`, formattedDate) // הוספת לוג לדיבוג
     handleItemChange(itemId, "expiryDate", formattedDate)
   }
 
@@ -1829,7 +1833,68 @@ export default function EquipmentPage() {
                                     {item.shelf_life || "לא צוין"}
                                   </p>
                                 </div>
-                                {renderExpiryControls(item)}
+                                <div>
+                                  <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                    {t.expiryDate || "תאריך תפוגה"}
+                                  </h4>
+                                  {isEditing ? (
+                                    <div className="flex flex-col gap-2">
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            className={`w-full justify-start text-left font-normal ${!item.expiryDate && "text-muted-foreground"}`}
+                                          >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {item.expiryDate ? (
+                                              format(parseISO(item.expiryDate), "PPP", { locale: currentLocale })
+                                            ) : (
+                                              <span>{t.setExpiryDate || "הגדר תאריך תפוגה"}</span>
+                                            )}
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                          <Calendar
+                                            mode="single"
+                                            selected={item.expiryDate ? parseISO(item.expiryDate) : undefined}
+                                            onSelect={(date) => handleExpiryDateChange(item.id, date)}
+                                            initialFocus
+                                            captionLayout="dropdown-buttons"
+                                            fromYear={new Date().getFullYear()}
+                                            toYear={new Date().getFullYear() + 20}
+                                            locale={currentLocale}
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                      <div className="flex items-center space-x-2 rtl:space-x-reverse">
+                                        <Checkbox
+                                          id={`reminder-${item.id}`}
+                                          checked={!!item.sendExpiryReminder}
+                                          onCheckedChange={() => toggleExpiryReminder(item.id)}
+                                        />
+                                        <Label
+                                          htmlFor={`reminder-${item.id}`}
+                                          className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+                                        >
+                                          {t.sendReminder || "שלח לי תזכורת"}
+                                        </Label>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.expiryDate
+                                        ? format(parseISO(item.expiryDate), "PPP", { locale: currentLocale })
+                                        : item.aiSuggestedExpiryDate
+                                          ? format(parseISO(item.aiSuggestedExpiryDate), "PPP", {
+                                              locale: currentLocale,
+                                            })
+                                          : t.noExpiryDate || "אין תאריך תפוגה"}
+                                      {item.sendExpiryReminder && (
+                                        <Bell className="h-3 w-3 text-purple-600 inline-block ml-1 rtl:mr-1" />
+                                      )}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
