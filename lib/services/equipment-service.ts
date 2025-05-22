@@ -7,48 +7,144 @@ const supabaseAnonKey =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxmbXh0YWVmZ3ZqYnVpcGNkY3lhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyOTg5NDksImV4cCI6MjA1OTg3NDk0OX0.Rl-QQhQxQXTzgJLQYQKRGJDEQQDcnrJCBj0aCxRKAXs"
 
 // Create a singleton Supabase client
+let supabaseInstance = null
 const createSupabaseClient = () => {
-  return createClient(supabaseUrl, supabaseAnonKey)
+  if (supabaseInstance) return supabaseInstance
+  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  })
+  return supabaseInstance
+}
+
+async function getCurrentUser() {
+  try {
+    const supabase = createSupabaseClient()
+
+    // נסה לקבל את המשתמש מהסשן
+    const {
+      data: { user },
+      error: sessionError,
+    } = await supabase.auth.getUser()
+
+    if (user) return user
+
+    if (sessionError) {
+      console.warn("Session error:", sessionError.message)
+
+      // נסה לרענן את הסשן
+      const {
+        data: { session },
+        error: refreshError,
+      } = await supabase.auth.refreshSession()
+
+      if (refreshError) {
+        console.error("Error refreshing session:", refreshError.message)
+        return null
+      }
+
+      if (session) {
+        return session.user
+      }
+    }
+
+    // אם אין משתמש בסשן, בדוק אם יש משתמש מחובר בדרך אחרת
+    const {
+      data: { session },
+      error: getSessionError,
+    } = await supabase.auth.getSession()
+
+    if (getSessionError) {
+      console.error("Error getting session:", getSessionError.message)
+      return null
+    }
+
+    return session?.user || null
+  } catch (error) {
+    console.error("Error getting current user:", error)
+    return null
+  }
 }
 
 export const EquipmentService = {
   async getCurrentUser() {
-    try {
-      const supabase = createSupabaseClient()
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
-
-      if (error) {
-        console.warn("Auth error getting current user:", error.message)
-        return null
-      }
-      return user
-    } catch (error) {
-      console.warn("Error getting current user:", error)
-      return null
-    }
+    return getCurrentUser()
   },
 
   async getEquipmentLists() {
     try {
       const supabase = createSupabaseClient()
-      const user = await this.getCurrentUser()
+      const user = await getCurrentUser()
 
-      // אם אין משתמש מחובר, נשתמש במשתמש אנונימי
-      const userId = user ? user.id : "anonymous_user"
+      if (!user) {
+        console.warn("No authenticated user found")
 
-      // Get all lists for the user
+        // נסה לקבל את המשתמש מהסשן הנוכחי
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (!session || !session.user) {
+          console.error("No session found, cannot fetch equipment lists")
+          return []
+        }
+
+        // השתמש במשתמש מהסשן
+        const userId = session.user.id
+
+        // המשך עם ה-userId
+        const { data, error } = await supabase
+          .from("equipment_list")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+
+        if (error) throw error
+
+        // המשך כרגיל...
+        if (data && data.length > 0) {
+          const listsWithItemCounts = await Promise.all(
+            data.map(async (list) => {
+              const { count, error: countError } = await supabase
+                .from("equipment_items")
+                .select("*", { count: "exact", head: true })
+                .eq("list_id", list.id)
+
+              if (countError) {
+                console.error(`Error getting item count for list ${list.id}:`, countError)
+                return { ...list, itemCount: 0 }
+              }
+
+              return {
+                id: list.id,
+                title: list.title,
+                description: list.description,
+                created_at: list.created_at,
+                updated_at: list.updated_at,
+                itemCount: count || 0,
+              }
+            }),
+          )
+
+          return listsWithItemCounts
+        }
+
+        return data || []
+      }
+
+      // המשך עם הקוד הקיים אם יש משתמש
       const { data, error } = await supabase
         .from("equipment_list")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
 
       if (error) throw error
 
-      // For each list, get the count of items
+      // המשך כרגיל...
       if (data && data.length > 0) {
         const listsWithItemCounts = await Promise.all(
           data.map(async (list) => {
@@ -88,15 +184,17 @@ export const EquipmentService = {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
-      // אם אין משתמש מחובר, נשתמש במשתמש אנונימי
-      const userId = user ? user.id : "anonymous_user"
+      if (!user) {
+        console.warn("No authenticated user found")
+        return null
+      }
 
       // Get the list
       const { data: list, error: listError } = await supabase
         .from("equipment_list")
         .select("*")
         .eq("id", id)
-        .eq("user_id", userId)
+        .eq("user_id", user.id)
         .single()
 
       if (listError) throw listError
@@ -147,10 +245,28 @@ export const EquipmentService = {
   async createList(listData) {
     try {
       const supabase = createSupabaseClient()
-      const user = await this.getCurrentUser()
+      const user = await getCurrentUser()
+      let userId
 
-      // אם אין משתמש מחובר, נשתמש במשתמש אנונימי
-      const userId = user ? user.id : "anonymous_user"
+      if (!user) {
+        console.warn("No authenticated user found from getCurrentUser")
+
+        // נסה לקבל את המשתמש מהסשן הנוכחי
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (!session || !session.user) {
+          console.error("No session found, cannot create list")
+          throw new Error("User not authenticated")
+        }
+
+        // השתמש במשתמש מהסשן
+        userId = session.user.id
+        console.log("Using user ID from session:", userId)
+      } else {
+        userId = user.id
+      }
 
       // Create the list
       const { data: list, error: listError } = await supabase
@@ -165,7 +281,7 @@ export const EquipmentService = {
 
       if (listError) throw listError
 
-      // Create the items
+      // המשך כרגיל...
       if (listData.items && listData.items.length > 0) {
         const itemsToInsert = listData.items.map((item) => ({
           list_id: list.id,
@@ -203,8 +319,10 @@ export const EquipmentService = {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
-      // אם אין משתמש מחובר, נשתמש במשתמש אנונימי
-      const userId = user ? user.id : "anonymous_user"
+      if (!user) {
+        console.warn("No authenticated user found")
+        throw new Error("User not authenticated")
+      }
 
       // Update the list
       const { error: listError } = await supabase
@@ -215,7 +333,7 @@ export const EquipmentService = {
           updated_at: new Date().toISOString(),
         })
         .eq("id", id)
-        .eq("user_id", userId)
+        .eq("user_id", user.id)
 
       if (listError) throw listError
 
@@ -262,11 +380,13 @@ export const EquipmentService = {
       const supabase = createSupabaseClient()
       const user = await this.getCurrentUser()
 
-      // אם אין משתמש מחובר, נשתמש במשתמש אנונימי
-      const userId = user ? user.id : "anonymous_user"
+      if (!user) {
+        console.warn("No authenticated user found")
+        throw new Error("User not authenticated")
+      }
 
       // Delete the list (items will be deleted automatically due to CASCADE constraint)
-      const { error } = await supabase.from("equipment_list").delete().eq("id", id).eq("user_id", userId)
+      const { error } = await supabase.from("equipment_list").delete().eq("id", id).eq("user_id", user.id)
 
       if (error) throw error
 
