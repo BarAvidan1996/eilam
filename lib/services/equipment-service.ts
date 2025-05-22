@@ -67,7 +67,7 @@ export const EquipmentService = {
 
       // Get all lists for the user
       const { data, error } = await supabase
-        .from("equipment_list")
+        .from("equipment_lists")
         .select("*")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
@@ -138,7 +138,7 @@ export const EquipmentService = {
 
       // Get the list
       const { data: list, error: listError } = await supabase
-        .from("equipment_list")
+        .from("equipment_lists")
         .select("*")
         .eq("id", id)
         .eq("user_id", userId)
@@ -169,7 +169,7 @@ export const EquipmentService = {
         quantity: Number(item.quantity) || 1,
         unit: item.unit || "יחידות",
         obtained: item.obtained || false,
-        importance: 3, // ערך ברירת מחדל כי העמודה לא קיימת
+        importance: item.importance_level || 3,
         description: item.description || "",
         shelf_life: item.shelf_life || "",
         usage_instructions: item.usage_instructions || "",
@@ -227,7 +227,7 @@ export const EquipmentService = {
 
       // Create the list with explicit ID
       const { data: list, error: listError } = await supabase
-        .from("equipment_list")
+        .from("equipment_lists")
         .insert({
           id: listId,
           user_id: userId,
@@ -257,7 +257,7 @@ export const EquipmentService = {
           quantity: Number(item.quantity) || 1,
           unit: item.unit || "יחידות",
           description: item.description || "",
-          // הסרנו את העמודה importance כי היא לא קיימת בטבלה
+          importance_level: item.importance || 3,
           obtained: item.obtained || false,
           expiration_date: item.expiryDate || null,
           wants_expiry_reminder: item.sendExpiryReminder || false,
@@ -312,7 +312,7 @@ export const EquipmentService = {
 
       // Update the list
       const { error: listError } = await supabase
-        .from("equipment_list")
+        .from("equipment_lists")
         .update({
           title: listData.name,
           description: listData.description || "",
@@ -344,7 +344,7 @@ export const EquipmentService = {
           quantity: Number(item.quantity) || 1,
           unit: item.unit || "יחידות",
           description: item.description || "",
-          // הסרנו את העמודה importance כי היא לא קיימת בטבלה
+          importance_level: item.importance || 3,
           obtained: item.obtained || false,
           expiration_date: item.expiryDate || null,
           wants_expiry_reminder: item.sendExpiryReminder || false,
@@ -393,7 +393,7 @@ export const EquipmentService = {
       const userId = session.user.id
 
       // Delete the list (items will be deleted automatically due to CASCADE constraint)
-      const { error } = await supabase.from("equipment_list").delete().eq("id", id).eq("user_id", userId)
+      const { error } = await supabase.from("equipment_lists").delete().eq("id", id).eq("user_id", userId)
 
       if (error) {
         console.error("❌ Error deleting list:", error.message || error.details || error)
