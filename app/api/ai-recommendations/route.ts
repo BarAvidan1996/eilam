@@ -18,10 +18,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Prepare the prompt for OpenAI with recommended items list
+    // שלב חדש: חילוץ מידע מובנה מהפרומפט
+    const extractResponse = await fetch(`${request.nextUrl.origin}/api/extract-data`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    })
+
+    if (!extractResponse.ok) {
+      console.error("Error extracting data:", await extractResponse.text())
+      return NextResponse.json({ error: "Error extracting data from prompt" }, { status: 500 })
+    }
+
+    const structuredData = await extractResponse.json()
+    console.log("Extracted structured data:", structuredData)
+
+    // Prepare the prompt for OpenAI with recommended items list and structured data
     const systemPrompt = `
       אתה מומחה לציוד חירום ובטיחות. 
       תפקידך הוא לנתח את המידע על משק הבית ולהמליץ על רשימת ציוד חירום מותאמת אישית.
+      
+      המידע שחולץ מהפרומפט של המשתמש:
+      ${JSON.stringify(structuredData, null, 2)}
+      
       התייחס למספר האנשים, גילאים, צרכים מיוחדים, חיות מחמד וכל מידע רלוונטי אחר.
       
       חשוב מאוד: עליך להחזיר לפחות 15 פריטים בסך הכל, כאשר לפחות 8 מהם הם פריטים חיוניים (importance=5).
@@ -55,7 +76,8 @@ export async function POST(request: NextRequest) {
           "elderly": מספר הקשישים,
           "pets": מספר חיות המחמד,
           "special_needs": תיאור צרכים מיוחדים,
-          "duration_hours": משך זמן בשעות שהציוד אמור להספיק 
+          "duration_hours": משך זמן בשעות שהציוד אמור להספיק,
+          "using_defaults": ${JSON.stringify(structuredData.using_defaults || [])}
         },
         "items": [
           {
@@ -92,7 +114,7 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${openaiApiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4",
+        model: "gpt-4o",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: prompt },
@@ -260,6 +282,11 @@ export async function POST(request: NextRequest) {
           // Add only the missing number of items
           const missingCount = 8 - parsedResponse.items.length
           parsedResponse.items = [...parsedResponse.items, ...fallbackItems.slice(0, missingCount)]
+        }
+
+        // העברת מידע על ערכי ברירת מחדל
+        if (structuredData.using_defaults) {
+          parsedResponse.profile.using_defaults = structuredData.using_defaults
         }
 
         return NextResponse.json(parsedResponse)
