@@ -15,28 +15,6 @@ const getSupabaseClient = () => {
   return supabaseInstance
 }
 
-// בדוק את מבנה הטבלה
-async function checkTableStructure() {
-  try {
-    const supabase = getSupabaseClient()
-    if (!supabase) return null
-
-    // בדוק את מבנה הטבלה equipment_items
-    const { data, error } = await supabase.rpc("get_table_definition", { table_name: "equipment_items" })
-
-    if (error) {
-      console.error("❌ Error checking table structure:", error.message || error.details || error)
-      return null
-    }
-
-    console.log("📊 Table structure:", data)
-    return data
-  } catch (error) {
-    console.error("❌ Error checking table structure:", error.message || error.details || error)
-    return null
-  }
-}
-
 export const EquipmentService = {
   async getCurrentUser() {
     try {
@@ -191,7 +169,7 @@ export const EquipmentService = {
         quantity: Number(item.quantity) || 1,
         unit: item.unit || "יחידות",
         obtained: item.obtained || false,
-        importance: item.importance_level || 3, // שינוי שם העמודה
+        importance: 3, // ערך ברירת מחדל כי העמודה לא קיימת
         description: item.description || "",
         shelf_life: item.shelf_life || "",
         usage_instructions: item.usage_instructions || "",
@@ -224,9 +202,6 @@ export const EquipmentService = {
         console.error("❌ Supabase client not available")
         throw new Error("Supabase client not available")
       }
-
-      // בדוק את מבנה הטבלה
-      await checkTableStructure()
 
       // קבל את הסשן הנוכחי
       const {
@@ -282,7 +257,7 @@ export const EquipmentService = {
           quantity: Number(item.quantity) || 1,
           unit: item.unit || "יחידות",
           description: item.description || "",
-          importance_level: item.importance || 3, // שינוי שם העמודה
+          // הסרנו את העמודה importance כי היא לא קיימת בטבלה
           obtained: item.obtained || false,
           expiration_date: item.expiryDate || null,
           wants_expiry_reminder: item.sendExpiryReminder || false,
@@ -369,7 +344,7 @@ export const EquipmentService = {
           quantity: Number(item.quantity) || 1,
           unit: item.unit || "יחידות",
           description: item.description || "",
-          importance_level: item.importance || 3, // שינוי שם העמודה
+          // הסרנו את העמודה importance כי היא לא קיימת בטבלה
           obtained: item.obtained || false,
           expiration_date: item.expiryDate || null,
           wants_expiry_reminder: item.sendExpiryReminder || false,
