@@ -1241,6 +1241,7 @@ export default function EquipmentPage() {
       ...newItem,
       id: Math.random().toString(36).substr(2, 9),
       obtained: false,
+      shelf_life: newItem.shelf_life || "",
       sms_notification: newItem.sms_notification || false,
     }
 
