@@ -338,12 +338,12 @@ const LoadingIndicator = ({ state, t }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between mb-1">
-        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{getStepText()}</span>
-        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{state.progress}%</span>
+        <span className="text-sm font-medium text-[#005c72] dark:text-[#4db6c9]">{getStepText()}</span>
+        <span className="text-sm font-medium text-[#005c72] dark:text-[#4db6c9]">{state.progress}%</span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
         <div
-          className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full transition-all duration-300 ease-in-out"
+          className="bg-[#005c72] dark:bg-[#4db6c9] h-2.5 rounded-full transition-all duration-300 ease-in-out"
           style={{ width: `${state.progress}%` }}
         ></div>
       </div>
@@ -851,7 +851,7 @@ export default function EquipmentPage() {
             <Button
               onClick={handleSaveListAndGenerateItems}
               disabled={!aiUserPrompt.trim() || isAILoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2"
+              className="w-full bg-[#005c72] hover:bg-[#004a5d] text-white flex items-center justify-center gap-2"
             >
               {isAILoading ? (
                 <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
@@ -1341,7 +1341,10 @@ export default function EquipmentPage() {
                       <Undo className="h-4 w-4" />
                       {t.undoAction}
                     </Button>
-                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2" onClick={saveAIGeneratedList}>
+                    <Button
+                      className="flex-1 bg-[#005c72] hover:bg-[#004a5d] text-white gap-2"
+                      onClick={saveAIGeneratedList}
+                    >
                       <Save className="h-4 w-4" />
                       {t.saveChanges}
                     </Button>
@@ -1352,7 +1355,10 @@ export default function EquipmentPage() {
                       <Edit2 className="h-4 w-4" />
                       {t.editList}
                     </Button>
-                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700 gap-2" onClick={saveAIGeneratedList}>
+                    <Button
+                      className="flex-1 bg-[#005c72] hover:bg-[#004a5d] text-white gap-2"
+                      onClick={saveAIGeneratedList}
+                    >
                       <Save className="h-4 w-4" />
                       {t.aiSaveList}
                     </Button>
@@ -1481,7 +1487,7 @@ export default function EquipmentPage() {
               {t.cancel || "ביטול"}
             </Button>
             <Button
-              className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+              className="w-full sm:w-auto bg-[#005c72] hover:bg-[#004a5d]"
               onClick={handleAddItem}
               disabled={!newItem.name.trim()}
             >
