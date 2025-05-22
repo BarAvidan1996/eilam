@@ -31,6 +31,7 @@ import {
   RotateCcw,
   Undo,
   Info,
+  Sparkles,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -197,6 +198,14 @@ const baseTranslations = {
     tryAgain: "נסה שוב",
     itemNameCannotBeEmpty: "שם הפריט אינו יכול להיות ריק.",
     mandatoryItem: "פריט חובה",
+    mandatoryItemTooltip: "ציוד מומלץ על-פי פיקוד העורף",
+    personalizedItem: "פריט מותאם אישית",
+    personalizedItemTooltip: "פריט שהותאם במיוחד לצרכים שלך",
+    showMandatoryOnly: "הצג רק פריטי חובה",
+    showPersonalizedOnly: "הצג רק פריטים מותאמים אישית",
+    showAllItems: "הצג את כל הפריטים",
+    mandatoryItemsCount: "פריטי חובה",
+    personalizedItemsCount: "פריטים מותאמים אישית",
   },
   en: {
     pageTitle: "Emergency Equipment Management",
@@ -366,6 +375,7 @@ export default function EquipmentPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedImportance, setSelectedImportance] = useState("all")
+  const [selectedItemType, setSelectedItemType] = useState("all") // "all", "mandatory", "personalized"
   const [filteredItems, setFilteredItems] = useState([])
   const [isEditing, setIsEditing] = useState(false)
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false)
@@ -394,6 +404,7 @@ export default function EquipmentPage() {
     sendExpiryReminder: false,
     usage_instructions: "",
     recommended_quantity_per_person: "",
+    is_mandatory: false,
   })
   const [itemHistory, setItemHistory] = useState([])
   const [itemToRemove, setItemToRemove] = useState(null)
@@ -643,7 +654,7 @@ export default function EquipmentPage() {
     }
   }
 
-  // Filter items based on search query, category, and importance
+  // Filter items based on search query, category, importance, and item type
   const filterItems = (items) => {
     if (!items) return []
 
@@ -659,8 +670,12 @@ export default function EquipmentPage() {
         (selectedImportance === "important" && item.importance >= 3 && item.importance < 4) ||
         (selectedImportance === "recommended" && item.importance >= 2 && item.importance < 3) ||
         (selectedImportance === "optional" && item.importance < 2)
+      const matchesItemType =
+        selectedItemType === "all" ||
+        (selectedItemType === "mandatory" && item.is_mandatory) ||
+        (selectedItemType === "personalized" && !item.is_mandatory)
 
-      return matchesSearch && matchesCategory && matchesImportance
+      return matchesSearch && matchesCategory && matchesImportance && matchesItemType
     })
   }
 
@@ -692,6 +707,7 @@ export default function EquipmentPage() {
       sendExpiryReminder: false,
       usage_instructions: "",
       recommended_quantity_per_person: "",
+      is_mandatory: false,
     })
   }
 
@@ -775,10 +791,14 @@ export default function EquipmentPage() {
     fetchData()
   }, [])
 
-  // Update filtered items when search query, category, or importance changes
+  // Update filtered items when search query, category, importance, or item type changes
   useEffect(() => {
     setFilteredItems(filterItems(aiGeneratedItems))
-  }, [searchQuery, selectedCategory, selectedImportance, aiGeneratedItems])
+  }, [searchQuery, selectedCategory, selectedImportance, selectedItemType, aiGeneratedItems])
+
+  // Count mandatory and personalized items
+  const mandatoryItemsCount = aiGeneratedItems.filter((item) => item.is_mandatory).length
+  const personalizedItemsCount = aiGeneratedItems.filter((item) => !item.is_mandatory).length
 
   // Render loading state
   if (isLoading) {
@@ -916,6 +936,46 @@ export default function EquipmentPage() {
                   <p className="text-2xl font-bold text-purple-900 dark:text-purple-200">
                     {new Set(aiGeneratedItems.map((item) => item.category)).size}
                   </p>
+                </Card>
+              </div>
+
+              {/* New summary for mandatory and personalized items */}
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <Card className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <h3 className="font-semibold text-sm text-blue-700 dark:text-blue-300 mb-1">
+                    {t.mandatoryItemsCount || "פריטי חובה"}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">{mandatoryItemsCount}</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <ShieldCheck className="h-5 w-5 text-blue-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">{t.mandatoryItemTooltip || "ציוד מומלץ על-פי פיקוד העורף"}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </Card>
+                <Card className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+                  <h3 className="font-semibold text-sm text-purple-700 dark:text-purple-300 mb-1">
+                    {t.personalizedItemsCount || "פריטים מותאמים אישית"}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-purple-900 dark:text-purple-200">{personalizedItemsCount}</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Sparkles className="h-5 w-5 text-purple-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">{t.personalizedItemTooltip || "פריט שהותאם במיוחד לצרכים שלך"}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </Card>
               </div>
             </CardContent>
@@ -1149,12 +1209,27 @@ export default function EquipmentPage() {
                     </SelectContent>
                   </Select>
 
+                  {/* New filter for item type */}
+                  <Select value={selectedItemType} onValueChange={setSelectedItemType}>
+                    <SelectTrigger className="w-full sm:w-40">
+                      <SelectValue placeholder="סוג פריט" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t.showAllItems || "הצג את כל הפריטים"}</SelectItem>
+                      <SelectItem value="mandatory">{t.showMandatoryOnly || "הצג רק פריטי חובה"}</SelectItem>
+                      <SelectItem value="personalized">
+                        {t.showPersonalizedOnly || "הצג רק פריטים מותאמים אישית"}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
                   <Button
                     variant="outline"
                     onClick={() => {
                       setSearchQuery("")
                       setSelectedCategory("all")
                       setSelectedImportance("all")
+                      setSelectedItemType("all")
                     }}
                     className="flex items-center gap-1"
                   >
@@ -1182,7 +1257,7 @@ export default function EquipmentPage() {
                           openAccordionItem === item.id
                             ? "bg-white dark:bg-gray-800 shadow-lg"
                             : "bg-gray-50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-800"
-                        }`}
+                        } ${!item.is_mandatory ? "border-l-4 border-l-purple-400" : ""}`}
                       >
                         <AccordionTrigger
                           className={`p-3 sm:p-4 hover:no-underline group w-full ${isRTL ? "text-right" : "text-left"}`}
@@ -1230,6 +1305,8 @@ export default function EquipmentPage() {
                               className={`flex flex-col xs:flex-row items-end xs:items-center gap-1 xs:gap-2 shrink-0 ${isRTL ? "order-3 sm:order-3 mr-auto" : "order-3 sm:order-3 ml-auto"}`}
                             >
                               {getImportanceBadge(item.importance, true)}
+
+                              {/* Mandatory item badge with tooltip */}
                               {item.is_mandatory && (
                                 <TooltipProvider>
                                   <Tooltip>
@@ -1243,7 +1320,27 @@ export default function EquipmentPage() {
                                       </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p className="text-xs">ציוד מומלץ על-פי פיקוד העורף</p>
+                                      <p className="text-xs">{t.mandatoryItemTooltip}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+
+                              {/* Personalized item badge with tooltip */}
+                              {!item.is_mandatory && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs ml-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200 dark:border-purple-800"
+                                      >
+                                        <Sparkles className="h-3 w-3 mr-1" />
+                                        {t.personalizedItem}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">{t.personalizedItemTooltip}</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -1339,6 +1436,7 @@ export default function EquipmentPage() {
                         setSearchQuery("")
                         setSelectedCategory("all")
                         setSelectedImportance("all")
+                        setSelectedItemType("all")
                       }}
                       className="mt-2"
                     >
@@ -1487,6 +1585,15 @@ export default function EquipmentPage() {
                   <SelectItem value="1">{t.aiCategories?.optional || "אופציונלי"} (1)</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex items-center space-x-2 rtl:space-x-reverse">
+              <Checkbox
+                id="is_mandatory"
+                checked={newItem.is_mandatory}
+                onCheckedChange={(checked) => setNewItem({ ...newItem, is_mandatory: !!checked })}
+              />
+              <Label htmlFor="is_mandatory">{t.mandatoryItem || "פריט חובה"}</Label>
             </div>
 
             <div className="grid gap-2">
