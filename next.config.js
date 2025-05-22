@@ -1,15 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  // Disable static generation completely to avoid issues with ThemeProvider
   experimental: {
-    // Enable App Router
     appDir: true,
-    // Remove @tremor/react from serverComponentsExternalPackages
-    // since it's already in transpilePackages
   },
-  // Disable static generation for specific paths
-  unstable_excludeFiles: ["**/not-found.tsx", "**/error.tsx", "**/global-error.tsx", "**/agent/**"],
-  // Add transpilePackages for @tremor/react
   transpilePackages: ["@tremor/react"],
   eslint: {
     ignoreDuringBuilds: true,
@@ -20,6 +15,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Disable static generation completely
+  staticPageGenerationTimeout: 1000,
+  // Disable static generation for all pages
+  exportPathMap: null,
 }
 
 module.exports = nextConfig
