@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -677,7 +677,8 @@ export default function EquipmentPage() {
     sendExpiryReminder: false,
     usage_instructions: "",
     recommended_quantity_per_person: "",
-    sms_notification: false, // הוספת שדה חדש להתראת SMS
+    shelf_life: "", // הוספת שדה אורך חיים
+    sms_notification: false,
   })
   const [itemHistory, setItemHistory] = useState([])
   const [itemToRemove, setItemToRemove] = useState(null)
@@ -1227,6 +1228,7 @@ export default function EquipmentPage() {
       sendExpiryReminder: false,
       usage_instructions: "",
       recommended_quantity_per_person: "",
+      shelf_life: "", // אפס את שדה אורך חיים
       sms_notification: false,
     })
     setIsAddItemDialogOpen(true)
@@ -1351,6 +1353,18 @@ export default function EquipmentPage() {
           <Label htmlFor={`expiryDate-${item.id}`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {t.expiryDate || "תאריך תפוגה"}
           </Label>
+          <div className="grid gap-2">
+            <Label htmlFor={`shelf-life-${item.id}`} className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t.itemShelfLife || "אורך חיים"}
+            </Label>
+            <Input
+              id={`shelf-life-${item.id}`}
+              value={item.shelf_life || ""}
+              onChange={(e) => handleItemChange(item.id, "shelf_life", e.target.value)}
+              className="w-full"
+              placeholder="לדוגמה: שנה, 6 חודשים, וכו'"
+            />
+          </div>
           <Popover>
             <PopoverTrigger asChild>
               <Button
@@ -1725,8 +1739,7 @@ export default function EquipmentPage() {
                                 variant="outline"
                                 className={`text-xs transition-colors px-1.5 sm:px-2 py-0.5 flex items-center gap-1 shrink-0 max-w-[120px] sm:max-w-none ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText} border-${item.category === "other" ? "gray" : item.category.split("_")[0]}-200 dark:border-${item.category === "other" ? "gray" : item.category.split("_")[0]}-800`}
                               >
-                                {categoryStyle.icon &&
-                                  React.cloneElement(categoryStyle.icon, { className: "h-3 w-3 flex-shrink-0" })}
+                                {categoryIcons[item.category] || categoryIcons.other}
                                 <span className="truncate">
                                   {getCategoryDisplayName(item.category) || item.category}
                                 </span>
@@ -1988,6 +2001,17 @@ export default function EquipmentPage() {
                 onChange={(e) => setNewItem({ ...newItem, usage_instructions: e.target.value })}
                 placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
                 className="w-full min-h-[100px]"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="itemShelfLife">{t.itemShelfLife || "אורך חיים"}</Label>
+              <Input
+                id="itemShelfLife"
+                value={newItem.shelf_life || ""}
+                onChange={(e) => setNewItem({ ...newItem, shelf_life: e.target.value })}
+                className="w-full"
+                placeholder="לדוגמה: שנה, 6 חודשים, וכו'"
               />
             </div>
 
