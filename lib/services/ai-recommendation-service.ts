@@ -1,62 +1,74 @@
-export const AIRecommendationService = {
-  async generateRecommendations(prompt: string) {
-    try {
-      // Call our server-side API route instead of OpenAI directly
-      const response = await fetch("/api/ai-recommendations", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ prompt }),
-      })
+// Método de fallback para cuando la API falla
+const generateFallbackRecommendations = (prompt: string) => {
+  // Extraer información básica del prompt usando expresiones regulares
+  let adults = 2
+  let children = 0
+  let babies = 0
+  let elderly = 0
+  let pets = 0
+  let special_needs = ""
 
-      if (!response.ok) {
-        console.error("Error calling AI recommendations API:", await response.text())
-        return this.generateFallbackRecommendations(prompt)
-      }
+  // Intentar extraer números de adultos
+  const adultsMatch = prompt.match(/(\d+)\s*(מבוגרים|אנשים|בוגרים)/)
+  if (adultsMatch) {
+    adults = Number.parseInt(adultsMatch[1])
+  }
 
-      const data = await response.json()
+  // Intentar extraer números de niños
+  const childrenMatch = prompt.match(/(\d+)\s*(ילדים|ילד)/)
+  if (childrenMatch) {
+    children = Number.parseInt(childrenMatch[1])
+  }
 
-      if (data.error) {
-        console.error("AI recommendations API error:", data.error)
-        return this.generateFallbackRecommendations(prompt)
-      }
+  // Intentar extraer números de bebés
+  const babiesMatch = prompt.match(/(\d+)\s*(תינוקות|תינוק)/)
+  if (babiesMatch) {
+    babies = Number.parseInt(babiesMatch[1])
+  }
 
-      return data
-    } catch (error) {
-      console.error("Error generating AI recommendations:", error)
-      return this.generateFallbackRecommendations(prompt)
-    }
-  },
+  // Intentar extraer números de ancianos
+  const elderlyMatch = prompt.match(/(\d+)\s*(קשישים|קשיש)/)
+  if (elderlyMatch) {
+    elderly = Number.parseInt(elderlyMatch[1])
+  }
 
-  // Fallback function that generates basic recommendations when OpenAI is unavailable
-  generateFallbackRecommendations(prompt: string) {
-    console.log("Using fallback recommendations generator")
+  // Intentar extraer números de mascotas
+  const petsMatch = prompt.match(/(\d+)\s*(חיות|חיות מחמד|כלבים|חתולים)/)
+  if (petsMatch) {
+    pets = Number.parseInt(petsMatch[1])
+  }
 
-    // Parse the prompt to extract basic information
-    const adults = prompt.match(/(\d+)\s*מבוגרים/) ? Number.parseInt(prompt.match(/(\d+)\s*מבוגרים/)[1]) : 2
-    const children = prompt.match(/(\d+)\s*ילדים/) ? Number.parseInt(prompt.match(/(\d+)\s*ילדים/)[1]) : 0
-    const babies = prompt.match(/(\d+)\s*תינוקות/) ? Number.parseInt(prompt.match(/(\d+)\s*תינוקות/)[1]) : 0
-    const pets = prompt.match(/(\d+)\s*חיות/) ? Number.parseInt(prompt.match(/(\d+)\s*חיות/)[1]) : 0
+  // Intentar extraer necesidades especiales
+  if (prompt.includes("אסטמה")) {
+    special_needs = "אסטמה"
+  } else if (prompt.includes("סוכרת")) {
+    special_needs = "סוכרת"
+  } else if (prompt.includes("לחץ דם")) {
+    special_needs = "לחץ דם גבוה"
+  } else if (prompt.includes("אלרגיה")) {
+    special_needs = "אלרגיה"
+  }
 
-    // Generate profile
-    const profile = {
+  // Crear recomendaciones básicas
+  const totalPeople = adults + children + babies + elderly
+
+  return {
+    profile: {
       adults,
       children,
       babies,
-      elderly: 0,
+      elderly,
       pets,
-      special_needs: prompt.includes("מוגבלות") ? "מוגבלות בניידות" : "לא צוין",
+      special_needs,
       duration_hours: 72,
-    }
-
-    // Generate items based on household composition - at least 15 items
-    const items = [
+      using_defaults: [],
+    },
+    items: [
       {
-        id: "ai1",
+        id: "fallback1",
         name: "מים",
         category: "water_food",
-        quantity: 3 * (adults + children) * 3, // 3 liters per person per day for 3 days
+        quantity: 3 * totalPeople * 3,
         unit: "ליטרים",
         importance: 5,
         description: "מים לשתייה ובישול",
@@ -69,10 +81,10 @@ export const AIRecommendationService = {
         sendExpiryReminder: false,
       },
       {
-        id: "ai2",
+        id: "fallback2",
         name: "מזון יבש",
         category: "water_food",
-        quantity: adults + children,
+        quantity: totalPeople,
         unit: 'ק"ג',
         importance: 5,
         description: "מזון שאינו דורש קירור",
@@ -85,10 +97,10 @@ export const AIRecommendationService = {
         sendExpiryReminder: false,
       },
       {
-        id: "ai3",
+        id: "fallback3",
         name: "פנס",
         category: "lighting_energy",
-        quantity: Math.ceil((adults + children) / 2),
+        quantity: Math.ceil(totalPeople / 2),
         unit: "יחידות",
         importance: 5,
         description: "פנס לתאורת חירום",
@@ -101,7 +113,7 @@ export const AIRecommendationService = {
         sendExpiryReminder: false,
       },
       {
-        id: "ai4",
+        id: "fallback4",
         name: "ערכת עזרה ראשונה",
         category: "medical",
         quantity: 1,
@@ -117,7 +129,7 @@ export const AIRecommendationService = {
         sendExpiryReminder: false,
       },
       {
-        id: "ai5",
+        id: "fallback5",
         name: "רדיו",
         category: "communication",
         quantity: 1,
@@ -133,7 +145,7 @@ export const AIRecommendationService = {
         sendExpiryReminder: false,
       },
       {
-        id: "ai6",
+        id: "fallback6",
         name: "מטען נייד",
         category: "communication",
         quantity: adults,
@@ -149,7 +161,7 @@ export const AIRecommendationService = {
         sendExpiryReminder: false,
       },
       {
-        id: "ai7",
+        id: "fallback7",
         name: "עותקי מסמכים",
         category: "documents_money",
         quantity: 1,
@@ -165,7 +177,7 @@ export const AIRecommendationService = {
         sendExpiryReminder: false,
       },
       {
-        id: "ai8",
+        id: "fallback8",
         name: "מטף כיבוי אש",
         category: "other",
         quantity: 1,
@@ -180,64 +192,93 @@ export const AIRecommendationService = {
         aiSuggestedExpiryDate: "2029-12-31",
         sendExpiryReminder: false,
       },
+      // Añadir elementos específicos basados en la información extraída
+      ...(babies > 0
+        ? [
+            {
+              id: "fallback9",
+              name: "מזון לתינוקות",
+              category: "children",
+              quantity: babies * 3,
+              unit: "קופסאות",
+              importance: 5,
+              description: "מזון לתינוקות",
+              shelf_life: "שנה",
+              usage_instructions: "לפי הוראות היצרן",
+              recommended_quantity_per_person: "3 קופסאות לתינוק ליום",
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: "2025-06-30",
+              sendExpiryReminder: false,
+            },
+          ]
+        : []),
+      ...(pets > 0
+        ? [
+            {
+              id: "fallback10",
+              name: "מזון לחיות מחמד",
+              category: "pets",
+              quantity: pets * 3,
+              unit: 'ק"ג',
+              importance: 5,
+              description: "מזון לחיות מחמד",
+              shelf_life: "שנה",
+              usage_instructions: "לפי הוראות היצרן",
+              recommended_quantity_per_person: '3 ק"ג לחיה ליום',
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: "2025-06-30",
+              sendExpiryReminder: false,
+            },
+          ]
+        : []),
+      ...(special_needs
+        ? [
+            {
+              id: "fallback11",
+              name: "תרופות מיוחדות",
+              category: "special_needs",
+              quantity: 1,
+              unit: "סט",
+              importance: 5,
+              description: `תרופות מיוחדות ל${special_needs}`,
+              shelf_life: "לפי תאריך התפוגה",
+              usage_instructions: "לפי הוראות הרופא",
+              recommended_quantity_per_person: "לפי הצורך",
+              obtained: false,
+              expiryDate: null,
+              aiSuggestedExpiryDate: null,
+              sendExpiryReminder: false,
+            },
+          ]
+        : []),
       {
-        id: "ai9",
+        id: "fallback12",
         name: "סוללות",
         category: "lighting_energy",
-        quantity: 12,
+        quantity: 10,
         unit: "יחידות",
         importance: 4,
-        description: "סוללות לפנסים ומכשירים חיוניים",
+        description: "סוללות לפנסים ומכשירים אחרים",
         shelf_life: "5 שנים",
-        usage_instructions: "לאחסן במקום קריר ויבש",
-        recommended_quantity_per_person: "3 יחידות לאדם",
+        usage_instructions: "לאחסן במקום יבש וקריר",
+        recommended_quantity_per_person: "2 יחידות לאדם",
         obtained: false,
         expiryDate: null,
         aiSuggestedExpiryDate: "2029-12-31",
         sendExpiryReminder: false,
       },
       {
-        id: "ai10",
-        name: "תרופות מרשם",
-        category: "medical",
-        quantity: adults + children,
-        unit: "סטים",
-        importance: 5,
-        description: "תרופות מרשם לכל בני המשפחה",
-        shelf_life: "בהתאם לתרופה",
-        usage_instructions: "לשמור בהתאם להוראות היצרן",
-        recommended_quantity_per_person: "מלאי לשבוע לפחות",
-        obtained: false,
-        expiryDate: null,
-        aiSuggestedExpiryDate: "2024-12-31",
-        sendExpiryReminder: true,
-      },
-      {
-        id: "ai11",
-        name: "מזון משומר",
-        category: "water_food",
-        quantity: 6 * (adults + children),
-        unit: "פחיות",
-        importance: 4,
-        description: "מזון משומר שאינו דורש בישול",
-        shelf_life: "3 שנים",
-        usage_instructions: "לבדוק תאריך תפוגה",
-        recommended_quantity_per_person: "2 פחיות ליום",
-        obtained: false,
-        expiryDate: null,
-        aiSuggestedExpiryDate: "2027-12-31",
-        sendExpiryReminder: false,
-      },
-      {
-        id: "ai12",
-        name: "פנסי ראש",
-        category: "lighting_energy",
-        quantity: adults + children,
+        id: "fallback13",
+        name: "שמיכות",
+        category: "other",
+        quantity: totalPeople,
         unit: "יחידות",
-        importance: 3,
-        description: "פנסי ראש לשימוש ידיים חופשיות",
+        importance: 4,
+        description: "שמיכות לחימום",
         shelf_life: "לא רלוונטי",
-        usage_instructions: "לוודא שהסוללות טעונות",
+        usage_instructions: "לשמור במקום יבש",
         recommended_quantity_per_person: "1 יחידה לאדם",
         obtained: false,
         expiryDate: null,
@@ -245,132 +286,68 @@ export const AIRecommendationService = {
         sendExpiryReminder: false,
       },
       {
-        id: "ai13",
-        name: "מצעים חמים",
-        category: "other",
-        quantity: adults + children,
-        unit: "סטים",
-        importance: 3,
-        description: "שמיכות ומצעים חמים",
-        shelf_life: "לא רלוונטי",
-        usage_instructions: "לשמור במקום יבש",
-        recommended_quantity_per_person: "סט אחד לאדם",
-        obtained: false,
-        expiryDate: null,
-        aiSuggestedExpiryDate: null,
-        sendExpiryReminder: false,
-      },
-      {
-        id: "ai14",
+        id: "fallback14",
         name: "כסף מזומן",
         category: "documents_money",
-        quantity: 500 * (adults + 0.5 * children),
+        quantity: 500,
         unit: "₪",
         importance: 4,
         description: "כסף מזומן למקרה חירום",
         shelf_life: "לא רלוונטי",
         usage_instructions: "לשמור במקום בטוח",
-        recommended_quantity_per_person: "500 ₪ לאדם",
+        recommended_quantity_per_person: "250 ₪ לאדם",
         obtained: false,
         expiryDate: null,
         aiSuggestedExpiryDate: null,
         sendExpiryReminder: false,
       },
       {
-        id: "ai15",
-        name: "ציוד היגיינה",
+        id: "fallback15",
+        name: "מגבונים לחים",
         category: "hygiene",
-        quantity: adults + children,
-        unit: "ערכות",
-        importance: 4,
-        description: "ציוד היגיינה אישי (מברשות שיניים, סבון, שמפו וכו')",
-        shelf_life: "שנה",
-        usage_instructions: "לשמור במקום יבש",
-        recommended_quantity_per_person: "ערכה אחת לאדם",
+        quantity: 5,
+        unit: "חבילות",
+        importance: 3,
+        description: "מגבונים לחים לניקיון אישי",
+        shelf_life: "שנתיים",
+        usage_instructions: "לשמור סגור היטב",
+        recommended_quantity_per_person: "1 חבילה לאדם",
         obtained: false,
         expiryDate: null,
-        aiSuggestedExpiryDate: "2025-12-31",
+        aiSuggestedExpiryDate: "2026-12-31",
         sendExpiryReminder: false,
       },
-    ]
+    ],
+  }
+}
 
-    // Add items for babies if needed
-    if (babies > 0) {
-      items.push({
-        id: "ai16",
-        name: "חלב תינוקות",
-        category: "children",
-        quantity: 3 * babies,
-        unit: "קופסאות",
-        importance: 5,
-        description: "חלב תינוקות",
-        shelf_life: "שנה",
-        usage_instructions: "להכין לפי הוראות היצרן",
-        recommended_quantity_per_person: "1 קופסה ליום לתינוק",
-        obtained: false,
-        expiryDate: null,
-        aiSuggestedExpiryDate: "2025-06-30",
-        sendExpiryReminder: false,
-      })
+const generateRecommendations = async (prompt: string) => {
+  try {
+    const response = await fetch("/api/ai-recommendations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    })
 
-      items.push({
-        id: "ai17",
-        name: "חיתולים",
-        category: "children",
-        quantity: 6 * babies * 3, // 6 diapers per day per baby for 3 days
-        unit: "יחידות",
-        importance: 5,
-        description: "חיתולים לתינוקות",
-        shelf_life: "לא רלוונטי",
-        usage_instructions: "להחליף לפי הצורך",
-        recommended_quantity_per_person: "6 יחידות ליום לתינוק",
-        obtained: false,
-        expiryDate: null,
-        aiSuggestedExpiryDate: null,
-        sendExpiryReminder: false,
-      })
+    if (!response.ok) {
+      console.error("Error calling AI recommendations API:", await response.json())
+      console.log("Using fallback recommendations generator")
+      return generateFallbackRecommendations(prompt)
     }
 
-    // Add items for pets if needed
-    if (pets > 0) {
-      items.push({
-        id: "ai18",
-        name: "מזון לחיות מחמד",
-        category: "pets",
-        quantity: 1 * pets * 3, // 1 kg per pet per day for 3 days
-        unit: 'ק"ג',
-        importance: 5,
-        description: "מזון לחיות מחמד",
-        shelf_life: "שנה",
-        usage_instructions: "לאחסן במקום יבש וקריר",
-        recommended_quantity_per_person: '1 ק"ג ליום לחיה',
-        obtained: false,
-        expiryDate: null,
-        aiSuggestedExpiryDate: "2025-06-30",
-        sendExpiryReminder: false,
-      })
-    }
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error("Error generating AI recommendations:", error)
+    console.log("Using fallback recommendations generator due to error")
+    return generateFallbackRecommendations(prompt)
+  }
+}
 
-    // Add items for people with mobility issues if needed
-    if (prompt.includes("מוגבלות") || prompt.includes("הליכון")) {
-      items.push({
-        id: "ai19",
-        name: "סוללות להליכון חשמלי",
-        category: "special_needs",
-        quantity: 2,
-        unit: "יחידות",
-        importance: 5,
-        description: "סוללות רזרביות להליכון חשמלי",
-        shelf_life: "לא רלוונטי",
-        usage_instructions: "יש לוודא שהסוללות טעונות",
-        recommended_quantity_per_person: "2 יחידות לאדם עם מוגבלות",
-        obtained: false,
-        expiryDate: null,
-        aiSuggestedExpiryDate: null,
-        sendExpiryReminder: false,
-      })
-    }
-
-    return { profile, items }
-  },
+// Exportar el servicio
+export const AIRecommendationService = {
+  generateRecommendations,
+  generateFallbackRecommendations,
 }

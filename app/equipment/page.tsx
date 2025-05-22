@@ -733,6 +733,19 @@ export default function EquipmentPage() {
     )
   }
 
+  // Handle going back to the prompt screen
+  const handleBackToPrompt = () => {
+    setAIGeneratedProfile(null)
+    setAIGeneratedItems([])
+    setDefaultFields([])
+    setCurrentListName("")
+    setLoadingState({
+      isLoading: false,
+      step: "",
+      progress: 0,
+    })
+  }
+
   // Initialize component
   useEffect(() => {
     const fetchData = async () => {
@@ -1482,7 +1495,7 @@ export default function EquipmentPage() {
         <AlertDialogContent className={isRTL ? "rtl" : "ltr"}>
           <AlertDialogHeader>
             <AlertDialogTitle>{t.removeItemConfirm}</AlertDialogTitle>
-            <AlertDialogDescription>{t.removeItemDescription}</AlertDialogDescription>
+            <AlertDialogDescription>{t.removeItemDescription}</AlertDialogHeader>
           </AlertDialogHeader>
           <AlertDialogFooter className={isRTL ? "flex-row-reverse" : ""}>
             <AlertDialogCancel>{t.cancelRemove}</AlertDialogCancel>

@@ -19,20 +19,47 @@ export async function POST(request: NextRequest) {
     }
 
     // שלב חדש: חילוץ מידע מובנה מהפרומפט
-    const extractResponse = await fetch(`${request.nextUrl.origin}/api/extract-data`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ prompt }),
-    })
+    let structuredData
+    try {
+      const extractResponse = await fetch(`${request.nextUrl.origin}/api/extract-data`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt }),
+      })
 
-    if (!extractResponse.ok) {
-      console.error("Error extracting data:", await extractResponse.text())
-      return NextResponse.json({ error: "Error extracting data from prompt" }, { status: 500 })
+      if (!extractResponse.ok) {
+        console.error("Error extracting data:", await extractResponse.text())
+        // Use default structured data if extraction fails
+        structuredData = {
+          adults: 2,
+          children: 0,
+          babies: 0,
+          elderly: 0,
+          pets: 0,
+          special_needs: "",
+          duration_hours: 72,
+          using_defaults: ["adults", "children", "babies", "elderly", "pets", "special_needs", "duration_hours"],
+        }
+      } else {
+        structuredData = await extractResponse.json()
+      }
+    } catch (error) {
+      console.error("Error in extract-data API call:", error)
+      // Use default structured data if extraction fails
+      structuredData = {
+        adults: 2,
+        children: 0,
+        babies: 0,
+        elderly: 0,
+        pets: 0,
+        special_needs: "",
+        duration_hours: 72,
+        using_defaults: ["adults", "children", "babies", "elderly", "pets", "special_needs", "duration_hours"],
+      }
     }
 
-    const structuredData = await extractResponse.json()
     console.log("Extracted structured data:", structuredData)
 
     // Prepare the prompt for OpenAI with recommended items list and structured data
