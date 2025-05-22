@@ -1,61 +1,54 @@
-import { createBrowserSupabaseClient } from "@supabase/auth-helpers-nextjs"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 // Create a singleton Supabase client for browser
 let supabaseInstance = null
-const createSupabaseClient = () => {
-  if (supabaseInstance) return supabaseInstance
-  supabaseInstance = createBrowserSupabaseClient()
-  return supabaseInstance
-}
 
-async function getCurrentUser() {
-  try {
-    const supabase = createSupabaseClient()
-
-    // קבל את הסשן הנוכחי
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error("Session error:", sessionError.message)
-      return null
-    }
-
-    if (!session) {
-      console.warn("No active session found")
-      return null
-    }
-
-    // אם יש סשן, קבל את המשתמש
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser()
-
-    if (userError) {
-      console.error("User error:", userError.message)
-      return null
-    }
-
-    return user
-  } catch (error) {
-    console.error("Error getting current user:", error)
-    return null
+const getSupabaseClient = () => {
+  if (typeof window === "undefined") {
+    return null // אנחנו בצד השרת, לא ניתן להשתמש בקליינט
   }
+
+  if (!supabaseInstance) {
+    supabaseInstance = createClientComponentClient()
+  }
+  return supabaseInstance
 }
 
 export const EquipmentService = {
   async getCurrentUser() {
-    return getCurrentUser()
+    try {
+      const supabase = getSupabaseClient()
+      if (!supabase) return null
+
+      // קבל את הסשן הנוכחי
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        console.error("Session error:", sessionError.message)
+        return null
+      }
+
+      if (!session) {
+        console.warn("No active session found")
+        return null
+      }
+
+      return session.user
+    } catch (error) {
+      console.error("Error getting current user:", error)
+      return null
+    }
   },
 
   async getEquipmentLists() {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = getSupabaseClient()
+      if (!supabase) return []
 
-      // קבל את הסשן תחילה
+      // קבל את הסשן הנוכחי
       const {
         data: { session },
         error: sessionError,
@@ -114,9 +107,10 @@ export const EquipmentService = {
 
   async getEquipmentList(id) {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = getSupabaseClient()
+      if (!supabase) return null
 
-      // קבל את הסשן תחילה
+      // קבל את הסשן הנוכחי
       const {
         data: { session },
         error: sessionError,
@@ -184,9 +178,12 @@ export const EquipmentService = {
 
   async createList(listData) {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = getSupabaseClient()
+      if (!supabase) {
+        throw new Error("Supabase client not available")
+      }
 
-      // קבל את הסשן תחילה
+      // קבל את הסשן הנוכחי
       const {
         data: { session },
         error: sessionError,
@@ -263,9 +260,10 @@ export const EquipmentService = {
 
   async updateList(id, listData) {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = getSupabaseClient()
+      if (!supabase) return null
 
-      // קבל את הסשן תחילה
+      // קבל את הסשן הנוכחי
       const {
         data: { session },
         error: sessionError,
@@ -331,9 +329,10 @@ export const EquipmentService = {
 
   async deleteList(id) {
     try {
-      const supabase = createSupabaseClient()
+      const supabase = getSupabaseClient()
+      if (!supabase) return false
 
-      // קבל את הסשן תחילה
+      // קבל את הסשן הנוכחי
       const {
         data: { session },
         error: sessionError,

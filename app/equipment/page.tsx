@@ -32,10 +32,11 @@ import { Badge } from "@/components/ui/badge"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { useRouter } from "next/navigation"
 // Fix: Import locales dynamically to prevent initialization errors during prerendering
-import { createClient } from "@supabase/supabase-js"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { AIRecommendationService } from "@/lib/services/ai-recommendation-service"
 import { EquipmentService } from "@/lib/services/equipment-service"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useToast } from "@/hooks/use-toast"
 
 // Base translations
 const baseTranslations = {
@@ -205,7 +206,7 @@ const supabaseAnonKey =
 
 // Create a singleton Supabase client
 const createSupabaseClient = () => {
-  return createClient(supabaseUrl, supabaseAnonKey)
+  return createClientComponentClient()
 }
 
 // Equipment List service
@@ -366,6 +367,7 @@ export default function EquipmentPage() {
   const [currentLocale, setCurrentLocale] = useState(null)
   // חדש: מעקב אחרי שדות שבהם נעשה שימוש בערכי ברירת מחדל
   const [defaultFields, setDefaultFields] = useState([])
+  const { toast } = useToast()
 
   // חדש: מצב טעינה מפורט
   const [loadingState, setLoadingState] = useState({
