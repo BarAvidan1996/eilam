@@ -192,7 +192,7 @@ export default function EquipmentListsPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Link href={`/equipment?listId=${list.id}`}>
+                    <Link href={`/equipment-lists/equipment-page?listId=${list.id}`}>
                       <Button variant="outline" size="sm" className="dark:text-gray-300 dark:border-gray-600">
                         {isRTL ? <ChevronLeft className="ml-1 h-4 w-4" /> : <ChevronRight className="mr-1 h-4 w-4" />}
                         {t.viewList}
