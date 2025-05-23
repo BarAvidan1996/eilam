@@ -618,23 +618,32 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         })),
       }
 
+      console.log("💾 Saving list with name:", currentListName)
+      console.log("📋 List has", listToSave.items.length, "items")
+
       let savedList
-      if (initialList) {
-        // עדכון רשימה קיימת
+      if (initialList && initialList.id) {
+        console.log("🔄 Updating existing list with ID:", initialList.id)
         savedList = await EquipmentService.updateList(initialList.id, listToSave)
         setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
       } else {
-        // יצירת רשימה חדשה
+        console.log("➕ Creating new list")
         savedList = await EquipmentService.createList(listToSave)
         setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
 
         // מעבר לדף הרשימה החדשה
-        setTimeout(() => {
-          router.push(`/equipment/${savedList.id}`)
-        }, 1000)
+        if (savedList && savedList.id) {
+          console.log("✅ List created with ID:", savedList.id)
+          setTimeout(() => {
+            router.push(`/equipment/${savedList.id}`)
+          }, 1000)
+        } else {
+          console.error("❌ Created list has no ID:", savedList)
+          setError("הרשימה נוצרה אך חסר מזהה. נא לרענן את הדף.")
+        }
       }
     } catch (error) {
-      console.error("Error saving list:", error)
+      console.error("❌ Error saving list:", error)
       setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.")
     } finally {
       setIsAILoading(false)
@@ -1519,7 +1528,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                   </label>
                                   <Select
                                     value={item.importance.toString()}
-                                    onValueChange={(value) => {
+                                    onChange={(value) => {
                                       const updatedItems = aiGeneratedItems.map((i) =>
                                         i.id === item.id ? { ...i, importance: Number.parseInt(value) } : i,
                                       )

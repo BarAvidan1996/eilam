@@ -244,6 +244,20 @@ export const EquipmentService = {
 
       console.log("✅ List created successfully:", list)
 
+      // Verify the list was created
+      const { data: verifyList, error: verifyError } = await supabase
+        .from("equipment_lists")
+        .select("id")
+        .eq("id", listId)
+        .single()
+
+      if (verifyError || !verifyList) {
+        console.error("❌ List creation verification failed:", verifyError?.message || "List not found after creation")
+        throw new Error("List creation verification failed")
+      }
+
+      console.log("✅ List creation verified:", verifyList.id)
+
       // Create the items
       if (listData.items && listData.items.length > 0) {
         // הדפס את המבנה של הפריט הראשון לצורך דיבוג
@@ -260,7 +274,7 @@ export const EquipmentService = {
           importance_level: item.importance || 3,
           obtained: item.obtained || false,
           expiration_date: item.expiryDate || null,
-          sms_notification: item.sendExpiryReminder || false,
+          sms_notification: item.sms_notification || false,
           usage_instructions: item.usage_instructions || "",
           shelf_life: item.shelf_life || "",
           recommended_quantity_per_person: item.recommended_quantity_per_person || "",
@@ -270,6 +284,7 @@ export const EquipmentService = {
 
         // הדפס את המבנה של הפריט הראשון אחרי המרה
         console.log("📦 First item after transformation:", JSON.stringify(itemsToInsert[0], null, 2))
+        console.log("📋 Inserting items for list ID:", listId)
 
         const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
 
@@ -309,6 +324,21 @@ export const EquipmentService = {
 
       const userId = session.user.id
 
+      // First, check if the list exists
+      const { data: existingList, error: checkError } = await supabase
+        .from("equipment_lists")
+        .select("id")
+        .eq("id", id)
+        .eq("user_id", userId)
+        .single()
+
+      if (checkError || !existingList) {
+        console.error("❌ List does not exist or user doesn't have access:", checkError?.message || "List not found")
+        throw new Error(checkError?.message || "List not found")
+      }
+
+      console.log("✅ List exists, proceeding with update:", existingList.id)
+
       // Update the list
       const { error: listError } = await supabase
         .from("equipment_lists")
@@ -346,13 +376,16 @@ export const EquipmentService = {
           importance_level: item.importance || 3,
           obtained: item.obtained || false,
           expiration_date: item.expiryDate || null,
-          sms_notification: item.sendExpiryReminder || false,
+          sms_notification: item.sms_notification || false,
           usage_instructions: item.usage_instructions || "",
           shelf_life: item.shelf_life || "",
           recommended_quantity_per_person: item.recommended_quantity_per_person || "",
           personalized_note: item.personalized_note || "",
           is_mandatory: item.is_mandatory || false,
         }))
+
+        console.log("📦 First item to insert:", JSON.stringify(itemsToInsert[0], null, 2))
+        console.log("📋 Inserting items for list ID:", id)
 
         const { error: itemsError } = await supabase.from("equipment_items").insert(itemsToInsert)
 
