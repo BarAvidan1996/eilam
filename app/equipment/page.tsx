@@ -407,6 +407,8 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const [currentListName, setCurrentListName] = useState("")
   const [isListContextLoading, setIsListContextLoading] = useState(false)
   const [lastSavedMessage, setLastSavedMessage] = useState("")
+  // נוסיף משתנה מצב חדש לניהול הודעת ההצלחה הבולטת
+  const [successMessage, setSuccessMessage] = useState("")
 
   const isRTL = language === "he" || language === "ar"
 
@@ -472,123 +474,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     )
   }
 
-  // Save list and generate items
-  const handleSaveListAndGenerateItems = async () => {
-    setIsAILoading(true)
-    setError("")
-    setLastSavedMessage("")
-
-    if (!aiUserPrompt.trim()) {
-      setError("אנא הזן תיאור של משק הבית שלך")
-      setIsAILoading(false)
-      return
-    }
-
-    try {
-      // Update loading state
-      setLoadingState({
-        isLoading: true,
-        step: "extracting",
-        progress: 10,
-      })
-
-      // Extract data from user prompt
-      const extractResponse = await fetch("/api/extract-data", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ prompt: aiUserPrompt }),
-      })
-
-      if (!extractResponse.ok) {
-        throw new Error("Failed to extract data from prompt")
-      }
-
-      const extractedData = await extractResponse.json()
-
-      // שמירת השדות שבהם נעשה שימוש בערכי ברירת מחדל
-      if (extractedData.using_defaults && Array.isArray(extractedData.using_defaults)) {
-        setDefaultFields(extractedData.using_defaults)
-      }
-
-      // Update loading state
-      setLoadingState({
-        isLoading: true,
-        step: "generating",
-        progress: 30,
-      })
-
-      // Generate recommendations based on extracted data
-      const recommendations = await generateAIRecommendations(aiUserPrompt)
-
-      // Update loading state
-      setLoadingState({
-        isLoading: true,
-        step: "processing",
-        progress: 70,
-      })
-
-      if (recommendations && recommendations.items) {
-        setAIGeneratedItems(recommendations.items)
-        setAIGeneratedProfile(recommendations.profile || extractedData)
-
-        // Generate list name based on profile if not provided
-        if (!currentListName && recommendations.profile) {
-          const profile = recommendations.profile
-          let generatedName = "רשימת ציוד חירום"
-
-          if (profile.adults > 0 || profile.children > 0 || profile.babies > 0) {
-            generatedName += " למשפחה עם "
-            const parts = []
-            if (profile.adults > 0) parts.push(`${profile.adults} מבוגרים`)
-            if (profile.children > 0) parts.push(`${profile.children} ילדים`)
-            if (profile.babies > 0) parts.push(`${profile.babies} תינוקות`)
-            generatedName += parts.join(", ")
-          }
-
-          if (profile.pets > 0) {
-            generatedName += ` ו-${profile.pets} חיות מחמד`
-          }
-
-          if (profile.special_needs && profile.special_needs !== "לא צוין") {
-            generatedName += ` (${profile.special_needs})`
-          }
-
-          setCurrentListName(generatedName)
-        }
-      } else {
-        setError("Failed to generate recommendations. Please try again.")
-      }
-
-      // Update loading state
-      setLoadingState({
-        isLoading: true,
-        step: "finalizing",
-        progress: 90,
-      })
-
-      // Simulate a short delay for the final step
-      setTimeout(() => {
-        setLoadingState({
-          isLoading: false,
-          step: "",
-          progress: 100,
-        })
-        setIsAILoading(false)
-      }, 500)
-    } catch (error) {
-      console.error("Error generating AI recommendations:", error)
-      setError("An error occurred while generating recommendations. Please try again.")
-      setIsAILoading(false)
-      setLoadingState({
-        isLoading: false,
-        step: "",
-        progress: 0,
-      })
-    }
-  }
-
   // Save AI generated list
   const saveAIGeneratedList = async () => {
     setIsAILoading(true)
@@ -630,21 +515,46 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       if (initialList && initialList.id) {
         console.log("🔄 Updating existing list with ID:", initialList.id)
         savedList = await EquipmentService.updateList(initialList.id, listToSave)
+
+        // הגדרת הודעת הצלחה בולטת
+        setSuccessMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
+
+        // ניקוי ההודעה אחרי 5 שניות
+        setTimeout(() => {
+          setSuccessMessage("")
+        }, 5000)
+
         setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
+
+        // יציאה ממצב עריכה אחרי שמירה מוצלחת
+        setIsEditing(false)
+
+        // הצגת הודעת הצלחה
         toast({
           title: "הצלחה",
           description: t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!",
           variant: "default",
         })
+
+        // גלילה לראש הדף כדי שהמשתמש יראה את ההודעה
+        window.scrollTo({ top: 0, behavior: "smooth" })
       } else {
         console.log("➕ Creating new list")
         savedList = await EquipmentService.createList(listToSave)
         setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
+
+        // יציאה ממצב עריכה אחרי שמירה מוצלחת
+        setIsEditing(false)
+
+        // הצגת הודעת הצלחה
         toast({
           title: "הצלחה",
           description: t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!",
           variant: "default",
         })
+
+        // גלילה לראש הדף כדי שהמשתמש יראה את ההודעה
+        window.scrollTo({ top: 0, behavior: "smooth" })
 
         // מעבר לדף הרשימה החדשה
         if (savedList && savedList.id) {
@@ -665,6 +575,9 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         description: t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.",
         variant: "destructive",
       })
+
+      // גלילה לראש הדף כדי שהמשתמש יראה את הודעת השגיאה
+      window.scrollTo({ top: 0, behavior: "smooth" })
     } finally {
       setIsAILoading(false)
     }
@@ -879,6 +792,12 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       {error && (
         <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-center">
           {error}
+        </div>
+      )}
+      {/* הוספת הודעת הצלחה בולטת */}
+      {successMessage && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-bounce">
+          {successMessage}
         </div>
       )}
       {!aiGeneratedProfile && !isListContextLoading ? (
@@ -1996,4 +1915,113 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       )}
     </div>
   )
+
+  async function handleSaveListAndGenerateItems() {
+    setIsAILoading(true)
+    setError("")
+    setAIGeneratedProfile(null)
+    setAIGeneratedItems([])
+    setDefaultFields([])
+
+    // אימות שהמשתמש סיפק שם לרשימה או פרטי פרופיל
+    if (!aiUserPrompt.trim() && !currentListName) {
+      setError(t.errorProvideListNameOrProfile || "אנא ספק שם לרשימה או פרטי פרופיל ליצירת רשימה מותאמת אישית.")
+      setIsAILoading(false)
+      return
+    }
+
+    try {
+      setLoadingState({
+        isLoading: true,
+        step: "extracting",
+        progress: 10,
+      })
+
+      // Extract profile data from the user prompt
+      const profile = await AIRecommendationService.extractProfileData(aiUserPrompt)
+
+      setLoadingState((prevState) => ({
+        ...prevState,
+        step: "generating",
+        progress: 30,
+      }))
+
+      // Generate AI recommendations based on the user prompt
+      const recommendations = await generateAIRecommendations(aiUserPrompt)
+
+      if (!recommendations || recommendations.length === 0) {
+        setError("לא נמצאו המלצות. אנא נסה שוב עם תיאור מפורט יותר.")
+        setIsAILoading(false)
+        setLoadingState({
+          isLoading: false,
+          step: "",
+          progress: 0,
+        })
+        return
+      }
+
+      setLoadingState((prevState) => ({
+        ...prevState,
+        step: "processing",
+        progress: 60,
+      }))
+
+      // Process the AI recommendations
+      const processedItems = recommendations.map((item) => ({
+        id: crypto.randomUUID(),
+        name: item.name || t.unknownItem || "פריט לא ידוע",
+        category: item.category || "other",
+        quantity: item.quantity || 1,
+        unit: item.unit || "יחידות",
+        obtained: false,
+        importance: item.importance || 3,
+        description: item.description || "",
+        expiryDate: item.expiryDate || null,
+        sms_notification: false,
+        usage_instructions: item.usage_instructions || "",
+        shelf_life: item.shelf_life || "",
+        recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+        personalized_note: item.personalized_note || "",
+        is_mandatory: item.is_mandatory || false,
+      }))
+
+      setLoadingState((prevState) => ({
+        ...prevState,
+        step: "finalizing",
+        progress: 90,
+      }))
+
+      // Update state with the generated items and profile
+      setAIGeneratedItems(processedItems)
+      setAIGeneratedProfile({ ...profile, loadedFromExisting: false })
+
+      // קביעת שם רשימה אוטומטי אם לא סופק שם
+      if (!currentListName) {
+        let autoListName = t.equipmentListFor || "רשימת ציוד עבור"
+        if (profile.adults) autoListName += ` ${profile.adults} ${t.adults || "מבוגרים"}`
+        setCurrentListName(autoListName)
+      }
+
+      // בדיקה אילו שדות השתמשו בערכי ברירת מחדל
+      const defaultFieldsUsed = []
+      if (!profile.adults) defaultFieldsUsed.push("adults")
+      if (!profile.children) defaultFieldsUsed.push("children")
+      if (!profile.babies) defaultFieldsUsed.push("babies")
+      if (!profile.pets) defaultFieldsUsed.push("pets")
+      if (!profile.elderly) defaultFieldsUsed.push("elderly")
+      if (!profile.duration_hours) defaultFieldsUsed.push("duration_hours")
+      setDefaultFields(defaultFieldsUsed)
+
+      setLoadingState({
+        isLoading: false,
+        step: "",
+        progress: 100,
+      })
+    } catch (error) {
+      console.error("AI Generation Error:", error)
+      setError(t.errorSavingList || "שגיאה ביצירת רשימה. אנא נסה שוב.")
+    } finally {
+      setIsAILoading(false)
+    }
+  }
 }
