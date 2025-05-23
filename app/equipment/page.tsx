@@ -40,6 +40,9 @@ import { EquipmentService } from "@/lib/services/equipment-service"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
 
+// הוסף בתחילת הקומפוננטה אחרי imports:
+const requiredFieldStyle = "text-red-500 ml-1"
+
 // Base translations
 const baseTranslations = {
   he: {
@@ -130,7 +133,7 @@ const baseTranslations = {
     durationHours: "משך זמן (שעות)",
     moreEssentialsMissing: "יש לרכוש {count} פריטים הכרחיים נוספים לשלמות הציוד",
     editList: "ערוך רשימה",
-    cancelEditing: "בטל עריכה",
+    cancelEditing: "צא מעריכה",
     addItem: "הוסף פריט",
     saveChanges: "שמור שינויים",
     addNewItem: "הוספת פריט חדש",
@@ -164,6 +167,8 @@ const baseTranslations = {
     errorNoListToUpdate: "לא נבחרה רשימה לעדכון.",
     changesSavedSuccessfully: "השינויים נשמרו בהצלחה!",
     errorSavingChanges: "שגיאה בשמירת השינויים.",
+    itemAddedSuccessfully: "הפריט נוסף בהצלחה!",
+    errorAddingItem: "שגיאה בהוספת הפריט.",
     expiryDate: "תאריך תפוגה",
     setExpiryDate: "הגדר תאריך תפוגה",
     sendReminder: "שלח לי תזכורת",
@@ -626,10 +631,20 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         console.log("🔄 Updating existing list with ID:", initialList.id)
         savedList = await EquipmentService.updateList(initialList.id, listToSave)
         setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
+        toast({
+          title: "הצלחה",
+          description: t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!",
+          variant: "default",
+        })
       } else {
         console.log("➕ Creating new list")
         savedList = await EquipmentService.createList(listToSave)
         setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
+        toast({
+          title: "הצלחה",
+          description: t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!",
+          variant: "default",
+        })
 
         // מעבר לדף הרשימה החדשה
         if (savedList && savedList.id) {
@@ -645,6 +660,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     } catch (error) {
       console.error("❌ Error saving list:", error)
       setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.")
+      toast({
+        title: "שגיאה",
+        description: t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.",
+        variant: "destructive",
+      })
     } finally {
       setIsAILoading(false)
     }
@@ -678,6 +698,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   // Handle adding a new item
   const handleAddItem = () => {
     if (!newItem.name.trim()) {
+      toast({
+        title: "שגיאה",
+        description: t.itemNameCannotBeEmpty || "שם הפריט אינו יכול להיות ריק.",
+        variant: "destructive",
+      })
       setError(t.itemNameCannotBeEmpty || "שם הפריט אינו יכול להיות ריק.")
       return
     }
@@ -692,6 +717,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     setAIGeneratedItems((prevItems) => [...prevItems, itemToAdd])
     setItemHistory((prevHistory) => [...prevHistory, { action: "add", item: itemToAdd }])
     setIsAddItemDialogOpen(false)
+    toast({
+      title: "הצלחה",
+      description: t.itemAddedSuccessfully || "הפריט נוסף בהצלחה!",
+      variant: "default",
+    })
     setnewItem({
       name: "",
       category: "water_food",
@@ -1433,7 +1463,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                               <div className="grid grid-cols-1 gap-3">
                                 <div>
                                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    {t.itemName || "שם הפריט"}
+                                    {t.itemName || "שם הפריט"} <span className={requiredFieldStyle}>*</span>
                                   </label>
                                   <Input
                                     value={item.name}
@@ -1449,7 +1479,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
                                 <div>
                                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    {t.itemCategory || "קטגוריה"}
+                                    {t.itemCategory || "קטגוריה"} <span className={requiredFieldStyle}>*</span>
                                   </label>
                                   <Select
                                     value={item.category}
@@ -1488,7 +1518,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                      {t.itemQuantity || "כמות"}
+                                      {t.itemQuantity || "כמות"} <span className={requiredFieldStyle}>*</span>
                                     </label>
                                     <Input
                                       type="number"
@@ -1507,7 +1537,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                   </div>
                                   <div>
                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                      {t.itemUnit || "יחידת מידה"}
+                                      {t.itemUnit || "יחידת מידה"} <span className={requiredFieldStyle}>*</span>
                                     </label>
                                     <Input
                                       value={item.unit}
@@ -1524,7 +1554,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
                                 <div>
                                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    {t.itemImportance || "חשיבות"}
+                                    {t.itemImportance || "חשיבות"} <span className={requiredFieldStyle}>*</span>
                                   </label>
                                   <Select
                                     value={item.importance.toString()}
@@ -1748,7 +1778,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                 <div className="p-3 space-y-3">
                   <div>
                     <label htmlFor="item-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {t.itemName || "שם הפריט"}
+                      {t.itemName || "שם הפריט"} <span className={requiredFieldStyle}>*</span>
                     </label>
                     <Input
                       id="item-name"
@@ -1762,7 +1792,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       htmlFor="item-category"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      {t.itemCategory || "קטגוריה"}
+                      {t.itemCategory || "קטגוריה"} <span className={requiredFieldStyle}>*</span>
                     </label>
                     <Select value={newItem.category} onChange={(value) => setnewItem({ ...newItem, category: value })}>
                       <SelectTrigger id="item-category" className="mt-1">
@@ -1795,7 +1825,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                         htmlFor="item-quantity"
                         className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                       >
-                        {t.itemQuantity || "כמות"}
+                        {t.itemQuantity || "כמות"} <span className={requiredFieldStyle}>*</span>
                       </label>
                       <Input
                         id="item-quantity"
@@ -1808,7 +1838,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     </div>
                     <div>
                       <label htmlFor="item-unit" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {t.itemUnit || "יחידת מידה"}
+                        {t.itemUnit || "יחידת מידה"} <span className={requiredFieldStyle}>*</span>
                       </label>
                       <Input
                         id="item-unit"
@@ -1823,7 +1853,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       htmlFor="item-importance"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      {t.itemImportance || "חשיבות"}
+                      {t.itemImportance || "חשיבות"} <span className={requiredFieldStyle}>*</span>
                     </label>
                     <Select
                       value={newItem.importance.toString()}
