@@ -250,45 +250,45 @@ ${prompt}
 
 הנה כיצד להתאים את הרשימה באופן מושלם:
 
-1. אם יש ילדים - הוסף פריטים ספציפיים לגילם:
-   - לתינוקות: חיתולים, מזון לתינוקות, בקבוקים, מוצץ
-   - לילדים קטנים: משחקים מרגיעים, ספרים, צעצועים קטנים
-   - לילדים גדולים: משחקי קלפים, ספרי צביעה, פעילויות יצירה
+1. התייחס לכל מאפיין ייחודי בפרומפט המקורי:
+   - אם מוזכר היריון - הוסף פריטים ספציפיים להיריון (כריות תמיכה, ויטמינים, בגדים נוחים)
+   - אם מוזכרת מגבלת ניידות - הוסף פריטים שמקלים על תנועה (מקל הליכה מתקפל, כיסא נייד)
+   - אם מוזכרת אלרגיה - הוסף פריטים נגד אלרגיה (תרופות, מסכות, מסנני אוויר)
+   - אם מוזכר מצב רפואי - הוסף פריטים רפואיים ספציפיים (ציוד מדידה, תרופות מיוחדות)
 
-2. אם יש קשישים - הוסף פריטים ספציפיים:
-   - כסא גלגלים נייד או הליכון
-   - תרופות נוספות לבעיות נפוצות (לחץ דם, כולסטרול)
-   - משקפיים רזרביות
-   - כרית אורתופדית
+2. התייחס למבנה המשפחה:
+   - אם אדם גר לבד - הוסף פריטים שמתאימים לאדם בודד (ערכת חירום קומפקטית, אמצעי תקשורת נוספים)
+   - למשפחות גדולות - הוסף פריטים שמתאימים למספר אנשים (ציוד מודולרי, פתרונות אחסון)
 
-3. אם יש חיות מחמד - הוסף פריטים לפי סוג החיה:
-   - לכלבים: רצועה, קולר עם פרטים, צעצועים
-   - לחתולים: ארגז חול נייד, מנשא
-   - לציפורים: כלוב נייד, מזון מיוחד
-   - לכל החיות: תרופות וטרינריות, שמיכה מוכרת
+3. התייחס לסוג המגורים:
+   - דירה בקומה גבוהה - הוסף פריטים שמסייעים בירידה/עלייה במדרגות (תיק גב קל, פנס ראש)
+   - בית פרטי - הוסף פריטים לאבטחת הבית (מנעולים נוספים, ציוד איטום)
+   - מרחק ממקלט - הוסף פריטים שמסייעים בהגעה מהירה למקלט (תיק חירום מוכן, נעליים יציבות)
 
-4. אם יש צרכים מיוחדים רפואיים - הוסף פריטים ספציפיים:
-   - לסוכרתיים: מד סוכר נוסף, גלוקוז, מזון מתאים
-   - לאסטמטיים: משאפים נוספים, מכשיר אינהלציה
-   - לאלרגיים: תרופות אנטי-היסטמיניות, אפיפן
-   - למוגבלי ניידות: כסא רחצה, מעקות ניידים
+4. התייחס לחיות מחמד:
+   - סוג החיה - הוסף פריטים ספציפיים לסוג החיה (לכלב: רצועה, קולר, מחסום פה; לחתול: ארגז חול נייד)
+   - גודל החיה - התאם את הכמויות והגדלים (מזון, מנשא, שמיכה)
 
-5. לפי מיקום גיאוגרפי:
-   - צפון הארץ: ציוד הגנה נוסף, מערכת התרעה
-   - דרום הארץ: ציוד לחום קיצוני, מים נוספים
-   - מרכז הארץ: ציוד לצפיפות אוכלוסין
+5. התייחס למיקום גיאוגרפי:
+   - אזורי גבול - הוסף פריטים להגנה מוגברת
+   - אזורים חמים - הוסף פריטים לקירור והתמודדות עם חום
+   - אזורים קרים - הוסף פריטים לחימום והתמודדות עם קור
+   - עיר גדולה/יישוב קטן - התאם לזמינות משאבים
 
-6. לפי סוג מגורים:
-   - דירה: ציוד קומפקטי, מזון שאינו דורש בישול
-   - בית פרטי: גנרטור קטן, ציוד גינה
-   - קומות גבוהות: חבלים, ציוד פינוי
+6. התייחס למשך זמן החירום:
+   - פחות מ-24 שעות - פריטים בסיסיים וקומפקטיים
+   - 24-72 שעות - פריטים לטווח בינוני
+   - מעל 72 שעות - פריטים לטווח ארוך (ציוד לבישול, היגיינה מתקדמת)
 
-7. חשב כמויות מדויקות והסבר את החישוב:
-   - מים: 3 ליטר לאדם ליום × מספר אנשים × מספר ימים
-   - מזון: 2000 קלוריות לאדם ליום × מספר אנשים × מספר ימים
-   - תרופות: מספר מנות ליום × מספר ימים + 50% רזרבה
+7. הוסף פריטים ייחודיים שמתייחסים לשילוב של מספר מאפיינים:
+   - לדוגמה: אדם בהיריון עם אלרגיה - מסכה מיוחדת שנוחה בהיריון
+   - לדוגמה: קשיש עם כלב - רצועה מיוחדת שקלה לאחיזה
 
-8. וודא שכל הקטגוריות הן מהרשימה המותרת:
+8. הסבר בפירוט למה כל פריט חשוב ספציפית למשתמש:
+   - במקום: "כרית תמיכה לגב"
+   - כתוב: "כרית תמיכה ארגונומית לגב התחתון, חיונית במיוחד לנשים בהיריון בחודש השביעי בעת ישיבה ממושכת במקלט"
+
+9. וודא שכל הקטגוריות הן מהרשימה המותרת:
    - water_food (מים ומזון)
    - medical (ציוד רפואי)
    - hygiene (היגיינה)
@@ -318,7 +318,7 @@ ${prompt}
       "obtained": false,
       "expiryDate": null,
       "aiSuggestedExpiryDate": "YYYY-MM-DD",
-      "sendExpiryReminder": false,
+      "sendExpiryReminder: false,
       "personalized_note": "הערה מותאמת אישית המסבירה את החשיבות הספציפית של פריט זה למשפחה זו",
       "is_mandatory": false
     }
@@ -400,193 +400,375 @@ ${prompt}
   }
 }
 
+// שיפור פונקציית הגיבוי generateGenericPersonalizedItem
+// החלף את הפונקציה הקיימת עם הפונקציה המשופרת הזו:
+
 // Helper function to generate a generic personalized item based on profile
 function generateGenericPersonalizedItem(index: number, profile: any): any {
-  const items = []
-
-  // Generate items based on family composition
-  if (profile?.children > 0) {
-    items.push(
-      {
-        name: "ספרי צביעה ועפרונות צבעוניים",
-        category: "children",
-        description: "פעילות יצירתית להעסקת הילדים ולהפגת מתח במהלך החירום.",
-        personalized_note: `מותאם ל-${profile.children} ילדים במשפחה.`,
-        importance: 3,
-      },
-      {
-        name: "חטיפים בריאים לילדים",
-        category: "water_food",
-        description: "חטיפים מזינים ומוכרים לילדים למקרה שהמזון הרגיל לא זמין.",
-        personalized_note: `כמות מחושבת עבור ${profile.children} ילדים למשך ${Math.ceil((profile.duration_hours || 72) / 24)} ימים.`,
-        importance: 3,
-      },
-    )
-  }
-
-  if (profile?.babies > 0) {
-    items.push(
+  // מערך של פריטים מותאמים אישית לפי קטגוריות שונות
+  const itemsByCategory = {
+    // פריטים לתינוקות
+    babies: [
       {
         name: "חיתולים וחיתולי בד",
         category: "children",
         description: "חיתולים חד-פעמיים וחיתולי בד רב-פעמיים לתינוקות.",
-        personalized_note: `מותאם ל-${profile.babies} תינוקות במשפחה.`,
+        personalized_note: `מותאם ל-${profile?.babies || 1} תינוקות במשפחה.`,
         importance: 4,
       },
       {
         name: "מזון לתינוקות ובקבוקים",
         category: "children",
         description: "מזון מוכן לתינוקות ובקבוקים נוספים.",
-        personalized_note: `חיוני עבור ${profile.babies} תינוקות במשפחה.`,
+        personalized_note: `חיוני עבור ${profile?.babies || 1} תינוקות במשפחה.`,
         importance: 4,
       },
-    )
-  }
+      {
+        name: "מוצצים נוספים",
+        category: "children",
+        description: "מוצצים נוספים למקרה של אובדן.",
+        personalized_note: "חשוב להרגעת תינוקות במצבי לחץ.",
+        importance: 3,
+      },
+    ],
 
-  if (profile?.elderly > 0) {
-    items.push(
+    // פריטים לילדים
+    children: [
+      {
+        name: "ספרי צביעה ועפרונות צבעוניים",
+        category: "children",
+        description: "פעילות יצירתית להעסקת הילדים ולהפגת מתח במהלך החירום.",
+        personalized_note: `מותאם ל-${profile?.children || 1} ילדים במשפחה.`,
+        importance: 3,
+      },
+      {
+        name: "חטיפים בריאים לילדים",
+        category: "water_food",
+        description: "חטיפים מזינים ומוכרים לילדים למקרה שהמזון הרגיל לא זמין.",
+        personalized_note: `כמות מחושבת עבור ${profile?.children || 1} ילדים למשך ${Math.ceil((profile?.duration_hours || 72) / 24)} ימים.`,
+        importance: 3,
+      },
+      {
+        name: "משחקי קלפים ומשחקים קומפקטיים",
+        category: "children",
+        description: "משחקים קטנים שאינם דורשים מקום רב להעסקת הילדים.",
+        personalized_note: "חשוב להפגת מתח ושעמום בזמן שהייה ממושכת.",
+        importance: 2,
+      },
+    ],
+
+    // פריטים לקשישים
+    elderly: [
       {
         name: "משקפיים רזרביות",
-        category: "medical",
-        description: "משקפיים נוספים למקרה של שבירה או אובדן.",
-        personalized_note: `חשוב עבור ${profile.elderly} קשישים במשפחה.`,
+        category: "elderly",
+        description: "משקפיים נוספות למקרה של שבירה או אובדן.",
+        personalized_note: `חשוב עבור ${profile?.elderly || 1} קשישים במשפחה.`,
         importance: 3,
       },
       {
-        name: "כרית אורתופדית נייד",
-        category: "medical",
+        name: "כרית אורתופדית ניידת",
+        category: "elderly",
         description: "כרית תמיכה לגב ולצוואר לקשישים.",
-        personalized_note: `מותאם לנוחות ${profile.elderly} קשישים במשפחה.`,
+        personalized_note: `מותאם לנוחות ${profile?.elderly || 1} קשישים במשפחה.`,
         importance: 3,
       },
-    )
-  }
+      {
+        name: "מקל הליכה מתקפל",
+        category: "elderly",
+        description: "מקל הליכה קל ומתקפל לסיוע בניידות.",
+        personalized_note: "חיוני לקשישים בעת פינוי או הליכה למקלט.",
+        importance: 4,
+      },
+    ],
 
-  if (profile?.pets > 0) {
-    items.push(
+    // פריטים לחיות מחמד
+    pets: [
       {
         name: "מזון נוסף לחיות מחמד",
         category: "pets",
         description: "מזון יבש נוסף לחיות המחמד למשך תקופת החירום.",
-        personalized_note: `מחושב עבור ${profile.pets} חיות מחמד למשך ${Math.ceil((profile.duration_hours || 72) / 24)} ימים.`,
+        personalized_note: `מחושב עבור ${profile?.pets || 1} חיות מחמד למשך ${Math.ceil((profile?.duration_hours || 72) / 24)} ימים.`,
         importance: 4,
       },
       {
         name: "רצועה וקולר עם פרטי זיהוי",
         category: "pets",
         description: "ציוד זיהוי וביטחון לחיות המחמד במקרה של פינוי.",
-        personalized_note: `נדרש עבור ${profile.pets} חיות מחמד במשפחה.`,
+        personalized_note: `נדרש עבור ${profile?.pets || 1} חיות מחמד במשפחה.`,
         importance: 3,
       },
-    )
+      {
+        name: "שמיכה מוכרת לחיית המחמד",
+        category: "pets",
+        description: "שמיכה או בד מוכר לחיית המחמד להרגעה במצבי לחץ.",
+        personalized_note: "חשוב להפחתת חרדה אצל חיות מחמד במצבי חירום.",
+        importance: 2,
+      },
+    ],
+
+    // פריטים לצרכים מיוחדים
+    special_needs: [
+      {
+        name: "תרופות נוספות לצרכים מיוחדים",
+        category: "special_needs",
+        description: "תרופות נוספות למצבים רפואיים מיוחדים.",
+        personalized_note: `מותאם לצרכים המיוחדים: ${profile?.special_needs || "צרכים רפואיים"}.`,
+        importance: 4,
+      },
+      {
+        name: "ציוד רפואי מיוחד",
+        category: "special_needs",
+        description: "ציוד רפואי מיוחד בהתאם לצרכים האישיים.",
+        personalized_note: "חיוני לטיפול במצבים רפואיים מיוחדים בזמן חירום.",
+        importance: 4,
+      },
+      {
+        name: "מסכת חמצן ניידת",
+        category: "special_needs",
+        description: "מסכת חמצן ניידת לבעלי בעיות נשימה.",
+        personalized_note: "חיונית לבעלי בעיות נשימה בזמן חירום.",
+        importance: 4,
+      },
+    ],
+
+    // פריטים להיריון
+    pregnancy: [
+      {
+        name: "כרית תמיכה להיריון",
+        category: "special_needs",
+        description: "כרית תמיכה מיוחדת לנשים בהיריון לישיבה ושכיבה נוחה.",
+        personalized_note: "חיונית לנוחות ותמיכה בגב ובבטן בזמן שהייה ממושכת.",
+        importance: 3,
+      },
+      {
+        name: "ויטמינים וכדורי ברזל להיריון",
+        category: "medical",
+        description: "תוספי תזונה חיוניים לנשים בהיריון.",
+        personalized_note: "חשוב לשמירה על בריאות האם והעובר בזמן חירום.",
+        importance: 4,
+      },
+      {
+        name: "בגדים נוחים להיריון",
+        category: "other",
+        description: "בגדים נוחים ומתאימים להיריון לשהייה ממושכת.",
+        personalized_note: "חשוב לנוחות ולמניעת לחץ על הבטן בזמן שהייה ממושכת.",
+        importance: 2,
+      },
+    ],
+
+    // פריטים לאלרגיות
+    allergies: [
+      {
+        name: "תרופות אנטי-היסטמיניות",
+        category: "medical",
+        description: "תרופות נגד אלרגיה למקרה של התקף אלרגי.",
+        personalized_note: "חיוני לבעלי אלרגיות בזמן חירום, במיוחד כשהסביבה משתנה.",
+        importance: 4,
+      },
+      {
+        name: "מסכות N95 לסינון אבק ואלרגנים",
+        category: "medical",
+        description: "מסכות מיוחדות לסינון אבק, אבקנים ואלרגנים אחרים.",
+        personalized_note: "חיוני לבעלי אלרגיות נשימתיות, במיוחד במקלטים.",
+        importance: 4,
+      },
+      {
+        name: "מסנן אוויר נייד",
+        category: "special_needs",
+        description: "מסנן אוויר קטן המופעל על סוללות לסינון אלרגנים.",
+        personalized_note: "חשוב לבעלי אלרגיות חמורות בזמן שהייה במקלטים.",
+        importance: 3,
+      },
+    ],
+
+    // פריטים למגורים בקומות גבוהות
+    high_floor: [
+      {
+        name: "תיק גב קל לפינוי מהיר",
+        category: "other",
+        description: "תיק גב קל המכיל את הציוד החיוני ביותר לפינוי מהיר.",
+        personalized_note: "חיוני למי שגר בקומות גבוהות וצריך לרדת במדרגות בזמן אזעקה.",
+        importance: 4,
+      },
+      {
+        name: "נעליים יציבות וקלות",
+        category: "other",
+        description: "נעליים יציבות וקלות שניתן לנעול במהירות בזמן אזעקה.",
+        personalized_note: "חשוב למי שצריך לרדת במדרגות במהירות בזמן אזעקה.",
+        importance: 3,
+      },
+      {
+        name: "פנס ראש",
+        category: "lighting_energy",
+        description: "פנס ראש המשאיר את הידיים חופשיות בזמן ירידה במדרגות.",
+        personalized_note: "חיוני למי שגר בקומות גבוהות, במיוחד בלילה או בהפסקת חשמל.",
+        importance: 3,
+      },
+    ],
+
+    // פריטים כלליים
+    general: [
+      {
+        name: "סוללות נטענות ומטען סולארי",
+        category: "lighting_energy",
+        description: "סוללות נטענות ומטען סולארי לטעינה ללא חשמל.",
+        personalized_note: "שימושי לטעינת מכשירים קטנים במהלך הפסקות חשמל.",
+        importance: 3,
+      },
+      {
+        name: "שקיות אשפה וכפפות חד-פעמיות",
+        category: "hygiene",
+        description: "שקיות לאשפה וכפפות לשמירה על היגיינה.",
+        personalized_note: "חשוב לשמירה על ניקיון וסניטציה.",
+        importance: 2,
+      },
+      {
+        name: "נרות",
+        category: "lighting_energy",
+        description: "נרות לתאורה ולחימום במקרה של הפסקת חשמל ממושכת.",
+        personalized_note: "גיבוי לפנסים ולתאורה ממושכת.",
+        importance: 2,
+      },
+      {
+        name: "מגבות נייר ומגבונים",
+        category: "hygiene",
+        description: "מגבות נייר ומגבונים לחים לניקוי ללא מים.",
+        personalized_note: "שימושי כאשר אין גישה למים זורמים.",
+        importance: 2,
+      },
+      {
+        name: "ערכת תיקונים קטנה",
+        category: "other",
+        description: "ערכה קטנה הכוללת כלי עבודה בסיסיים, סלוטייפ, חוט ברזל וכו'.",
+        personalized_note: "שימושית לתיקונים קטנים בזמן חירום.",
+        importance: 2,
+      },
+      {
+        name: "מטהר מים נייד",
+        category: "water_food",
+        description: "מטהר מים נייד לטיהור מים במקרה שאין גישה למים נקיים.",
+        personalized_note: "חשוב במקרה של פגיעה במערכת המים.",
+        importance: 3,
+      },
+      {
+        name: "שמיכה תרמית",
+        category: "other",
+        description: "שמיכה תרמית קלה לשמירה על חום הגוף.",
+        personalized_note: "שימושית במקלטים קרים או בלילות קרים.",
+        importance: 2,
+      },
+      {
+        name: "אמצעי בישול חלופי",
+        category: "water_food",
+        description: "כירת גז קטנה או כירה על בסיס אלכוהול לחימום מזון.",
+        personalized_note: "שימושי לחימום מזון במקרה של הפסקת חשמל ממושכת.",
+        importance: 2,
+      },
+      {
+        name: "מזון מוכן לאכילה",
+        category: "water_food",
+        description: "מזון שאינו דורש בישול או חימום.",
+        personalized_note: "חשוב במקרה שאין אפשרות לבשל או לחמם מזון.",
+        importance: 3,
+      },
+      {
+        name: "ערכת עזרה ראשונה מורחבת",
+        category: "medical",
+        description: "ערכת עזרה ראשונה מורחבת הכוללת פריטים נוספים מעבר לערכה הבסיסית.",
+        personalized_note: "חשובה לטיפול במגוון רחב יותר של פציעות ומצבים רפואיים.",
+        importance: 3,
+      },
+    ],
   }
 
-  // Add general items based on duration
-  const days = Math.ceil((profile?.duration_hours || 72) / 24)
-  if (days > 3) {
-    items.push({
-      name: "ציוד כביסה בסיסי",
-      category: "hygiene",
-      description: "סבון כביסה וחבל כביסה לשטיפה ידנית.",
-      personalized_note: `חשוב למשך ${days} ימים של שהייה ממושכת.`,
-      importance: 2,
-    })
+  // בחירת קטגוריות רלוונטיות בהתאם לפרופיל
+  const relevantCategories = []
+
+  if (profile?.babies > 0) relevantCategories.push("babies")
+  if (profile?.children > 0) relevantCategories.push("children")
+  if (profile?.elderly > 0) relevantCategories.push("elderly")
+  if (profile?.pets > 0) relevantCategories.push("pets")
+  if (profile?.special_needs) relevantCategories.push("special_needs")
+
+  // בדיקת מאפיינים נוספים מהפרומפט
+  const promptLower = JSON.stringify(profile).toLowerCase()
+  if (promptLower.includes("היריון") || promptLower.includes("בהריון") || promptLower.includes("pregnant")) {
+    relevantCategories.push("pregnancy")
+  }
+  if (promptLower.includes("אלרגי") || promptLower.includes("אלרגיה") || promptLower.includes("allerg")) {
+    relevantCategories.push("allergies")
+  }
+  if (
+    promptLower.includes("קומה") ||
+    promptLower.includes("מדרגות") ||
+    promptLower.includes("floor") ||
+    promptLower.includes("stairs") ||
+    (profile?.housing_details &&
+      (profile.housing_details.includes("קומה") || profile.housing_details.includes("מדרגות")))
+  ) {
+    relevantCategories.push("high_floor")
   }
 
-  // Add location-based items
-  if (profile?.location?.includes("צפון") || profile?.location?.includes("גליל")) {
-    items.push({
-      name: "ציוד הגנה נוסף",
-      category: "other",
-      description: "ציוד הגנה נוסף לאזורי גבול.",
-      personalized_note: `מותאם למיקום בצפון הארץ.`,
-      importance: 4,
-    })
+  // תמיד להוסיף פריטים כלליים
+  relevantCategories.push("general")
+
+  // יצירת רשימת פריטים מכל הקטגוריות הרלוונטיות
+  let allRelevantItems = []
+  relevantCategories.forEach((category) => {
+    if (itemsByCategory[category]) {
+      allRelevantItems = [...allRelevantItems, ...itemsByCategory[category]]
+    }
+  })
+
+  // אם אין מספיק פריטים רלוונטיים, הוסף פריטים כלליים
+  if (allRelevantItems.length < 10) {
+    const generalItemsNeeded = 10 - allRelevantItems.length
+    allRelevantItems = [...allRelevantItems, ...itemsByCategory.general.slice(0, generalItemsNeeded)]
   }
 
-  // Add housing-based items
-  if (profile?.housing_details?.includes("דירה") || profile?.housing_details?.includes("קומה")) {
-    items.push({
-      name: "מזון שאינו דורש בישול",
-      category: "water_food",
-      description: "מזון מוכן לאכילה שאינו דורש הכנה או חימום.",
-      personalized_note: "מותאם למגורים בדירה ללא אפשרות בישול.",
-      importance: 3,
-    })
-  }
+  // בחירת פריט לפי האינדקס
+  const selectedItem = allRelevantItems[index % allRelevantItems.length]
 
-  // Add general useful items
-  items.push(
-    {
-      name: "סוללות נטענות ומטען סולארי",
-      category: "lighting_energy",
-      description: "סוללות נטענות ומטען סולארי לטעינה ללא חשמל.",
-      personalized_note: "שימושי לטעינת מכשירים קטנים במהלך הפסקות חשמל.",
-      importance: 3,
-    },
-    {
-      name: "שקיות אשפה וכפפות חד-פעמיות",
-      category: "hygiene",
-      description: "שקיות לאשפה וכפפות לשמירה על היגיינה.",
-      personalized_note: "חשוב לשמירה על ניקיון וסניטציה.",
-      importance: 2,
-    },
-    {
-      name: "נרות",
-      category: "lighting_energy",
-      description: "נרות לתאורה ולחימום במקרה של הפסקת חשמל ממושכת.",
-      personalized_note: "גיבוי לפנסים ולתאורה ממושכת.",
-      importance: 2,
-    },
-    {
-      name: "מגבות נייר ומגבונים",
-      category: "hygiene",
-      description: "מגבות נייר ומגבונים לחים לניקוי ללא מים.",
-      personalized_note: "שימושי כאשר אין גישה למים זורמים.",
-      importance: 2,
-    },
-  )
-
-  // Return the item at the specified index, or a default if out of bounds
-  if (index < items.length) {
-    const selectedItem = items[index]
+  if (!selectedItem) {
+    // פריט ברירת מחדל אם אין פריט מתאים
     return {
       id: `generic-${index + 1}`,
-      name: selectedItem.name,
-      category: selectedItem.category,
-      quantity: calculateQuantityForItem(selectedItem.name, profile),
-      unit: getUnitForItem(selectedItem.name),
-      importance: selectedItem.importance,
-      description: selectedItem.description,
-      shelf_life: getShelfLifeForItem(selectedItem.name),
-      usage_instructions: getUsageInstructionsForItem(selectedItem.name),
-      recommended_quantity_per_person: getRecommendedQuantityForItem(selectedItem.name),
+      name: "פריט כללי מותאם אישית",
+      category: "other",
+      quantity: 1,
+      unit: "יחידות",
+      importance: 2,
+      description: "פריט כללי המותאם לצרכי המשפחה.",
+      shelf_life: "שנה",
+      usage_instructions: "יש להשתמש לפי הצורך.",
+      recommended_quantity_per_person: "1 יחידה",
       obtained: false,
       expiryDate: null,
-      aiSuggestedExpiryDate: getExpiryDateForItem(selectedItem.name),
+      aiSuggestedExpiryDate: null,
       sendExpiryReminder: false,
-      personalized_note: selectedItem.personalized_note,
+      personalized_note: "פריט מותאם אישית לצרכי המשפחה.",
       is_mandatory: false,
     }
   }
 
-  // Fallback generic item
+  // החזרת הפריט המלא עם כל השדות הנדרשים
   return {
     id: `generic-${index + 1}`,
-    name: "פריט כללי מותאם אישית",
-    category: "other",
-    quantity: 1,
-    unit: "יחידות",
-    importance: 2,
-    description: "פריט כללי המותאם לצרכי המשפחה.",
-    shelf_life: "שנה",
-    usage_instructions: "יש להשתמש לפי הצורך.",
-    recommended_quantity_per_person: "1 יחידה",
+    name: selectedItem.name,
+    category: selectedItem.category,
+    quantity: calculateQuantityForItem(selectedItem.name, profile),
+    unit: getUnitForItem(selectedItem.name),
+    importance: selectedItem.importance,
+    description: selectedItem.description,
+    shelf_life: getShelfLifeForItem(selectedItem.name),
+    usage_instructions: getUsageInstructionsForItem(selectedItem.name),
+    recommended_quantity_per_person: getRecommendedQuantityForItem(selectedItem.name),
     obtained: false,
     expiryDate: null,
-    aiSuggestedExpiryDate: null,
+    aiSuggestedExpiryDate: getExpiryDateForItem(selectedItem.name),
     sendExpiryReminder: false,
-    personalized_note: "פריט מותאם אישית לצרכי המשפחה.",
+    personalized_note: selectedItem.personalized_note,
     is_mandatory: false,
   }
 }
