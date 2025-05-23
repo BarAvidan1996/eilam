@@ -1,33 +1,218 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardDescription, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
-  FileText,
+  Trash2,
   AlertTriangle,
   ListChecks,
   Lightbulb,
+  ShieldCheck,
+  Filter,
+  Search,
   Baby,
   Cat,
   Activity,
-  Droplets,
   Pill,
   HeartHandshake,
   UsersIcon,
-  ShieldCheck,
+  RotateCcw,
+  Info,
+  Sparkles,
+  FileText,
+  Droplets,
+  Pencil,
+  X,
+  Plus,
 } from "lucide-react"
-import { EquipmentList } from "@/entities/EquipmentList"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { createPageUrl } from "@/utils"
-import { useNavigate } from "react-router-dom"
-// Import locales for date-fns CORRECTLY
-import { he } from "date-fns/locale" // Corrected import for Hebrew
-import { enUS } from "date-fns/locale" // Corrected import for English (US)
-// If you need Arabic and Russian locales for date-fns formatting:
-// import { ar } from 'date-fns/locale';
-// import { ru } from 'date-fns/locale';
-import { HelpCircle } from "lucide-react"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { useRouter } from "next/navigation"
+import { EquipmentService } from "@/lib/services/equipment-service"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useToast } from "@/hooks/use-toast"
 
+const requiredFieldStyle = "text-red-500 ml-1"
+
+// Define mandatory items that must be included - moved to component level
+const MANDATORY_ITEMS = [
+  {
+    id: "mandatory-1",
+    name: "מים (3 ליטר לאדם ליום)",
+    category: "water_food",
+    importance: 5,
+    description: "מים לשתייה ולשימוש בסיסי. פריט חובה של פיקוד העורף.",
+    shelf_life: "שנה",
+    usage_instructions: "יש לאחסן במקום קריר ויבש. מומלץ להחליף כל שנה.",
+    recommended_quantity_per_person: "3 ליטר ליום",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-2",
+    name: "מזון יבש/משומר",
+    category: "water_food",
+    importance: 5,
+    description: "מזון שאינו דורש קירור או בישול. פריט חובה של פיקוד העורף.",
+    shelf_life: "שנה",
+    usage_instructions: "יש לבדוק תאריכי תפוגה ולהחליף בהתאם.",
+    recommended_quantity_per_person: "מנה ליום",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-3",
+    name: "ערכת עזרה ראשונה",
+    category: "medical",
+    importance: 5,
+    description: "ערכה בסיסית לטיפול בפציעות קלות. פריט חובה של פיקוד העורף.",
+    shelf_life: "שנתיים",
+    usage_instructions: "יש לבדוק שלמות ותקינות הפריטים אחת לחצי שנה.",
+    recommended_quantity_per_person: "1 ערכה למשפחה",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-4",
+    name: "תרופות קבועות + מרשמים מודפסים",
+    category: "medical",
+    importance: 5,
+    description: "תרופות קבועות לבני המשפחה ומרשמים מודפסים. פריט חובה של פיקוד העורף.",
+    shelf_life: "בהתאם לתרופה",
+    usage_instructions: "יש לוודא מלאי לפחות לשבוע ימים ולבדוק תאריכי תפוגה.",
+    recommended_quantity_per_person: "לפי הצורך הרפואי",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-5",
+    name: "רדיו + סוללות",
+    category: "communication",
+    importance: 5,
+    description: "רדיו המופעל על סוללות לקבלת עדכונים. פריט חובה של פיקוד העורף.",
+    shelf_life: "5 שנים",
+    usage_instructions: "יש לבדוק תקינות אחת לחודש ולהחליף סוללות בהתאם.",
+    recommended_quantity_per_person: "1 רדיו למשפחה",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-6",
+    name: "פנסים + סוללות",
+    category: "lighting_energy",
+    importance: 5,
+    description: "פנסים לתאורת חירום. פריט חובה של פיקוד העורף.",
+    shelf_life: "5 שנים",
+    usage_instructions: "יש לבדוק תקינות אחת לחודש ולהחליף סוללות בהתאם.",
+    recommended_quantity_per_person: "1 פנס לאדם",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-7",
+    name: "מטענים ניידים לטלפונים",
+    category: "communication",
+    importance: 5,
+    description: "מטענים ניידים לטעינת טלפונים ניידים. פריט חובה של פיקוד העורף.",
+    shelf_life: "3 שנים",
+    usage_instructions: "יש לוודא שהמטענים טעונים במלואם.",
+    recommended_quantity_per_person: "1 מטען לטלפון",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-8",
+    name: "ציוד ייחודי לתינוקות/קשישים/חיות מחמד",
+    category: "other",
+    importance: 5,
+    description: "ציוד ייחודי בהתאם לצרכים המיוחדים של בני המשפחה. פריט חובה של פיקוד העורף.",
+    shelf_life: "בהתאם לפריט",
+    usage_instructions: "יש להתאים לצרכים הספציפיים של המשפחה.",
+    recommended_quantity_per_person: "לפי הצורך",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-9",
+    name: "עותקים של מסמכים חשובים",
+    category: "documents_money",
+    importance: 5,
+    description: "עותקים של תעודות זהות, דרכונים, רישיונות וכו'. פריט חובה של פיקוד העורף.",
+    shelf_life: "לא רלוונטי",
+    usage_instructions: "יש לשמור במקום אטום למים ולעדכן בהתאם לשינויים.",
+    recommended_quantity_per_person: "עותק לכל מסמך",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-10",
+    name: "מטף כיבוי אש",
+    category: "other",
+    importance: 5,
+    description: "מטף לכיבוי שריפות קטנות. פריט חובה של פיקוד העורף.",
+    shelf_life: "5 שנים",
+    usage_instructions: "יש לבדוק תקינות אחת לשנה ולתחזק בהתאם להוראות היצרן.",
+    recommended_quantity_per_person: "1 מטף למשפחה",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-11",
+    name: "חצי מיכל דלק ברכב",
+    category: "other",
+    importance: 5,
+    description: "שמירה על לפחות חצי מיכל דלק ברכב. פריט חובה של פיקוד העורף.",
+    shelf_life: "לא רלוונטי",
+    usage_instructions: "יש לוודא שהרכב תמיד עם לפחות חצי מיכל דלק.",
+    recommended_quantity_per_person: "חצי מיכל",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-12",
+    name: "משחקים ופעילויות לילדים",
+    category: "children",
+    importance: 5,
+    description: "משחקים ופעילויות להפגת מתח ושעמום. פריט חובה של פיקוד העורף.",
+    shelf_life: "לא רלוונטי",
+    usage_instructions: "יש להתאים לגיל הילדים ולהעדפותיהם.",
+    recommended_quantity_per_person: "לפי מספר הילדים",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-13",
+    name: "ציוד בסיסי לחיות מחמד",
+    category: "pets",
+    importance: 5,
+    description: "מזון, מים, ותרופות לחיות המחמד. פריט חובה של פיקוד העורף.",
+    shelf_life: "בהתאם לפריט",
+    usage_instructions: "יש להתאים לסוג חיית המחמד ולצרכיה.",
+    recommended_quantity_per_person: "לפי מספר החיות",
+    is_mandatory: true,
+  },
+]
+
+// Helper functions for calculating quantities and units
+function calculateQuantity(itemName: string, profile: any): number {
+  if (!profile) return 1
+
+  const totalPeople = (profile.adults || 1) + (profile.children || 0) + (profile.babies || 0) + (profile.elderly || 0)
+  const days = Math.ceil((profile.duration_hours || 72) / 24)
+
+  if (itemName.includes("מים")) {
+    return 3 * totalPeople * days // 3 liters per person per day
+  } else if (itemName.includes("מזון")) {
+    return totalPeople * days // 1 unit per person per day
+  } else if (itemName.includes("חיות מחמד") && profile.pets) {
+    return profile.pets // 1 unit per pet
+  } else if (itemName.includes("משחקים") && profile.children) {
+    return profile.children // 1 unit per child
+  }
+
+  return 1
+}
+
+function getUnitForItem(itemName: string): string {
+  if (itemName.includes("מים")) return "ליטרים"
+  if (itemName.includes("מזון")) return "מנות"
+  return "יחידות"
+}
+
+// Base translations
 const baseTranslations = {
   he: {
     pageTitle: "ניהול ציוד חירום",
@@ -64,7 +249,7 @@ const baseTranslations = {
     aiSavedSuccess: "הרשימה נשמרה בהצלחה!",
     aiGoToList: "עבור לרשימה",
     aiBack: "חזור",
-    aiFamilyComposition: "הרכב המשפחה",
+    aiFamilyComposition: "מאפייני בני הבית",
     aiAdults: "מבוגרים",
     aiChildren: "ילדים",
     aiBabies: "תינוקות",
@@ -300,285 +485,9 @@ const baseTranslations = {
     usageInstructionsPlaceholder: "Usage instructions and important notes",
     saveList: "Save List",
   },
-  ar: {
-    pageTitle: "إدارة معدات الطوارئ",
-    pageDescription: "إنشاء وتحرير وإدارة قوائم المعدات الأساسية للطوارئ.",
-    createListAI: "إنشاء قائمة بالذكاء الاصطناعي",
-    createListManual: "إنشاء قائمة يدويًا",
-    myLists: "قوائمي",
-    noListsYet: "لم تقم بإنشاء أي قوائم معدات حتى الآن.",
-    noListsYetDescription: "انقر فوق 'إنشاء قائمة يدويًا' أو 'إنشاء قائمة بالذكاء الاصطناعي' للبدء.",
-    selectListPrompt: "حدد قائمة لعرضها أو إنشاء واحدة جديدة.",
-    createNewListButtonPrompt: "إنشاء قائمة جديدة",
-    exportList: "تصدير القائمة",
-    editListDetails: "تحرير تفاصيل القائمة",
-    itemQuantityUnit: "{quantity} {unit}",
-    categoryLabel: "الفئة:",
-    expiryLabel: "تنتهي صلاحيته:",
-    addItemToList: "إضافة عنصر إلى القائمة",
-    reminders: "التذكيرات",
-    deleteItem: "حذف العنصر",
-    createListModalTitle: "إنشاء قائمة جديدة",
-    listNameLabel: "اسم القائمة",
-    listDescriptionLabel: "الوصف (اختياري)",
-    cancel: "إلغاء",
-    aiModalTitle: "إنشاء قائمة معدات ذكية بالذكاء الاصطناعي",
-    aiPromptDescription: "أخبرنا عن نفسك وعن أسرتك حتى نتمكن من تخصيص قائمة المعدات الموصى بها لك.",
-    aiPromptPlaceholder:
-      "مثال: أعيش في شقة مع زوجي وابنة تبلغ من العمر 5 سنوات. لدينا قطة. لدي إعاقة حركية وأستخدم مشاية. نعيش في الطابق الثاني بدون مصعد.",
-    aiGenerateButton: "إنشاء توصيات الذكاء الاصطناعي",
-    aiGenerating: "جاري إنشاء قائمة مخصصة...",
-    aiItemsTitle: "العناصر الموصى بها بواسطة الذكاء الاصطناعي",
-    aiListNamePlaceholder: "على سبيل المثال: قائمة الطوارئ العائلية الذكية",
-    aiSaveList: "حفظ القائمة الموصى بها",
-    aiSavedSuccess: "تم حفظ القائمة بنجاح!",
-    aiGoToList: "اذهب إلى القائمة",
-    aiBack: "رجوع",
-    aiFamilyComposition: "تكوين الأسرة",
-    aiAdults: "البالغون",
-    aiChildren: "الأطفال",
-    aiBabies: "الرضع",
-    aiPets: "الحيوانات الأليفة",
-    aiSpecialNeeds: "الاحتياجات الخاصة",
-    aiNeedsAttention: "يحتاج إلى اهتمام",
-    aiCategories: {
-      water_food: "الماء والغذاء",
-      medical: "المعدات الطبية",
-      hygiene: "النظافة",
-      lighting_energy: "الإضاءة والطاقة",
-      communication: "الاتصالات",
-      documents_money: "المستندات والمال",
-      children: "الأطفال",
-      pets: "الحيوانات الأليفة",
-      elderly: "كبار السن",
-      special_needs: "الاحتياجات الخاصة",
-      other: "معدات عامة",
-      essential: "ضروري",
-      very_important: "مهم جدا",
-      important: "مهم",
-      recommended: "موصى به",
-      optional: "اختياري",
-      recommended_quantity_per_person_label: "الكمية الموصى بها للشخص",
-      usage_instructions_label: "تعليمات الاستخدام",
-      shelf_life_label: "مدة الصلاحية",
-      default_unit: "وحدات",
-    },
-    categories: [
-      "الطعام والماء",
-      "الطبية والنظافة",
-      "الإضاءة والطاقة",
-      "الاتصالات",
-      "المستندات والمال",
-      "الملابس والمتفرقات",
-    ],
-    summaryTitle: "ملخص معداتك",
-    categoriesCount: "فئات",
-    totalReadiness: "الاستعداد الكلي",
-    missingEssentialItems: "أساسيات مفقودة",
-    itemsChecked: "العناصر التي تم فحصها",
-    backToAI: "العودة إلى موجه الذكاء الاصطناعي",
-    missingEssentialItemsTitle: "العناصر الأساسية المفقودة",
-    andMoreMissing: "و {count} عناصر أساسية أخرى مفقودة ...",
-    allItemsTitle: "جميع العناصر في القائمة",
-    searchItemPlaceholder: "ابحث عن عنصر ...",
-    categoryFilterPlaceholder: "الفئة",
-    allCategories: "جميع الفئات",
-    importanceFilterPlaceholder: "الأهمية",
-    allLevels: "جميع المستويات",
-    clearFiltersButton: "مسح",
-    noItemsFound: "لم يتم العثور على العناصر تطابق بحثك",
-    showAllItemsButton: "عرض جميع العناصر",
-    description: "الوصف",
-    quantity: "الكمية",
-    important: "مهم",
-    durationHours: "المدة (ساعات)",
-    moreEssentialsMissing: "تحتاج إلى الحصول على {count} من العناصر الأساسية الإضافية للتأهب الكامل",
-    editList: "تعديل القائمة",
-    cancelEditing: "إلغاء التعديل",
-    addItem: "أضف بندا",
-    saveChanges: "حفظ التغييرات",
-    addNewItem: "إضافة عنصر جديد",
-    itemName: "اسم العنصر",
-    itemCategory: "الفئة",
-    itemQuantity: "الكمية",
-    itemUnit: "الوحدة",
-    itemImportance: "الأهمية",
-    itemDescription: "الوصف",
-    itemShelfLife: "مدة الصلاحية",
-    itemUsageInstructions: "تعليمات الاستخدام",
-    itemRecommendedQuantity: "الكمية الموصى بها للشخص",
-    cancel: "إلغاء",
-    add: "أضف",
-    undoAction: "בטל פעולה אחרונה",
-    removeItem: "Remove Item",
-    removeItemConfirm: "Are you sure you want to remove this item?",
-    removeItemDescription: "This action will remove the item from the list and cannot be undone.",
-    confirmRemove: "Remove",
-    cancelRemove: "Cancel",
-    enterListNamePrompt: "أدخل اسما للقائمة الجديدة:",
-    defaultNewListName: "قائمة جديدة",
-    listNameCannotBeEmpty: "اسم الرשימה لا يمكن أن يكون فارغًا.",
-    notSpecified: "غير محدد",
-    errorProvideListNameOrProfile: "يرجى تقديم اسم قائمة أو تفاصيل الملف الشخصي لإنشاء قائمة مخصصة.",
-    equipmentListFor: "قائمة المعدات ل",
-    adults: "بالغين",
-    listUpdatedSuccessfully: "تم تحديث القائمة بنجاح!",
-    listCreatedSuccessfully: "تم إنشاء القائمة بنجاح!",
-    errorSavingList: "خطأ في حفظ القائمة. حاول مرة أخرى.",
-    errorNoListToUpdate: "لم يتم تحديد أي قائمة للتحديث.",
-    changesSavedSuccessfully: "تم حفظ التغييرات بنجاح!",
-    errorSavingChanges: "خطأ في حفظ التغييرات.",
-    expiryDate: "تاريخ انتهاء الصلاحية",
-    setExpiryDate: "تحديد تاريخ انتهاء الصلاحية",
-    sendReminder: "أرسل لي تذكيرًا",
-    aiSuggestedExpiry: "انتهاء الصلاحية المقترح بواسطة الذكاء الاصطناعي: ",
-    noExpiryDate: "لا يوجد تاريخ انتهاء صلاحية",
-    days: "أيام",
-    unknownItem: "عنصر غير معروف",
-    usageInstructionsPlaceholder: "تعليمات الاستخدام والملاحظات الهامة",
-    saveList: "حفظ القائمة",
-  },
-  ru: {
-    pageTitle: "Управление аварийным оборудованием",
-    pageDescription: "Создавайте, редактируйте и управляйте списками важного оборудования для чрезвычайных ситуаций.",
-    createListAI: "Создать список с ИИ",
-    createListManual: "Создать список вручную",
-    myLists: "Мои списки",
-    noListsYet: "Вы еще не создали списки оборудования.",
-    noListsYetDescription: "Нажмите «Создать список вручную» или «Создать список с ИИ», чтобы начать.",
-    selectListPrompt: "Выберите список для просмотра или создайте новый.",
-    createNewListButtonPrompt: "Создать новый список",
-    exportList: "Экспорт списка",
-    editListDetails: "Редактировать детали списка",
-    itemQuantityUnit: "{quantity} {unit}",
-    categoryLabel: "Категория:",
-    expiryLabel: "Истекает:",
-    addItemToList: "Добавить предмет в список",
-    reminders: "Напоминания",
-    deleteItem: "Удалить предмет",
-    createListModalTitle: "Создать новый список",
-    listNameLabel: "Название списка",
-    listDescriptionLabel: "Описание (необязательно)",
-    cancel: "Отмена",
-    aiModalTitle: "Создание списка оборудования с помощью ИИ",
-    aiPromptDescription:
-      "Расскажите нам о себе и своей семье, чтобы мы могли настроить для вас рекомендуемый список оборудования.",
-    aiPromptPlaceholder:
-      "Например: Я живу в квартире с мужем и 5-летней дочерью. У нас есть кошка. У меня есть нарушения опорно-двигательного аппарата, и я пользуюсь ходунками. Мы живем на 2-м этаже без лифта.",
-    aiGenerateButton: "Создать рекомендации ИИ",
-    aiGenerating: "Создание персонализированного списка...",
-    aiItemsTitle: "Рекомендуемые ИИ предметы",
-    aiListNamePlaceholder: "например, Умный семейный аварийный список",
-    aiSaveList: "Сохранить рекомендуемый список",
-    aiSavedSuccess: "Список успешно сохранен!",
-    aiGoToList: "Перейти к списку",
-    aiBack: "Назад",
-    aiFamilyComposition: "Состав семьи",
-    aiAdults: "Взрослые",
-    aiChildren: "Дети",
-    aiBabies: "Младенцы",
-    aiPets: "Домашние животные",
-    aiSpecialNeeds: "Особые потребности",
-    aiNeedsAttention: "Требует внимания",
-    aiCategories: {
-      water_food: "Вода и еда",
-      medical: "Медицинское оборудование",
-      hygiene: "Гигиена",
-      lighting_energy: "Освещение и энергия",
-      communication: "Связь",
-      documents_money: "Документы и деньги",
-      children: "Дети",
-      pets: "Домашние животные",
-      elderly: "Пожилые",
-      special_needs: "Особые потребности",
-      other: "Общее оборудование",
-      essential: "Необходимо",
-      very_important: "Очень важно",
-      important: "Важно",
-      recommended: "Рекомендуется",
-      optional: "Необязательно",
-      recommended_quantity_per_person_label: "Рекомендуемое количество на человека",
-      usage_instructions_label: "Инструкции по использованию",
-      shelf_life_label: "Срок годности",
-      default_unit: "Единицы",
-    },
-    categories: [
-      "Еда и вода",
-      "Медицинские принадлежности и гигиена",
-      "Освещение и энергия",
-      "Связь",
-      "Документы и деньги",
-      "Одежда и разное",
-    ],
-    summaryTitle: "Сводка вашего оборудования",
-    categoriesCount: "Категории",
-    totalReadiness: "Общая готовность",
-    missingEssentialItems: "Отсутствующие необходимые",
-    itemsChecked: "Проверенные элементы",
-    backToAI: "Вернуться к ИИ-запросу",
-    missingEssentialItemsTitle: "Отсутствующие необходимые предметы",
-    andMoreMissing: "И еще {count} отсутствующих необходимых предметов...",
-    allItemsTitle: "Все элементы в списке",
-    searchItemPlaceholder: "Поиск элемента...",
-    categoryFilterPlaceholder: "Категория",
-    allCategories: "Все категории",
-    importanceFilterPlaceholder: "Важность",
-    allLevels: "Все уровни",
-    clearFiltersButton: "Очистить",
-    noItemsFound: "Элементы, соответствующие вашему поиску, не найдены",
-    showAllItemsButton: "Показать все элементы",
-    description: "Описание",
-    quantity: "Количество",
-    important: "Важно",
-    durationHours: "Продолжительность (часы)",
-    moreEssentialsMissing: "Вам необходимо приобрести еще {count} предметов первой необходимости для полной готовности",
-    editList: "Редактировать список",
-    cancelEditing: "Отменить редактирование",
-    addItem: "Добавить элемент",
-    saveChanges: "Сохранить изменения",
-    addNewItem: "Добавление нового элемента",
-    itemName: "Название элемента",
-    itemCategory: "Категория",
-    itemQuantity: "Количество",
-    itemUnit: "Единица измерения",
-    itemDescription: "Описание",
-    itemShelfLife: "Срок годности",
-    itemUsageInstructions: "Инструкции по использованию",
-    itemRecommendedQuantity: "Рекомендуемое количество на человека",
-    cancel: "Отмена",
-    add: "Добавить",
-    undoAction: "Undo Last Action",
-    removeItem: "Remove Item",
-    removeItemConfirm: "Are you sure you want to remove this item?",
-    removeItemDescription: "This action will remove the item from the list and cannot be undone.",
-    confirmRemove: "Remove",
-    cancelRemove: "Cancel",
-    enterListNamePrompt: "Введите имя для нового списка:",
-    defaultNewListName: "Новый список",
-    listNameCannotBeEmpty: "Имя списка не может быть пустым.",
-    notSpecified: "Не указано",
-    errorProvideListNameOrProfile:
-      "Пожалуйста, предоставьте имя списка или сведения профиля для создания персонализированного списка.",
-    equipmentListFor: "Список оборудования для",
-    adults: "взрослых",
-    listUpdatedSuccessfully: "Список успешно обновлен!",
-    listCreatedSuccessfully: "Список успешно создан!",
-    errorSavingList: "Ошибка сохранения списка. Пожалуйста, попробуйте еще раз.",
-    errorNoListToUpdate: "Список не выбран для обновления.",
-    changesSavedSuccessfully: "Изменения успешно сохранены!",
-    errorSavingChanges: "Ошибка сохранения изменений.",
-    expiryDate: "Срок годности",
-    setExpiryDate: "Установить срок годности",
-    sendReminder: "Отправить мне напоминание",
-    aiSuggestedExpiry: "Предлагаемый ИИ срок годности: ",
-    noExpiryDate: "Нет срока годности",
-    days: "дни",
-    unknownItem: "Неизвестный элемент",
-    usageInstructionsPlaceholder: "Инструкции по использованию и важные примечания",
-    saveList: "Сохранить список",
-  },
 }
 
+// Category icons and styles
 const categoryIcons = {
   water_food: <Droplets className="h-5 w-5" />,
   medical: <Pill className="h-5 w-5" />,
@@ -596,61 +505,185 @@ const categoryIcons = {
   pet: <Cat className="h-5 w-5" />,
 }
 
-const headerStyles = `
-  @media (min-width: 480px) and (max-width: 639px) {
-    .xs\\:flex-row {
-      flex-direction: row;
-    }
-    .xs\\:w-auto {
-      width: auto;
-    }
-    .xs\\:items-center {
-      align-items: center;
-    }
-    .xs\\:gap-2 {
-      gap: 0.5rem;
-    }
-    .xs\\:inline {
-      display: inline;
+// רכיב חדש להצגת מצב הטעינה
+const LoadingIndicator = ({ state, t }) => {
+  const getStepText = () => {
+    switch (state.step) {
+      case "extracting":
+        return t.extractingData || "מחלץ מידע מהתיאור שלך..."
+      case "generating":
+        return t.generatingRecommendations || "יוצר רשימת ציוד מותאמת אישית..."
+      case "processing":
+        return t.processingItems || "מעבד את הפריטים המומלצים..."
+      case "finalizing":
+        return t.finalizingProcess || "מסיים את התהליך..."
+      default:
+        return t.processingGeneric || "מעבד..."
     }
   }
-  /* אין צורך יותר להסתיר את .accordion-chevron אם נסיר את החץ הידני */
-`
 
-export default function EquipmentPage() {
-  const navigate = useNavigate()
-  document.title = "תיקון עדכון רשימות - גישה מקיפה יותר"
-  const language = document.documentElement.lang || "he"
-  const [translations, setTranslations] = useState(baseTranslations[language] || baseTranslations.he)
+  return (
+    <div className="w-full">
+      <div className="flex justify-between mb-1">
+        <span className="text-sm font-medium text-[#005c72] dark:text-[#d3e3fd]">{getStepText()}</span>
+        <span className="text-sm font-medium text-[#005c72] dark:text-[#d3e3fd]">{state.progress}%</span>
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+        <div
+          className="bg-[#005c72] dark:bg-[#d3e3fd] h-2.5 rounded-full transition-all duration-300 ease-in-out"
+          style={{ width: `${state.progress}%` }}
+        ></div>
+      </div>
+    </div>
+  )
+}
+
+// Define category colors
+const categoryColors = {
+  water_food: {
+    bg: "bg-blue-50",
+    text: "text-blue-700",
+    darkBg: "dark:bg-blue-900/20",
+    darkText: "dark:text-blue-300",
+    icon: categoryIcons.water_food,
+  },
+  medical: {
+    bg: "bg-red-50",
+    text: "text-red-700",
+    darkBg: "dark:bg-red-900/20",
+    darkText: "dark:text-red-300",
+    icon: categoryIcons.medical,
+  },
+  hygiene: {
+    bg: "bg-green-50",
+    text: "text-green-700",
+    darkBg: "dark:bg-green-900/20",
+    darkText: "dark:text-green-300",
+    icon: categoryIcons.hygiene,
+  },
+  lighting_energy: {
+    bg: "bg-yellow-50",
+    text: "text-yellow-700",
+    darkBg: "dark:bg-yellow-900/20",
+    darkText: "dark:text-yellow-300",
+    icon: categoryIcons.lighting_energy,
+  },
+  communication: {
+    bg: "bg-purple-50",
+    text: "text-purple-700",
+    darkBg: "dark:bg-purple-900/20",
+    darkText: "dark:text-purple-300",
+    icon: categoryIcons.communication,
+  },
+  documents_money: {
+    bg: "bg-gray-50",
+    text: "text-gray-700",
+    darkBg: "dark:bg-gray-900/20",
+    darkText: "dark:text-gray-300",
+    icon: categoryIcons.documents_money,
+  },
+  children: {
+    bg: "bg-pink-50",
+    text: "text-pink-700",
+    darkBg: "dark:bg-pink-900/20",
+    darkText: "dark:text-pink-300",
+    icon: categoryIcons.children,
+  },
+  pets: {
+    bg: "bg-orange-50",
+    text: "text-orange-700",
+    darkBg: "dark:bg-orange-900/20",
+    darkText: "dark:text-orange-300",
+    icon: categoryIcons.pets,
+  },
+  elderly: {
+    bg: "bg-teal-50",
+    text: "text-teal-700",
+    darkBg: "dark:bg-teal-900/20",
+    darkText: "dark:text-teal-300",
+    icon: categoryIcons.elderly,
+  },
+  special_needs: {
+    bg: "bg-lime-50",
+    text: "text-lime-700",
+    darkBg: "dark:bg-lime-900/20",
+    darkText: "dark:text-lime-300",
+    icon: categoryIcons.special_needs,
+  },
+  other: {
+    bg: "bg-stone-50",
+    text: "text-stone-700",
+    darkBg: "dark:bg-stone-900/20",
+    darkText: "dark:text-stone-300",
+    icon: categoryIcons.other,
+  },
+  emergency: {
+    bg: "bg-red-100",
+    text: "text-red-800",
+    darkBg: "dark:bg-red-900/30",
+    darkText: "dark:text-red-400",
+    icon: categoryIcons.emergency,
+  },
+  food: {
+    bg: "bg-blue-100",
+    text: "text-blue-800",
+    darkBg: "dark:bg-blue-900/30",
+    darkText: "dark:text-blue-400",
+    icon: categoryIcons.food,
+  },
+  pet: {
+    bg: "bg-orange-100",
+    text: "text-orange-800",
+    darkBg: "dark:bg-orange-900/30",
+    darkText: "dark:text-orange-400",
+    icon: categoryIcons.pet,
+  },
+}
+
+export default function EquipmentPage({ initialList = null }: { initialList?: any }) {
+  const router = useRouter()
+  const [language, setLanguage] = useState("he")
+  const [translations, setTranslations] = useState(baseTranslations.he)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [aiUserPrompt, setAIUserPrompt] = useState("")
-  const [isAILoading, setIsAILoading] = useState(isAILoading)
+  const [isAILoading, setIsAILoading] = useState(false)
   const [aiGeneratedItems, setAIGeneratedItems] = useState([])
   const [aiGeneratedProfile, setAIGeneratedProfile] = useState(null)
   const [openAccordionItem, setOpenAccordionItem] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedImportance, setSelectedImportance] = useState("all")
+  const [selectedItemType, setSelectedItemType] = useState("all") // "all", "mandatory", "personalized"
   const [filteredItems, setFilteredItems] = useState([])
-  const [isEditing, setIsEditing] = useState(false) // Fix: Initialize to false
+  const [isEditing, setIsEditing] = useState(false)
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false)
+  // Fix: Initialize locale states with null and set them in useEffect
+  const [currentLocale, setCurrentLocale] = useState(null)
+  // חדש: מעקב אחרי שדות שבהם נעשה שימוש בערכי ברירת מחדל
+  const [defaultFields, setDefaultFields] = useState([])
+  const { toast } = useToast()
 
-  const t = translations // Use translations directly as it's updated by useEffect
+  // חדש: מצב טעינה מפורט
+  const [loadingState, setLoadingState] = useState({
+    isLoading: false,
+    step: "", // "extracting", "generating", "processing", "finalizing"
+    progress: 0, // 0-100
+  })
 
-  const [newItem, setNewItem] = useState({
+  const t = translations
+
+  const [newItem, setnewItem] = useState({
     name: "",
     category: "water_food",
     quantity: 1,
-    unit: t.aiCategories?.default_unit || "יחידות",
+    unit: "יחידות", // Default unit
     importance: 3,
     description: "",
     expiryDate: null,
-    sendExpiryReminder: false,
-    usage_instructions: "",
-    recommended_quantity_per_person: "",
-    shelf_life: "", // הוספת שדה אורך חיים
     sms_notification: false,
+    usage_instructions: "",
+    is_mandatory: false,
   })
   const [itemHistory, setItemHistory] = useState([])
   const [itemToRemove, setItemToRemove] = useState(null)
@@ -661,128 +694,15 @@ export default function EquipmentPage() {
 
   const isRTL = language === "he" || language === "ar"
 
-  const currentLocale = language === "he" ? he : enUS
-
-  const categoryColors = {
-    water_food: {
-      bg: "bg-blue-100",
-      text: "text-blue-800",
-      darkBg: "dark:bg-blue-900/30",
-      darkText: "dark:text-blue-400",
-      icon: <Droplets className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    medical: {
-      bg: "bg-red-100",
-      text: "text-red-800",
-      darkBg: "dark:bg-red-900/30",
-      darkText: "dark:text-red-400",
-      icon: <Pill className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    hygiene: {
-      bg: "bg-green-100",
-      text: "text-green-800",
-      darkBg: "dark:bg-green-900/30",
-      darkText: "dark:text-green-400",
-      icon: <HeartHandshake className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    lighting_energy: {
-      bg: "bg-yellow-100",
-      text: "text-yellow-800",
-      darkBg: "dark:bg-yellow-900/30",
-      darkText: "dark:text-yellow-400",
-      icon: <Lightbulb className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    communication: {
-      bg: "bg-purple-100",
-      text: "text-purple-800",
-      darkBg: "dark:bg-purple-900/30",
-      darkText: "dark:text-purple-400",
-      icon: <FileText className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    documents_money: {
-      bg: "bg-indigo-100",
-      text: "text-indigo-800",
-      darkBg: "dark:bg-indigo-900/30",
-      darkText: "dark:text-indigo-400",
-      icon: <FileText className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    children: {
-      bg: "bg-pink-100",
-      text: "text-pink-800",
-      darkBg: "dark:bg-pink-900/30",
-      darkText: "dark:text-pink-400",
-      icon: <Baby className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    pets: {
-      bg: "bg-amber-100",
-      text: "text-amber-800",
-      darkBg: "dark:bg-amber-900/30",
-      darkText: "dark:text-amber-400",
-      icon: <Cat className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    elderly: {
-      bg: "bg-teal-100",
-      text: "text-teal-800",
-      darkBg: "dark:bg-teal-900/30",
-      darkText: "dark:text-teal-400",
-      icon: <UsersIcon className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    special_needs: {
-      bg: "bg-cyan-100",
-      text: "text-cyan-800",
-      darkBg: "dark:bg-cyan-900/30",
-      darkText: "dark:text-cyan-400",
-      icon: <Activity className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    other: {
-      bg: "bg-gray-100",
-      text: "text-gray-800",
-      darkBg: "dark:bg-gray-700",
-      darkText: "dark:text-gray-400",
-      icon: <ListChecks className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    emergency: {
-      bg: "bg-red-100",
-      text: "text-red-800",
-      darkBg: "dark:bg-red-900/30",
-      darkText: "dark:text-red-400",
-      icon: <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    food: {
-      bg: "bg-blue-100",
-      text: "text-blue-800",
-      darkBg: "dark:bg-blue-900/30",
-      darkText: "dark:text-blue-400",
-      icon: <Droplets className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-    pet: {
-      bg: "bg-amber-100",
-      text: "text-amber-800",
-      darkBg: "dark:bg-amber-900/30",
-      darkText: "dark:text-amber-400",
-      icon: <Cat className="h-4 w-4 sm:h-5 sm:w-5" />,
-    },
-  }
-
+  // Get category style
   const getCategoryStyle = (categoryKey) => {
     if (typeof categoryKey === "string" && categoryKey.includes(",")) {
       return categoryColors.other
     }
-
-    // Map alternative category names to our standard ones
-    const categoryMapping = {
-      food: "water_food",
-      pet: "pets",
-    }
-
-    const mappedCategory = categoryMapping[categoryKey] || categoryKey
-
-    // Make sure we return the complete object with icon
-    const style = categoryColors[mappedCategory] || categoryColors.other
-
-    return style
+    return categoryColors[categoryKey] || categoryColors.other
   }
 
+  // Get importance badge
   const getImportanceBadge = (importance, forCard = false) => {
     const baseClasses = "text-xs flex-shrink-0 break-words"
     const cardClasses = forCard ? "px-2 py-1" : ""
@@ -836,970 +756,1292 @@ export default function EquipmentPage() {
     )
   }
 
+  // Save list and generate items
   const handleSaveListAndGenerateItems = async () => {
     setIsAILoading(true)
     setError("")
     setLastSavedMessage("")
 
-    if (!currentListName && !(aiGeneratedProfile && Object.keys(aiGeneratedProfile).length > 0)) {
-      setError(t.errorProvideListNameOrProfile || "אנא ספק שם לרשימה או פרטי פרופיל ליצירת רשימה מותאמת אישית.")
+    if (!aiUserPrompt.trim()) {
+      setError("אנא הזן תיאור של משק הבית שלך")
       setIsAILoading(false)
       return
     }
 
-    let listNameToSave = currentListName
-    if (!listNameToSave && aiGeneratedProfile) {
-      listNameToSave = `${t.equipmentListFor || "רשימת ציוד עבור"} ${aiGeneratedProfile.adults || 0} ${t.adults || "מבוגרים"}`
-    }
+    try {
+      // Update loading state
+      setLoadingState({
+        isLoading: true,
+        step: "extracting",
+        progress: 10,
+      })
 
-    if (!listNameToSave) {
-      listNameToSave = t.defaultNewListName || "רשימה חדשה"
+      // Extract data from user prompt
+      const extractResponse = await fetch("/api/extract-data", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt: aiUserPrompt }),
+      })
+
+      if (!extractResponse.ok) {
+        throw new Error("Failed to extract data from prompt")
+      }
+
+      const extractedData = await extractResponse.json()
+
+      // שמירת השדות שבהם נעשה שימוש בערכי ברירת מחדל
+      if (extractedData.using_defaults && Array.isArray(extractedData.using_defaults)) {
+        setDefaultFields(extractedData.using_defaults)
+      }
+
+      // Update loading state
+      setLoadingState({
+        isLoading: true,
+        step: "generating",
+        progress: 30,
+      })
+
+      // Generate recommendations based on extracted data
+      const recommendations = await generateAIRecommendations(aiUserPrompt)
+
+      // Update loading state
+      setLoadingState({
+        isLoading: true,
+        step: "processing",
+        progress: 70,
+      })
+
+      if (recommendations && recommendations.items) {
+        setAIGeneratedItems(recommendations.items)
+        setAIGeneratedProfile(recommendations.profile || extractedData)
+
+        // Generate list name based on profile if not provided
+        if (!currentListName && recommendations.profile) {
+          const profile = recommendations.profile
+          let generatedName = "רשימת ציוד חירום"
+
+          if (profile.adults > 0 || profile.children > 0 || profile.babies > 0) {
+            generatedName += " למשפחה עם "
+            const parts = []
+            if (profile.adults > 0) parts.push(`${profile.adults} מבוגרים`)
+            if (profile.children > 0) parts.push(`${profile.children} ילדים`)
+            if (profile.babies > 0) parts.push(`${profile.babies} תינוקות`)
+            generatedName += parts.join(", ")
+          }
+
+          if (profile.pets > 0) {
+            generatedName += ` ו-${profile.pets} חיות מחמד`
+          }
+
+          if (profile.special_needs && profile.special_needs !== "לא צוין") {
+            generatedName += ` (${profile.special_needs})`
+          }
+
+          setCurrentListName(generatedName)
+        }
+      } else {
+        setError("Failed to generate recommendations. Please try again.")
+      }
+
+      // Update loading state
+      setLoadingState({
+        isLoading: true,
+        step: "finalizing",
+        progress: 90,
+      })
+
+      // Simulate a short delay for the final step
+      setTimeout(() => {
+        setLoadingState({
+          isLoading: false,
+          step: "",
+          progress: 100,
+        })
+        setIsAILoading(false)
+      }, 500)
+    } catch (error) {
+      console.error("Error generating AI recommendations:", error)
+      setError("An error occurred while generating recommendations. Please try again.")
+      setIsAILoading(false)
+      setLoadingState({
+        isLoading: false,
+        step: "",
+        progress: 0,
+      })
+    }
+  }
+
+  // Save AI generated list
+  const saveAIGeneratedList = async () => {
+    setIsAILoading(true)
+    setError("")
+
+    if (!currentListName) {
+      setError(t.listNameCannotBeEmpty || "שם הרשימה אינו יכול להיות ריק.")
+      setIsAILoading(false)
+      return
     }
 
     try {
+      // הכנת הנתונים לשמירה
       const listToSave = {
-        name: listNameToSave,
+        name: currentListName,
         items: aiGeneratedItems.map((item) => ({
           name: item.name,
-          category: item.category,
+          category: item.category || "other",
           quantity: Number(item.quantity) || 1,
-          unit: item.unit || t.aiCategories?.default_unit || "יחידות",
-          obtained: typeof item.obtained === "boolean" ? item.obtained : false,
-          expiryDate: item.expiryDate || null, // This is the user-set or AI-suggested-then-user-confirmed date
-          // aiSuggestedExpiryDate is primarily for initial population, not explicitly saved if user sets expiryDate
-          sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
-          description: item.description || "",
+          unit: item.unit || "יחידות",
+          obtained: item.obtained || false,
           importance: item.importance || 3,
-          shelf_life: item.shelf_life || null,
+          description: item.description || "",
+          expiryDate: item.expiryDate || null,
+          sms_notification: item.sms_notification || false,
           usage_instructions: item.usage_instructions || "",
-          sms_notification: typeof item.sms_notification === "boolean" ? item.sms_notification : false,
+          shelf_life: item.shelf_life || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+          personalized_note: item.personalized_note || "",
+          is_mandatory: item.is_mandatory || false,
         })),
-        profile: aiGeneratedProfile,
       }
 
-      let savedListResponse
-      const urlParams = new URLSearchParams(window.location.search)
-      const existingListId = urlParams.get("listId")
+      console.log("💾 Saving list with name:", currentListName)
+      console.log("📋 List has", listToSave.items.length, "items")
 
-      if (existingListId) {
-        savedListResponse = await EquipmentList.update(existingListId, listToSave)
-        setLastSavedMessage(t.listUpdatedSuccessfully || "הרשימה עודכנה בהצלחה!")
+      let savedList
+      if (initialList && initialList.id) {
+        console.log("🔄 Updating existing list with ID:", initialList.id)
+        savedList = await EquipmentService.updateList(initialList.id, listToSave)
+        setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
       } else {
-        // When creating a new list, items may have aiSuggestedExpiryDate.
-        // We want to initialize expiryDate with aiSuggestedExpiryDate if available.
-        listToSave.items = listToSave.items.map((it) => ({
-          ...it,
-          expiryDate: it.expiryDate || it.aiSuggestedExpiryDate || null,
-        }))
-        savedListResponse = await EquipmentList.create(listToSave)
+        console.log("➕ Creating new list")
+        savedList = await EquipmentService.createList(listToSave)
         setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
-      }
 
-      navigate(createPageUrl("AllEquipmentListsPage") + "?refresh=" + new Date().getTime())
+        // מעבר לדף הרשימה החדשה
+        if (savedList && savedList.id) {
+          console.log("✅ List created with ID:", savedList.id)
+          setTimeout(() => {
+            router.push(`/equipment/${savedList.id}`)
+          }, 1000)
+        } else {
+          console.error("❌ Created list has no ID:", savedList)
+          setError("הרשימה נוצרה אך חסר מזהה. נא לרענן את הדף.")
+        }
+      }
     } catch (error) {
-      console.error("Error saving list:", error)
-      setError(t.errorSavingList || "שגיאה בשמירת הרשימה.")
+      console.error("❌ Error saving list:", error)
+      setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.")
     } finally {
       setIsAILoading(false)
     }
   }
 
-  useEffect(() => {
-    const loadPageContext = async () => {
-      setIsLoading(true)
-      // ... קוד קיים לטעינת תרגומים ...
+  // Filter items based on search query, category, importance, and item type
+  const filterItems = (items) => {
+    if (!items) return []
 
-      setIsListContextLoading(true)
-      const urlParams = new URLSearchParams(window.location.search)
-      const listId = urlParams.get("listId")
+    return items.filter((item) => {
+      const matchesSearch =
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      const matchesCategory = selectedCategory === "all" || item.category === selectedCategory
+      const matchesImportance =
+        selectedImportance === "all" ||
+        (selectedImportance === "essential" && item.importance >= 5) ||
+        (selectedImportance === "very_important" && item.importance >= 4 && item.importance < 5) ||
+        (selectedImportance === "important" && item.importance >= 3 && item.importance < 4) ||
+        (selectedImportance === "recommended" && item.importance >= 2 && item.importance < 3) ||
+        (selectedImportance === "optional" && item.importance < 2)
+      const matchesItemType =
+        selectedItemType === "all" ||
+        (selectedItemType === "mandatory" && item.is_mandatory) ||
+        (selectedItemType === "personalized" && !item.is_mandatory)
 
-      if (listId) {
-        try {
-          const listData = await EquipmentList.get(listId)
-          if (listData) {
-            setCurrentListName(listData.name)
-
-            // המרת הפריטים למבנה שהממשק מצפה לו
-            const itemsWithDetails = (listData.items || []).map((item) => ({
-              ...item,
-              id: item.id || Math.random().toString(36).substr(2, 9),
-              obtained: typeof item.obtained === "boolean" ? item.obtained : false,
-              importance: item.importance || 3,
-              description: item.description || "",
-              shelf_life: item.shelf_life || "",
-              usage_instructions: item.usage_instructions || "",
-              recommended_quantity_per_person: item.recommended_quantity_per_person || "",
-              expiryDate: item.expiryDate || null,
-              sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
-              sms_notification: typeof item.sms_notification === "boolean" ? item.sms_notification : false,
-              personalized_note: item.personalized_note || "",
-              is_mandatory: item.is_mandatory || false,
-            }))
-
-            setAIGeneratedItems(itemsWithDetails)
-            setFilteredItems(itemsWithDetails)
-
-            // ניסיון לפענח את פרטי הפרופיל מה-JSON
-            try {
-              const profileData = listData.description ? JSON.parse(listData.description) : null
-              setAIGeneratedProfile({
-                adults: profileData?.adults || 1,
-                children: profileData?.children || 0,
-                babies: profileData?.babies || 0,
-                elderly: profileData?.elderly || 0,
-                pets: profileData?.pets || 0,
-                special_needs: profileData?.special_needs || translations.notSpecified || "לא צוין",
-                duration_hours: profileData?.duration_hours || 72,
-                loadedFromExisting: true,
-              })
-            } catch (e) {
-              console.warn("Could not parse profile data:", e)
-              setAIGeneratedProfile({
-                adults: 1,
-                children: 0,
-                babies: 0,
-                elderly: 0,
-                pets: 0,
-                special_needs: translations.notSpecified || "לא צוין",
-                duration_hours: 72,
-                loadedFromExisting: true,
-              })
-            }
-          } else {
-            console.warn(`List with ID ${listId} not found.`)
-            setCurrentListName("")
-            setAIGeneratedProfile(null)
-          }
-        } catch (error) {
-          console.error("Error loading equipment list:", error)
-          setCurrentListName("")
-          setAIGeneratedProfile(null)
-        }
-      } else {
-        setCurrentListName("")
-        setAIGeneratedItems([])
-        setFilteredItems([])
-        setAIGeneratedProfile(null)
-      }
-      setIsListContextLoading(false)
-    }
-
-    loadPageContext()
-  }, [language])
-
-  useEffect(() => {
-    if (aiGeneratedItems.length > 0) {
-      let filtered = [...aiGeneratedItems]
-
-      if (searchQuery) {
-        filtered = filtered.filter(
-          (item) =>
-            item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase())),
-        )
-      }
-
-      if (selectedCategory && selectedCategory !== "all") {
-        filtered = filtered.filter((item) => item.category === selectedCategory)
-      }
-
-      if (selectedImportance && selectedImportance !== "all") {
-        const importanceMap = {
-          הכרחי: 5,
-          "חשוב מאוד": 4,
-          חשוב: 3,
-          מומלץ: 2,
-          אופציונלי: 1,
-        }
-        const importanceValue = importanceMap[selectedImportance]
-        if (importanceValue !== undefined) {
-          filtered = filtered.filter((item) => item.importance === importanceValue)
-        }
-      }
-
-      setFilteredItems(filtered)
-    } else {
-      setFilteredItems([])
-    }
-  }, [searchQuery, selectedCategory, selectedImportance, aiGeneratedItems])
-
-  const clearFilters = () => {
-    setSearchQuery("")
-    setSelectedCategory("all")
-    setSelectedImportance("all")
+      return matchesSearch && matchesCategory && matchesImportance && matchesItemType
+    })
   }
 
-  const aiCategories = t.aiCategories || {}
-  const getCategoryDisplayName = (categoryKey) => aiCategories[categoryKey] || categoryKey
-
-  const getMissingEssentialItems = () => {
-    return aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained)
-  }
-
-  const getObtainedItemsCount = () => {
-    return aiGeneratedItems.filter((item) => item.obtained).length
-  }
-
-  const getTotalReadinessPercentage = () => {
-    if (aiGeneratedItems.length === 0) return 0
-    const obtainedCount = getObtainedItemsCount()
-    return Math.round((obtainedCount / aiGeneratedItems.length) * 100)
-  }
-
+  // Handle adding a new item
   const handleAddItem = () => {
     if (!newItem.name.trim()) {
+      setError(t.itemNameCannotBeEmpty || "שם הפריט אינו יכול להיות ריק.")
       return
     }
 
-    // Save current state to history for undo
-    setItemHistory([...itemHistory, [...aiGeneratedItems]])
-
+    const itemId = crypto.randomUUID()
     const itemToAdd = {
       ...newItem,
-      id: Math.random().toString(36).substr(2, 9),
+      id: itemId,
+      obtained: false,
     }
 
-    setAIGeneratedItems([...aiGeneratedItems, itemToAdd])
-    setNewItem({
+    setAIGeneratedItems((prevItems) => [...prevItems, itemToAdd])
+    setItemHistory((prevHistory) => [...prevHistory, { action: "add", item: itemToAdd }])
+    setIsAddItemDialogOpen(false)
+    setnewItem({
       name: "",
       category: "water_food",
       quantity: 1,
-      unit: t.aiCategories?.default_unit || "יחידות",
+      unit: "יחידות",
       importance: 3,
       description: "",
       expiryDate: null,
-      sendExpiryReminder: false,
-      usage_instructions: "",
-      recommended_quantity_per_person: "",
-      shelf_life: "",
       sms_notification: false,
+      usage_instructions: "",
+      is_mandatory: false,
     })
-    setIsAddItemDialogOpen(false)
   }
 
+  // Handle removing an item
   const handleRemoveItem = (itemId) => {
-    setItemToRemove(itemId)
+    const itemToRemove = aiGeneratedItems.find((item) => item.id === itemId)
+    setItemToRemove(itemToRemove)
     setIsConfirmDialogOpen(true)
   }
 
+  // Confirm item removal
   const confirmRemoveItem = () => {
-    // Save current state to history for undo
-    setItemHistory([...itemHistory, [...aiGeneratedItems]])
+    if (!itemToRemove) return
 
-    const updatedItems = aiGeneratedItems.filter((item) => item.id !== itemToRemove)
+    const updatedItems = aiGeneratedItems.filter((item) => item.id !== itemToRemove.id)
     setAIGeneratedItems(updatedItems)
+    setItemHistory((prevHistory) => [...prevHistory, { action: "remove", item: itemToRemove }])
     setIsConfirmDialogOpen(false)
     setItemToRemove(null)
   }
 
-  const handleUndoLastAction = () => {
-    if (itemHistory.length > 0) {
-      const lastState = itemHistory[itemHistory.length - 1]
-      if (Array.isArray(lastState)) {
-        setAIGeneratedItems(lastState)
-        setItemHistory(itemHistory.slice(0, -1))
-      }
+  // Undo last action
+  const handleUndo = () => {
+    if (itemHistory.length === 0) return
+
+    const lastAction = itemHistory[itemHistory.length - 1]
+    setItemHistory((prevHistory) => prevHistory.slice(0, -1))
+
+    if (lastAction.action === "add") {
+      setAIGeneratedItems((prevItems) => prevItems.filter((item) => item.id !== lastAction.item.id))
+    } else if (lastAction.action === "remove") {
+      setAIGeneratedItems((prevItems) => [...prevItems, lastAction.item])
     }
   }
 
-  const handleToggleObtained = (itemId) => {
-    // Save current state to history for undo
-    setItemHistory([...itemHistory, [...aiGeneratedItems]])
+  // Handle item checkbox change
+  const handleItemCheckboxChange = (itemId, checked) => {
+    setAIGeneratedItems((prevItems) =>
+      prevItems.map((item) => (item.id === itemId ? { ...item, obtained: checked } : item)),
+    )
+  }
 
-    const updatedItems = aiGeneratedItems.map((item) => {
-      if (item.id === itemId) {
-        return { ...item, obtained: !item.obtained }
-      }
-      return item
+  // Handle going back to the prompt screen
+  const handleBackToPrompt = () => {
+    setAIGeneratedProfile(null)
+    setAIGeneratedItems([])
+    setDefaultFields([])
+    setCurrentListName("")
+    setLoadingState({
+      isLoading: false,
+      step: "",
+      progress: 0,
     })
-    setAIGeneratedItems(updatedItems)
   }
 
-  const handleUpdateItem = (itemId, updatedFields) => {
-    // Save current state to history for undo
-    setItemHistory([...itemHistory, [...aiGeneratedItems]])
-
-    const updatedItems = aiGeneratedItems.map((item) => {
-      if (item.id === itemId) {
-        return { ...item, ...updatedFields }
-      }
-      return item
-    })
-    setAIGeneratedItems(updatedItems)
-  }
-
-  const handleSaveChanges = async () => {
-    setIsAILoading(true)
-    setError("")
-    setLastSavedMessage("")
-
-    try {
-      const urlParams = new URLSearchParams(window.location.search)
-      const listId = urlParams.get("listId")
-
-      if (!listId) {
-        setError(t.errorNoListToUpdate || "לא נבחרה רשימה לעדכון.")
-        setIsAILoading(false)
-        return
-      }
-
-      const listToUpdate = {
-        name: currentListName,
-        items: aiGeneratedItems.map((item) => ({
-          id: item.id,
-          name: item.name,
-          category: item.category,
-          quantity: Number(item.quantity) || 1,
-          unit: item.unit || t.aiCategories?.default_unit || "יחידות",
-          obtained: typeof item.obtained === "boolean" ? item.obtained : false,
-          expiryDate: item.expiryDate || null,
-          sendExpiryReminder: typeof item.sendExpiryReminder === "boolean" ? item.sendExpiryReminder : false,
-          description: item.description || "",
-          importance: item.importance || 3,
-          shelf_life: item.shelf_life || null,
-          usage_instructions: item.usage_instructions || "",
-          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
-          sms_notification: typeof item.sms_notification === "boolean" ? item.sms_notification : false,
-          personalized_note: item.personalized_note || "",
-          is_mandatory: item.is_mandatory || false,
-        })),
-        profile: aiGeneratedProfile,
-      }
-
-      await EquipmentList.update(listId, listToUpdate)
-      setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
-      setIsEditing(false) // יציאה ממצב עריכה אחרי שמירה מוצלחת
-
-      // הצגת ההודעה למשך 3 שניות ואז הסתרה
-      setTimeout(() => {
-        setLastSavedMessage("")
-      }, 3000)
-    } catch (error) {
-      console.error("Error saving changes:", error)
-      setError(t.errorSavingChanges || "שגיאה בשמירת השינויים.")
-
-      // הסתרת הודעת השגיאה אחרי 5 שניות
-      setTimeout(() => {
-        setError("")
-      }, 5000)
-    } finally {
-      setIsAILoading(false)
-    }
-  }
-
-  // וודא שהמערכים מאותחלים כראוי
+  // Initialize component
   useEffect(() => {
-    if (!Array.isArray(aiGeneratedItems)) {
-      setAIGeneratedItems([])
-    }
-    if (!Array.isArray(filteredItems)) {
-      setFilteredItems([])
-    }
-  }, [])
+    const fetchData = async () => {
+      try {
+        setIsLoading(true)
 
-  // Render the equipment page UI
+        // אם יש רשימה קיימת, טען אותה
+        if (initialList) {
+          setAIGeneratedItems(initialList.items || [])
+          setAIGeneratedProfile(initialList.profile || JSON.parse(initialList.description || "{}"))
+          setCurrentListName(initialList.name || initialList.title)
+          setIsLoading(false)
+          return
+        }
+
+        // Set default language and translations
+        setLanguage("he")
+        setTranslations(baseTranslations.he)
+
+        // Load locales
+        try {
+          const { he } = await import("date-fns/locale/he")
+          setCurrentLocale(he)
+        } catch (error) {
+          console.error("Error loading locales:", error)
+        }
+
+        setIsLoading(false)
+      } catch (error) {
+        console.error("Error initializing equipment page:", error)
+        setError("Failed to initialize page. Please try again.")
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [initialList])
+
+  // Update filtered items when search query, category, importance, or item type changes
+  useEffect(() => {
+    setFilteredItems(filterItems(aiGeneratedItems))
+  }, [searchQuery, selectedCategory, selectedImportance, selectedItemType, aiGeneratedItems])
+
+  // Count mandatory and personalized items
+  const mandatoryItemsCount = aiGeneratedItems.filter((item) => item.is_mandatory).length
+  const personalizedItemsCount = aiGeneratedItems.filter((item) => !item.is_mandatory).length
+
+  // Render loading state
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <strong className="font-bold">שגיאה: </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+        <button
+          onClick={() => setError("")}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          {t.tryAgain || "נסה שוב"}
+        </button>
+      </div>
+    )
+  }
+
+  // Render AI generation form
   return (
-    <TooltipProvider>
-      <div className="container mx-auto px-4 py-8">
-        <style>{headerStyles}</style>
-
-        <h1 className="text-3xl font-bold mb-4">{t.pageTitle}</h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">{t.pageDescription}</p>
-
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
-
-        {lastSavedMessage && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            {lastSavedMessage}
-          </div>
-        )}
-
-        {isListContextLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-col md:flex-row justify-between items-start mb-6">
-              <div className="mb-4 md:mb-0">
-                <h2 className="text-xl font-semibold mb-2">{currentListName || t.selectListPrompt}</h2>
-                {aiGeneratedProfile && (
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    {t.aiFamilyComposition}: {aiGeneratedProfile.adults} {t.aiAdults},
-                    {aiGeneratedProfile.children > 0 && ` ${aiGeneratedProfile.children} ${t.aiChildren},`}
-                    {aiGeneratedProfile.babies > 0 && ` ${aiGeneratedProfile.babies} ${t.aiBabies},`}
-                    {aiGeneratedProfile.pets > 0 && ` ${aiGeneratedProfile.pets} ${t.aiPets}`}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {isEditing ? (
-                  <>
-                    <button
-                      onClick={() => setIsAddItemDialogOpen(true)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      {t.addItem}
-                    </button>
-                    <button
-                      onClick={handleSaveChanges}
-                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                      disabled={isAILoading}
-                    >
-                      {isAILoading ? (
-                        <span className="flex items-center">
-                          <span className="animate-spin mr-2">⟳</span> {t.saveChanges}
-                        </span>
-                      ) : (
-                        t.saveChanges
-                      )}
-                    </button>
-                    <button
-                      onClick={() => setIsEditing(false)}
-                      className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                    >
-                      {t.cancelEditing}
-                    </button>
-                    {itemHistory.length > 0 && (
-                      <button
-                        onClick={handleUndoLastAction}
-                        className="px-4 py-2 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:hover:bg-yellow-900/50"
-                      >
-                        {t.undoAction}
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      {t.editList}
-                    </button>
-                    <button
-                      onClick={handleSaveListAndGenerateItems}
-                      className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                      disabled={isAILoading}
-                    >
-                      {isAILoading ? (
-                        <span className="flex items-center">
-                          <span className="animate-spin mr-2">⟳</span> {t.saveChanges}
-                        </span>
-                      ) : (
-                        t.saveList
-                      )}
-                    </button>
-                  </>
-                )}
-              </div>
+    <div className={`max-w-5xl mx-auto p-4 sm:p-6 ${isRTL ? "rtl" : "ltr"}`}>
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
+          {currentListName ? `${t.pageTitle}: ${currentListName}` : t.pageTitle}
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400">{t.pageDescription}</p>
+      </header>
+      {lastSavedMessage && (
+        <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-center">
+          {lastSavedMessage}
+        </div>
+      )}
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-center">
+          {error}
+        </div>
+      )}
+      {!aiGeneratedProfile && !isListContextLoading ? (
+        <Card className="shadow-lg dark:bg-gray-800 mb-6">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold text-gray-800 dark:text-white">{t.aiModalTitle}</CardTitle>
+            <CardDescription className="text-gray-600 dark:text-gray-300">{t.aiPromptDescription}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div>
+              <Textarea
+                placeholder={t.aiPromptPlaceholder}
+                value={aiUserPrompt}
+                onChange={(e) => setAIUserPrompt(e.target.value)}
+                className="h-40 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                rows={8}
+              />
             </div>
 
-            {aiGeneratedItems.length > 0 && (
-              <div className="mb-8">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                  <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.categoriesCount}</h3>
-                    <p className="text-2xl font-bold">{new Set(aiGeneratedItems.map((item) => item.category)).size}</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.totalReadiness}</h3>
-                    <p className="text-2xl font-bold">{getTotalReadinessPercentage()}%</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.missingEssentialItems}</h3>
-                    <p className="text-2xl font-bold">{getMissingEssentialItems().length}</p>
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 p-4 rounded shadow">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t.itemsChecked}</h3>
-                    <p className="text-2xl font-bold">
-                      {getObtainedItemsCount()} / {aiGeneratedItems.length}
-                    </p>
-                  </div>
-                </div>
+            {loadingState.isLoading && (
+              <div className="my-4">
+                <LoadingIndicator state={loadingState} t={t} />
+              </div>
+            )}
 
-                <div className="mb-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                    <h2 className="text-xl font-semibold mb-2 sm:mb-0">{t.allItemsTitle}</h2>
-                    <div className="flex flex-wrap gap-2">
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={t.searchItemPlaceholder}
-                        className="px-3 py-2 border rounded"
-                      />
-                      <select
-                        value={selectedCategory}
-                        onChange={(e) => setSelectedCategory(e.target.value)}
-                        className="px-3 py-2 border rounded"
-                      >
-                        <option value="all">{t.allCategories}</option>
-                        {Object.keys(aiCategories || {})
-                          .filter(
-                            (key) =>
-                              !key.includes("_label") &&
-                              !key.includes("essential") &&
-                              !key.includes("important") &&
-                              !key.includes("recommended") &&
-                              !key.includes("optional") &&
-                              !key.includes("default_unit"),
-                          )
-                          .map((category) => (
-                            <option key={category} value={category}>
-                              {aiCategories[category]}
-                            </option>
-                          ))}
-                      </select>
-                      <select
-                        value={selectedImportance}
-                        onChange={(e) => setSelectedImportance(e.target.value)}
-                        className="px-3 py-2 border rounded"
-                      >
-                        <option value="all">{t.allLevels}</option>
-                        <option value="הכרחי">{t.aiCategories.essential}</option>
-                        <option value="חשוב מאוד">{t.aiCategories.very_important}</option>
-                        <option value="חשוב">{t.aiCategories.important}</option>
-                        <option value="מומלץ">{t.aiCategories.recommended}</option>
-                        <option value="אופציונלי">{t.aiCategories.optional}</option>
-                      </select>
-                      <button
-                        onClick={clearFilters}
-                        className="px-3 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                      >
-                        {t.clearFiltersButton}
-                      </button>
+            <Button
+              onClick={handleSaveListAndGenerateItems}
+              disabled={!aiUserPrompt.trim() || isAILoading}
+              className="w-full bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
+            >
+              {isAILoading ? (
+                <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+              ) : (
+                <ShieldCheck className="h-5 w-5" />
+              )}
+              {t.aiGenerateButton}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : aiGeneratedProfile && !isListContextLoading ? (
+        <div className="space-y-6">
+          {!aiGeneratedProfile.loadedFromExisting && (
+            <Button onClick={handleBackToPrompt} variant="outline" className="mb-4 flex items-center gap-2">
+              <RotateCcw className="h-4 w-4" />
+              {t.backToAI || "חזור ליצירת רשימה"}
+            </Button>
+          )}
+
+          <Card className="bg-white dark:bg-gray-800 shadow-md">
+            <CardHeader>
+              <CardTitle className="text-lg text-gray-800 dark:text-white">
+                {t.summaryTitle || "סיכום הציוד שלך"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <h3 className="font-semibold text-sm text-blue-700 dark:text-blue-300 mb-1">
+                    {t.itemsChecked || "פריטים שנבדקו"}
+                  </h3>
+                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">
+                    {aiGeneratedItems.filter((item) => item.obtained).length} / {aiGeneratedItems.length}
+                  </p>
+                </Card>
+                <Card className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+                  <h3 className="font-semibold text-sm text-red-700 dark:text-red-300 mb-1">
+                    {t.missingEssentialItems || "הכרחיים חסרים"}
+                  </h3>
+                  <p className="text-2xl font-bold text-red-900 dark:text-red-200">
+                    {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length}
+                  </p>
+                </Card>
+                <Card className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                  <h3 className="font-semibold text-sm text-green-700 dark:text-green-300 mb-1">
+                    {t.totalReadiness || "מוכנות כוללת"}
+                  </h3>
+                  <p className="text-2xl font-bold text-green-900 dark:text-green-200">
+                    {aiGeneratedItems.length > 0
+                      ? Math.round(
+                          (aiGeneratedItems.filter((item) => item.obtained).length / aiGeneratedItems.length) * 100,
+                        )
+                      : 0}
+                    %
+                  </p>
+                </Card>
+                <Card className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+                  <h3 className="font-semibold text-sm text-purple-700 dark:text-purple-300 mb-1">
+                    {t.categoriesCount || "קטגוריות"}
+                  </h3>
+                  <p className="text-2xl font-bold text-purple-900 dark:text-purple-200">
+                    {new Set(aiGeneratedItems.map((item) => item.category)).size}
+                  </p>
+                </Card>
+              </div>
+
+              {/* New summary for mandatory and personalized items */}
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <Card className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                  <h3 className="font-semibold text-sm text-blue-700 dark:text-blue-300 mb-1">
+                    {t.mandatoryItemsCount || "פריטי חובה"}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">{mandatoryItemsCount}</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <ShieldCheck className="h-5 w-5 text-blue-500" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">{t.mandatoryItemTooltip || "ציוד מומלץ על-פי פיקוד העורף"}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </Card>
+                <Card className="bg-[#005c72]/10 dark:bg-[#005c72]/20 p-4 rounded-lg">
+                  <h3 className="font-semibold text-sm text-[#005c72] dark:text-white mb-1">
+                    {t.personalizedItemsCount || "פריטים מותאמים אישית"}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <p className="text-2xl font-bold text-[#005c72] dark:text-white">{personalizedItemsCount}</p>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Sparkles className="h-5 w-5 text-[#005c72] dark:text-white" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">{t.personalizedItemTooltip || "פריט שהותאם במיוחד לצרכים שלך"}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+
+          {aiGeneratedProfile && (
+            <Card className="bg-white dark:bg-gray-800 shadow-md">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg text-gray-800 dark:text-white flex items-center gap-2">
+                  <UsersIcon className="h-5 w-5 text-blue-500" /> {t.aiFamilyComposition}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                  <div className="min-w-28">
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiAdults}</p>
+                      {defaultFields.includes("adults") && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3 text-red-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
                     </div>
+                    <p className="text-xl font-semibold">{aiGeneratedProfile.adults || 0}</p>
+                  </div>
+                  <div className="min-w-28">
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiChildren}</p>
+                      {defaultFields.includes("children") && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3 text-red-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <p className="text-xl font-semibold">{aiGeneratedProfile.children || 0}</p>
+                  </div>
+                  <div className="min-w-28">
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiBabies}</p>
+                      {defaultFields.includes("babies") && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3 text-red-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <p className="text-xl font-semibold">{aiGeneratedProfile.babies || 0}</p>
+                  </div>
+                  <div className="min-w-28">
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.elderly}</p>
+                      {defaultFields.includes("elderly") && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3 text-red-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <p className="text-xl font-semibold">{aiGeneratedProfile.elderly || 0}</p>
+                  </div>
+                  <div className="min-w-28">
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiPets}</p>
+                      {defaultFields.includes("pets") && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3 text-red-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <p className="text-xl font-semibold">{aiGeneratedProfile.pets || 0}</p>
+                  </div>
+                  <div className="min-w-28">
+                    <div className="flex items-center gap-1">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.durationHours || "משך זמן (שעות)"}</p>
+                      {defaultFields.includes("duration_hours") && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3 text-red-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    <p className="text-xl font-semibold">{aiGeneratedProfile.duration_hours || 72}</p>
                   </div>
 
-                  {filteredItems.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 dark:text-gray-400 mb-4">{t.noItemsFound}</p>
-                      <button
-                        onClick={clearFilters}
-                        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                      >
-                        {t.showAllItemsButton}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className={`bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 ${
-                            item.obtained
-                              ? "border-green-500"
-                              : item.importance >= 5
-                                ? "border-red-500"
-                                : item.importance >= 4
-                                  ? "border-orange-500"
-                                  : item.importance >= 3
-                                    ? "border-yellow-500"
-                                    : item.importance >= 2
-                                      ? "border-blue-500"
-                                      : "border-gray-500"
-                          }`}
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-semibold">{item.name}</h3>
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                {getImportanceBadge(item.importance, true)}
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs px-2 py-1 ${getCategoryStyle(item.category).bg} ${
-                                    getCategoryStyle(item.category).text
-                                  } ${getCategoryStyle(item.category).darkBg} ${getCategoryStyle(item.category).darkText}`}
-                                >
-                                  {getCategoryStyle(item.category).icon}
-                                  <span className="ml-1">{getCategoryDisplayName(item.category)}</span>
-                                </Badge>
-                              </div>
-                            </div>
-                            {isEditing ? (
-                              <button
-                                onClick={() => handleRemoveItem(item.id)}
-                                className="text-red-500 hover:text-red-700"
-                                aria-label={t.deleteItem}
-                              >
-                                &times;
-                              </button>
-                            ) : (
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={item.obtained}
-                                  onChange={() => handleToggleObtained(item.id)}
-                                  disabled={!isEditing}
-                                  className="h-5 w-5 text-blue-600"
-                                />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  {aiGeneratedProfile.special_needs && (
+                    <div className="w-full mt-2">
+                      <div className="flex items-center gap-1">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t.aiSpecialNeeds}</p>
+                        {defaultFields.includes("special_needs") && (
+                          <TooltipProvider>
                             <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="font-medium cursor-help inline-flex items-center gap-1">
-                                  {t.quantity}: <HelpCircle className="h-3 w-3" />
-                                </span>
+                              <TooltipTrigger>
+                                <Info className="h-3 w-3 text-red-500" />
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p>כמות כוללת לפי כמות האנשים שחולצה מהפרומפט ויחידת המידה רלוונטית</p>
+                                <p className="text-xs">{t.defaultValueUsed}</p>
                               </TooltipContent>
                             </Tooltip>
-                            {item.quantity} {item.unit}
-                          </div>
-
-                          {item.description && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <span className="font-medium">{t.description}:</span> {item.description}
-                            </div>
-                          )}
-
-                          {item.shelf_life && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="font-medium cursor-help inline-flex items-center gap-1">
-                                    {t.aiCategories.shelf_life_label}: <HelpCircle className="h-3 w-3" />
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>זמן החיים המשוער לפי מודל ה-AI, לא מדויק לרמת תאריך תפוגה</p>
-                                </TooltipContent>
-                              </Tooltip>
-                              {item.shelf_life}
-                            </div>
-                          )}
-
-                          {item.personalized_note && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="font-medium cursor-help inline-flex items-center gap-1">
-                                    הערה מותאמת אישית: <HelpCircle className="h-3 w-3" />
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>נימוק מודל ה-AI מדוע פריט זה רלוונטי לתרחיש שהמשתמש תיאר</p>
-                                </TooltipContent>
-                              </Tooltip>
-                              {item.personalized_note}
-                            </div>
-                          )}
-
-                          {item.usage_instructions && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <span className="font-medium">{t.aiCategories.usage_instructions_label}:</span>{" "}
-                              {item.usage_instructions}
-                            </div>
-                          )}
-
-                          {item.expiryDate && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <span className="font-medium">{t.expiryLabel}</span> {item.expiryDate}
-                            </div>
-                          )}
-
-                          {isEditing && (
-                            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                              <div className="grid grid-cols-2 gap-2">
-                                <input
-                                  type="number"
-                                  value={item.quantity}
-                                  onChange={(e) => handleUpdateItem(item.id, { quantity: e.target.value })}
-                                  min="1"
-                                  className="px-2 py-1 border rounded text-sm"
-                                  placeholder={t.quantity}
-                                />
-                                <input
-                                  type="text"
-                                  value={item.unit}
-                                  onChange={(e) => handleUpdateItem(item.id, { unit: e.target.value })}
-                                  className="px-2 py-1 border rounded text-sm"
-                                  placeholder={t.itemUnit}
-                                />
-                                <select
-                                  value={item.category}
-                                  onChange={(e) => handleUpdateItem(item.id, { category: e.target.value })}
-                                  className="px-2 py-1 border rounded text-sm col-span-2"
-                                >
-                                  {Object.keys(aiCategories || {})
-                                    .filter(
-                                      (key) =>
-                                        !key.includes("_label") &&
-                                        !key.includes("essential") &&
-                                        !key.includes("important") &&
-                                        !key.includes("recommended") &&
-                                        !key.includes("optional") &&
-                                        !key.includes("default_unit"),
-                                    )
-                                    .map((category) => (
-                                      <option key={category} value={category}>
-                                        {aiCategories[category]}
-                                      </option>
-                                    ))}
-                                </select>
-                                <select
-                                  value={item.importance}
-                                  onChange={(e) => handleUpdateItem(item.id, { importance: Number(e.target.value) })}
-                                  className="px-2 py-1 border rounded text-sm col-span-2"
-                                >
-                                  <option value="5">{t.aiCategories.essential}</option>
-                                  <option value="4">{t.aiCategories.very_important}</option>
-                                  <option value="3">{t.aiCategories.important}</option>
-                                  <option value="2">{t.aiCategories.recommended}</option>
-                                  <option value="1">{t.aiCategories.optional}</option>
-                                </select>
-                                <input
-                                  type="text"
-                                  value={item.shelf_life || ""}
-                                  onChange={(e) => handleUpdateItem(item.id, { shelf_life: e.target.value })}
-                                  className="px-2 py-1 border rounded text-sm col-span-2"
-                                  placeholder={t.itemShelfLife}
-                                />
-                                <input
-                                  type="text"
-                                  value={item.usage_instructions || ""}
-                                  onChange={(e) => handleUpdateItem(item.id, { usage_instructions: e.target.value })}
-                                  className="px-2 py-1 border rounded text-sm col-span-2"
-                                  placeholder={t.itemUsageInstructions}
-                                />
-                                <input
-                                  type="text"
-                                  value={item.expiryDate || ""}
-                                  onChange={(e) => handleUpdateItem(item.id, { expiryDate: e.target.value })}
-                                  className="px-2 py-1 border rounded text-sm col-span-2"
-                                  placeholder={t.expiryDate}
-                                />
-                                <div className="col-span-2 flex items-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={item.sendExpiryReminder}
-                                    onChange={(e) =>
-                                      handleUpdateItem(item.id, { sendExpiryReminder: e.target.checked })
-                                    }
-                                    className="mr-2"
-                                  />
-                                  <label className="text-sm">{t.sendReminder}</label>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                          </TooltipProvider>
+                        )}
+                      </div>
+                      <p className="text-gray-700 dark:text-gray-300 text-sm bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
+                        {typeof aiGeneratedProfile.special_needs === "object"
+                          ? JSON.stringify(aiGeneratedProfile.special_needs)
+                          : aiGeneratedProfile.special_needs}
+                      </p>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
-          </>
-        )}
+              </CardContent>
+            </Card>
+          )}
 
-        {isAddItemDialogOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
-              <h2 className="text-xl font-semibold mb-4">{t.addNewItem}</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">{t.itemName}</label>
-                  <input
-                    type="text"
-                    value={newItem.name}
-                    onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                    required
+          {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length > 0 && (
+            <Card className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-red-700 dark:text-red-300 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" /> {t.missingEssentialItemsTitle || "פריטים הכרחיים חסרים"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-2 list-disc list-inside pl-2">
+                  {aiGeneratedItems
+                    .filter((item) => item.importance >= 5 && !item.obtained)
+                    .slice(0, 5)
+                    .map((item) => (
+                      <li key={item.id} className="text-sm text-red-600 dark:text-red-400">
+                        {item.name} - {item.quantity} {item.unit}
+                      </li>
+                    ))}
+                  {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length > 5 && (
+                    <li className="text-xs text-red-500 dark:text-red-500 list-none pt-1">
+                      {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length - 5 === 1
+                        ? "יש לרכוש פריט הכרחי נוסף אחד לשלמות הציוד"
+                        : `יש לרכוש ${aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length - 5} פריטים הכרחיים נוספים לשלמות הציוד`}
+                    </li>
+                  )}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="bg-white dark:bg-gray-800 shadow-md">
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                <div className="flex flex-1 md:max-w-md relative">
+                  <Search className="absolute right-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder={t.searchItemPlaceholder || "חפש פריט..."}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className={`w-full ${isRTL ? "pr-10" : "pl-10"}`}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">{t.itemCategory}</label>
-                  <select
-                    value={newItem.category}
-                    onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                  >
-                    {Object.keys(aiCategories || {})
-                      .filter(
-                        (key) =>
-                          !key.includes("_label") &&
-                          !key.includes("essential") &&
-                          !key.includes("important") &&
-                          !key.includes("recommended") &&
-                          !key.includes("optional") &&
-                          !key.includes("default_unit"),
-                      )
-                      .map((category) => (
-                        <option key={category} value={category}>
-                          {aiCategories[category]}
-                        </option>
+
+                <div className="flex flex-wrap gap-2">
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="w-full sm:w-36">
+                      <SelectValue placeholder={t.categoryFilterPlaceholder || "קטגוריה"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t.allCategories || "כל הקטגוריות"}</SelectItem>
+                      {[
+                        "water_food",
+                        "medical",
+                        "hygiene",
+                        "lighting_energy",
+                        "communication",
+                        "documents_money",
+                        "children",
+                        "pets",
+                        "elderly",
+                        "special_needs",
+                        "other",
+                      ].map((key) => (
+                        <SelectItem key={key} value={key}>
+                          {t.aiCategories[key] || key}
+                        </SelectItem>
                       ))}
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <label className="block text-sm font-medium mb-1 cursor-help inline-flex items-center gap-1">
-                          {t.itemQuantity} <HelpCircle className="h-3 w-3" />
-                        </label>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>כמות כוללת לפי כמות האנשים שחולצה מהפרומפט ויחידת המידה רלוונטית</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    <input
-                      type="number"
-                      value={newItem.quantity}
-                      onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                      min="1"
-                      className="w-full px-3 py-2 border rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{t.itemUnit}</label>
-                    <input
-                      type="text"
-                      value={newItem.unit}
-                      onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
-                      className="w-full px-3 py-2 border rounded"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">{t.itemImportance}</label>
-                  <select
-                    value={newItem.importance}
-                    onChange={(e) => setNewItem({ ...newItem, importance: Number(e.target.value) })}
-                    className="w-full px-3 py-2 border rounded"
-                  >
-                    <option value="5">{t.aiCategories.essential}</option>
-                    <option value="4">{t.aiCategories.very_important}</option>
-                    <option value="3">{t.aiCategories.important}</option>
-                    <option value="2">{t.aiCategories.recommended}</option>
-                    <option value="1">{t.aiCategories.optional}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">{t.itemDescription}</label>
-                  <textarea
-                    value={newItem.description}
-                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                    rows="2"
-                  ></textarea>
-                </div>
-                <div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <label className="block text-sm font-medium mb-1 cursor-help inline-flex items-center gap-1">
-                        {t.itemShelfLife} <HelpCircle className="h-3 w-3" />
-                      </label>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>זמן החיים המשוער לפי מודל ה-AI, לא מדויק לרמת תאריך תפוגה</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <input
-                    type="text"
-                    value={newItem.shelf_life}
-                    onChange={(e) => setNewItem({ ...newItem, shelf_life: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                  />
-                </div>
-                <div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <label className="block text-sm font-medium mb-1 cursor-help inline-flex items-center gap-1">
-                        {t.itemRecommendedQuantity} <HelpCircle className="h-3 w-3" />
-                      </label>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>הכמות המומלצת עבור אדם אחד בלבד</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <input
-                    type="text"
-                    value={newItem.recommended_quantity_per_person}
-                    onChange={(e) => setNewItem({ ...newItem, recommended_quantity_per_person: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                    placeholder="לדוגמה: 3 יחידות ליום"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">{t.itemUsageInstructions}</label>
-                  <textarea
-                    value={newItem.usage_instructions}
-                    onChange={(e) => setNewItem({ ...newItem, usage_instructions: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                    rows="2"
-                    placeholder={t.usageInstructionsPlaceholder}
-                  ></textarea>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">{t.expiryDate}</label>
-                  <input
-                    type="text"
-                    value={newItem.expiryDate || ""}
-                    onChange={(e) => setNewItem({ ...newItem, expiryDate: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                    placeholder={t.setExpiryDate}
-                  />
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={newItem.sendExpiryReminder}
-                    onChange={(e) => setNewItem({ ...newItem, sendExpiryReminder: e.target.checked })}
-                    className="mr-2"
-                  />
-                  <label className="text-sm">{t.sendReminder}</label>
-                </div>
-              </div>
-              <div className="flex justify-end gap-2 mt-6">
-                <button
-                  onClick={() => setIsAddItemDialogOpen(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                >
-                  {t.cancel}
-                </button>
-                <button
-                  onClick={handleAddItem}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  disabled={!newItem.name.trim()}
-                >
-                  {t.add}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                    </SelectContent>
+                  </Select>
 
-        {isConfirmDialogOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
-              <h2 className="text-xl font-semibold mb-2">{t.removeItemConfirm}</h2>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">{t.removeItemDescription}</p>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setIsConfirmDialogOpen(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                >
-                  {t.cancelRemove}
-                </button>
-                <button
-                  onClick={confirmRemoveItem}
-                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                >
-                  {t.confirmRemove}
-                </button>
+                  <Select value={selectedImportance} onValueChange={setSelectedImportance}>
+                    <SelectTrigger className="w-full sm:w-36">
+                      <SelectValue placeholder={t.importanceFilterPlaceholder || "חשיבות"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t.allLevels || "כל הרמות"}</SelectItem>
+                      <SelectItem value="essential">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
+                      <SelectItem value="very_important">{t.aiCategories.very_important || "חשוב מאוד"} (4)</SelectItem>
+                      <SelectItem value="important">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
+                      <SelectItem value="recommended">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
+                      <SelectItem value="optional">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {/* New filter for item type */}
+                  <Select value={selectedItemType} onValueChange={setSelectedItemType}>
+                    <SelectTrigger className="w-full sm:w-40">
+                      <SelectValue placeholder="סוג פריט" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t.showAllItems || "הצג את כל הפריטים"}</SelectItem>
+                      <SelectItem value="mandatory">{t.showMandatoryOnly || "הצג רק פריטי חובה"}</SelectItem>
+                      <SelectItem value="personalized">
+                        {t.showPersonalizedOnly || "הצג רק פריטים מותאמים אישית"}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchQuery("")
+                      setSelectedCategory("all")
+                      setSelectedImportance("all")
+                      setSelectedItemType("all")
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    <Filter className="h-4 w-4" />
+                    {t.clearFiltersButton || "נקה"}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </TooltipProvider>
-  )
+
+              <Accordion
+                type="single"
+                collapsible
+                className="w-full space-y-2"
+                value={openAccordionItem}
+                onValueChange={setOpenAccordionItem}
+              >
+                {filteredItems.length > 0 ? (
+                  filteredItems.map((item) => {
+                    const categoryStyle = getCategoryStyle(item.category)
+                    return (
+                      <AccordionItem
+                        value={item.id}
+                        key={item.id}
+                        className={`border dark:border-gray-700 rounded-lg transition-all duration-200 overflow-hidden ${
+                          openAccordionItem === item.id
+                            ? "bg-white dark:bg-gray-800 shadow-lg"
+                            : "bg-gray-50 dark:bg-gray-800/50 hover:bg-white dark:hover:bg-gray-800"
+                        } ${!item.is_mandatory ? "border-l-4 border-l-[#005c72] dark:border-l-[#005c72]" : ""}`}
+                      >
+                        <AccordionTrigger
+                          className={`p-3 sm:p-4 hover:no-underline group w-full ${isRTL ? "text-right" : "text-left"}`}
+                        >
+                          <div className="flex items-center justify-between w-full gap-2 sm:gap-3">
+                            <div className="flex items-center gap-2 sm:gap-3 order-2 sm:order-1">
+                              <Checkbox
+                                id={`item-${item.id}`}
+                                checked={item.obtained}
+                                onCheckedChange={() => handleItemCheckboxChange(item.id, !item.obtained)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-5 w-5 rounded border-gray-300 dark:border-gray-600 data-[state=checked]:bg-green-500 data-[state=checked]:text-white dark:data-[state=checked]:bg-green-600"
+                              />
+                              <Badge
+                                variant="outline"
+                                className={`text-xs transition-colors px-1.5 sm:px-2 py-0.5 flex items-center gap-1 shrink-0 max-w-[120px] sm:max-w-none ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText}`}
+                              >
+                                {getCategoryStyle(item.category).icon}
+                                <span className="truncate">{t.aiCategories[item.category] || item.category}</span>
+                              </Badge>
+                            </div>
+
+                            <div
+                              className={`flex flex-col items-start gap-0.5 sm:gap-1 min-w-0 flex-1 ${isRTL ? "order-1 sm:order-2 text-right" : "order-2 sm:order-2 text-left"}`}
+                            >
+                              <span
+                                className={`font-medium text-sm sm:text-base text-gray-900 dark:text-white truncate w-full ${item.obtained ? "line-through text-gray-400 dark:text-gray-500" : ""}`}
+                              >
+                                {item.name}
+                              </span>
+                              <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+                                <span className="truncate">
+                                  {item.quantity} {item.unit}
+                                </span>
+                                {item.shelf_life && (
+                                  <>
+                                    <span className="text-gray-300 dark:text-gray-600 hidden sm:inline">•</span>
+                                    <span className="hidden sm:inline truncate">{item.shelf_life}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+
+                            <div
+                              className={`flex flex-col xs:flex-row items-end xs:items-center gap-1 xs:gap-2 shrink-0 ${isRTL ? "order-3 sm:order-3 mr-auto" : "order-3 sm:order-3 ml-auto"}`}
+                            >
+                              {getImportanceBadge(item.importance, true)}
+
+                              {item.is_mandatory && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                                      >
+                                        <ShieldCheck className="h-3 w-3 mr-1" />
+                                        {t.mandatoryItem}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">{t.mandatoryItemTooltip}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+
+                              {!item.is_mandatory && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs ml-1 bg-[#005c72]/10 text-[#005c72] dark:bg-[#005c72]/20 dark:text-white border-[#005c72]/20 dark:border-[#005c72]/40"
+                                      >
+                                        <Sparkles className="h-3 w-3 mr-1" />
+                                        {t.personalizedItem}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">{t.personalizedItemTooltip}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+
+                              {isEditing && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleEditItem(item)
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+
+                              {isEditing && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRemoveItem(item.id)
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+
+                        <AccordionContent className="px-3 sm:px-4 pb-3 sm:pb-4">
+                          <div className="pt-2 border-t dark:border-gray-700">
+                            <div className="grid gap-3 sm:gap-4 mt-2">
+                              {item.description && (
+                                <div>
+                                  <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                    {t.description || "תיאור"}
+                                  </h4>
+                                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                    {item.description}
+                                  </p>
+                                </div>
+                              )}
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                <div>
+                                  <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                    כמות ויחידה
+                                  </h4>
+                                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                    {item.quantity} {item.unit}
+                                  </p>
+                                </div>
+
+                                {item.shelf_life && (
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.aiCategories.shelf_life_label || "חיי מדף"}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.shelf_life}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {item.recommended_quantity_per_person && (
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.aiCategories.recommended_quantity_per_person_label || "כמות מומלצת לאדם"}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.recommended_quantity_per_person}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {item.usage_instructions && (
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.aiCategories.usage_instructions_label || "הוראות שימוש"}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.usage_instructions}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {item.expiryDate && (
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.expiryDate || "תאריך תפוגה"}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.expiryDate}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {item.personalized_note && (
+                                  <div className="sm:col-span-2">
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      הערה מותאמת אישית
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.personalized_note}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )
+                  })
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 dark:text-gray-400">{t.noItemsFound || "לא נמצאו פריטים"}</p>
+                  </div>
+                )}
+              </Accordion>
+
+              <div className="mt-6">
+                <div className="flex flex-col md:flex-row gap-2">
+                  {isEditing ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsAddItemDialogOpen(true)}
+                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2"
+                      >
+                        <Plus className="h-5 w-5" />
+                        {t.addNewItem || "הוספת פריט חדש"}
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        onClick={handleUndo}
+                        disabled={itemHistory.length === 0}
+                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2"
+                      >
+                        <RotateCcw className="h-5 w-5" />
+                        {t.undoAction || "בטל פעולה אחרונה"}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsEditing(true)}
+                      className="w-full py-6 md:py-4 flex items-center justify-center gap-2"
+                    >
+                      <Pencil className="h-5 w-5" />
+                      {t.editList || "ערוך רשימה"}
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex flex-col md:flex-row gap-2 mt-2">
+                  {isEditing ? (
+                    <>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setIsEditing(false)}
+                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2 text-white bg-red-600 hover:text-white hover:bg-red-700 dark:text-white dark:bg-red-600 dark:hover:bg-red-700"
+                      >
+                        <X className="h-5 w-5" />
+                        {t.cancelEditing || "צא מעריכה"}
+                      </Button>
+
+                      <Button
+                        className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
+                        onClick={handleSaveChanges}
+                        disabled={isAILoading}
+                      >
+                        {isAILoading ? (
+                          <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                        ) : (
+                          <FileText className="h-5 w-5" />
+                        )}
+                        {t.saveChanges || "שמור שינויים"}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      className="w-full py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
+                      onClick={saveAIGeneratedList}
+                      disabled={isAILoading}
+                    >
+                      {isAILoading ? (
+                        <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                        ) : (
+                          <FileText className="h-5 w-5" />
+                          )}
+                          {t.saveList || "שמור רשימה"}
+                          </Button>
+                          )}
+                          </div>
+                          </div>
+                          </CardContent>
+                          </Card>
+        
+                          {/* Add Item Dialog */}
+                          {isAddItemDialogOpen && (
+                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+                            <div className="p-3 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                            <h3 className="text-lg font-medium">{t.addNewItem || "הוספת פריט חדש"}</h3>
+                            </div>
+                            <div className="p-3 space-y-3">
+                            <div>
+                            <label htmlFor="item-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {t.itemName || "שם הפריט"}
+                            </label>
+                            <Input
+                            type="text"
+                            value={newItem.name}
+                            onChange={(e) => setnewItem({ ...newItem, name: e.target.value })}
+                            className="mt-1"
+                            required
+                            />
+                            </div>
+                            <div>
+                            <label
+                            htmlFor="item-category"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                            >
+                            {t.itemCategory || "קטגוריה"}
+                            </label>
+                            <Select value={newItem.category} onValueChange={(value) => setnewItem({ ...newItem, category: value })}>
+                            <SelectTrigger id="item-category" className="mt-1">
+                            <SelectValue placeholder={t.categoryFilterPlaceholder || "קטגוריה"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                            {[
+                            "water_food",
+                            "medical",
+                            "hygiene",
+                            "lighting_energy",
+                            "communication",
+                            "documents_money",
+                            "children",
+                            "pets",
+                            "elderly",
+                            "special_needs",
+                            "other",
+                            ].map((key) => (
+                            <SelectItem key={key} value={key}>
+                            {t.aiCategories[key] || key}
+                            </SelectItem>
+                            ))}
+                            </SelectContent>
+                            </Select>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                            <div>
+                            <label
+                            htmlFor="item-quantity"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                            >
+                            {t.itemQuantity || "כמות"}
+                            </label>
+                            <Input
+                            id="item-quantity"
+                            type="number"
+                            min="1"
+                            value={newItem.quantity}
+                            onChange={(e) => setnewItem({ ...newItem, quantity: Number.parseInt(e.target.value) || 1 })}
+                            className="mt-1"
+                            />
+                            </div>
+                            <div>
+                            <label htmlFor="item-unit" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            {t.itemUnit || "יחידת מידה"}
+                            </label>
+                            <Input
+                            type="text"
+                            value={newItem.unit}
+                            onChange={(e) => setnewItem({ ...newItem, unit: e.target.value })}
+                            className="mt-1"
+                            />
+                            </div>
+                            </div>
+                            <div>
+                            <label
+                            htmlFor="item-importance"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                            >
+                            {t.itemImportance || "חשיבות"}
+                            </label>
+                            <Select
+                            value={newItem.importance.toString()}
+                            onChange={(value) => setnewItem({ ...newItem, importance: Number.parseInt(value) })}
+                            >
+                            <SelectTrigger id="item-importance" className="mt-1">
+                            <SelectValue placeholder={t.importanceFilterPlaceholder || "חשיבות"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                            <SelectItem value="5">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
+                            <SelectItem value="4">{t.aiCategories.very_important || "חשוב מאוד"} (4)</SelectItem>
+                            <SelectItem value="3">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
+                            <SelectItem value="2">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
+                            <SelectItem value="1">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
+                            </SelectContent>
+                            </Select>
+                            </div>
+                            <div>
+                            <label
+                            htmlFor="item-description"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                            >
+                            {t.itemDescription || "תיאור"}
+                            </label>
+                            <Textarea
+                            id="item-description"
+                            value={newItem.description}
+                            onChange={(e) => setnewItem({ ...newItem, description: e.target.value })}
+                            className="mt-1"
+                            rows="2"
+                            ></Textarea>
+                            </div>
+                            <div>
+                            <label
+                            htmlFor="item-expiry-date"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                            >
+                            {t.estimatedExpiryDate || "תאריך תפוגה משוער"}
+                            </label>
+                            <Input
+                            id="item-expiry-date"
+                            type="date"
+                            value={newItem.expiryDate || ""}
+                            onChange={(e) => setnewItem({ ...newItem, expiryDate: e.target.value })}
+                            className="mt-1"
+                            />
+                            </div>
+                            <div className="flex items-center">
+                            <input
+                            type="checkbox"
+                            checked={newItem.sms_notification}
+                            onChange={(e) => setnewItem({ ...newItem, sms_notification: e.target.checked })}
+                            className="mr-2"
+                            />
+                            <label className="text-sm">{t.sendReminder}</label>
+                            </div>
+                            <div>
+                            <label
+                            htmlFor="item-usage-instructions"
+                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                            >
+                            {t.itemUsageInstructions || "הוראות שימוש"}
+                            </label>
+                            <Textarea
+                            id="item-usage-instructions"
+                            value={newItem.usage_instructions}
+                            onChange={(e) => setnewItem({ ...newItem, usage_instructions: e.target.value })}
+                            className="mt-1"
+                            placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
+                            rows="2"
+                            ></Textarea>
+                            </div>
+                            </div>
+                            <div className="flex justify-end gap-2 mt-6">
+                            <Button variant="outline" onClick={() => setIsAddItemDialogOpen(false)}>
+                            {t.cancel || "ביטול"}
+                            </Button>
+                            <Button
+                            onClick={handleAddItem}
+                            className="bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black"
+                            disabled={!newItem.name.trim()}
+                            >
+                            {t.add || "הוסף"}
+                            </Button>
+                            </div>
+                            </div>
+                            </div>
+                            )}
+        
+                            {/* Confirm Remove Dialog */}
+                            {isConfirmDialogOpen && (
+                              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+                              <h2 className="text-xl font-semibold mb-2">{t.removeItemConfirm}</h2>
+                              <p className="text-gray-600 dark:text-gray-400 mb-4">{t.removeItemDescription}</p>
+                              <div className="flex justify-end gap-2">
+                              <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
+                              {t.cancelRemove || "ביטול"}
+                              </Button>
+                              <Button variant="destructive" onClick={confirmRemoveItem}>
+                              {t.confirmRemove || "הסר"}
+                              </Button>
+                              </div>
+                              </div>
+                              </div>
+                              )}
+                              </div>
+                              </TooltipProvider>
+                              )
 }
+</div>
+                              </div>
+                              )}
+                              </div>
+                              </TooltipProvider>
+                              )
+                              }
