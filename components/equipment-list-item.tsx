@@ -5,7 +5,6 @@ import {
   Pill,
   HeartHandshake,
   Lightbulb,
-  FileText,
   Baby,
   Cat,
   Activity,
@@ -14,24 +13,76 @@ import {
   ShieldCheck,
   AlertTriangle,
   Sparkles,
+  Utensils,
+  Shirt,
+  Wrench,
+  Smartphone,
+  BookOpen,
+  Pencil,
+  Bed,
+  Tent,
+  Flame,
+  Stethoscope,
+  Scissors,
+  Zap,
+  Wifi,
+  Wallet,
+  Briefcase,
+  Backpack,
+  Glasses,
+  Thermometer,
+  Umbrella,
+  Map,
+  Compass,
+  Radio,
+  Battery,
+  Sun,
+  Moon,
+  Flashlight,
 } from "lucide-react"
 
-// מיפוי קטגוריות לאייקונים
+// מיפוי קטגוריות לאייקונים - הרחבה משמעותית
 const categoryIcons = {
+  // קטגוריות בסיסיות
   water_food: <Droplets className="h-4 w-4" />,
   medical: <Pill className="h-4 w-4" />,
   hygiene: <HeartHandshake className="h-4 w-4" />,
   lighting_energy: <Lightbulb className="h-4 w-4" />,
-  communication: <FileText className="h-4 w-4" />,
-  documents_money: <FileText className="h-4 w-4" />,
+  communication: <Smartphone className="h-4 w-4" />,
+  documents_money: <Wallet className="h-4 w-4" />,
   children: <Baby className="h-4 w-4" />,
   pets: <Cat className="h-4 w-4" />,
   elderly: <UsersIcon className="h-4 w-4" />,
   special_needs: <Activity className="h-4 w-4" />,
   other: <ListChecks className="h-4 w-4" />,
   emergency: <ShieldCheck className="h-4 w-4" />,
-  food: <Droplets className="h-4 w-4" />,
+
+  // מיפויים נוספים לקטגוריות שזוהו בתמונות
+  food: <Utensils className="h-4 w-4" />,
   pet: <Cat className="h-4 w-4" />,
+  equipment: <Wrench className="h-4 w-4" />,
+  clothing: <Shirt className="h-4 w-4" />,
+  education: <BookOpen className="h-4 w-4" />,
+  writing: <Pencil className="h-4 w-4" />,
+  sleeping: <Bed className="h-4 w-4" />,
+  shelter: <Tent className="h-4 w-4" />,
+  cooking: <Flame className="h-4 w-4" />,
+  health: <Stethoscope className="h-4 w-4" />,
+  tools: <Scissors className="h-4 w-4" />,
+  power: <Zap className="h-4 w-4" />,
+  internet: <Wifi className="h-4 w-4" />,
+  finance: <Briefcase className="h-4 w-4" />,
+  travel: <Backpack className="h-4 w-4" />,
+  vision: <Glasses className="h-4 w-4" />,
+  temperature: <Thermometer className="h-4 w-4" />,
+  weather: <Umbrella className="h-4 w-4" />,
+  navigation: <Compass className="h-4 w-4" />,
+  maps: <Map className="h-4 w-4" />,
+  radio: <Radio className="h-4 w-4" />,
+  battery: <Battery className="h-4 w-4" />,
+  daylight: <Sun className="h-4 w-4" />,
+  night: <Moon className="h-4 w-4" />,
+  light: <Flashlight className="h-4 w-4" />,
 }
 
 // מיפוי קטגוריות לסגנונות
@@ -120,6 +171,13 @@ const categoryStyles = {
     darkBg: "dark:bg-amber-900/30",
     darkText: "dark:text-amber-400",
   },
+  // הוספת סגנונות לקטגוריות חדשות
+  equipment: {
+    bg: "bg-gray-100",
+    text: "text-gray-800",
+    darkBg: "dark:bg-gray-700/50",
+    darkText: "dark:text-gray-300",
+  },
 }
 
 // פונקציה לקבלת האייקון והסגנון המתאימים לקטגוריה
@@ -137,15 +195,26 @@ const getCategoryInfo = (category) => {
     food: "water_food",
     pet: "pets",
     emergency: "other",
+    // הוספת מיפויים נוספים שזוהו בתמונות
+    "מים וזון": "water_food",
+    "ציוד רפואי": "medical",
+    תקשורת: "communication",
+    ילדים: "children",
+    "חיות מחמד": "pets",
+    "ציוד כללי": "equipment",
+    ציוד: "equipment",
   }
 
   // אם יש מיפוי לקטגוריה, נשתמש בו
   const mappedCategory = categoryMapping[category] || category
 
-  return {
-    icon: categoryIcons[mappedCategory] || categoryIcons.other,
-    style: categoryStyles[mappedCategory] || categoryStyles.other,
-  }
+  // בדיקה אם יש אייקון מתאים, אחרת נשתמש באייקון ברירת מחדל
+  const icon = categoryIcons[mappedCategory] || categoryIcons.other
+
+  // בדיקה אם יש סגנון מתאים, אחרת נשתמש בסגנון ברירת מחדל
+  const style = categoryStyles[mappedCategory] || categoryStyles.other
+
+  return { icon, style }
 }
 
 // פונקציה לקבלת תג חשיבות
