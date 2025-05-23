@@ -250,52 +250,45 @@ ${prompt}
 
 הנה כיצד להתאים את הרשימה באופן מושלם:
 
-1. אם יש קשיש בן 72 עם סוכרת וכולסטרול - הוסף פריטים ספציפיים:
-   - מד סוכר נוסף + סוללות רזרביות
-   - רצועות למד סוכר (כמות ל-72 שעות)
-   - גלוקוז/דקסטרוז למקרה של היפוגליקמיה
-   - תרופות סוכרת נוספות (מטפורמין, אינסולין אם נדרש)
-   - תרופות כולסטרול נוספות
-   - מזון מתאים לסוכרתיים (ללא סוכר, דל פחמימות)
-   - מאזן דיגיטלי לשקילה יומית
-   - רשימת מזונים מותרים ואסורים
+1. אם יש ילדים - הוסף פריטים ספציפיים לגילם:
+   - לתינוקות: חיתולים, מזון לתינוקות, בקבוקים, מוצץ
+   - לילדים קטנים: משחקים מרגיעים, ספרים, צעצועים קטנים
+   - לילדים גדולים: משחקי קלפים, ספרי צביעה, פעילויות יצירה
 
-2. אם יש גנרטור קטן - הוסף פריטים ספציפיים:
-   - דלק נוסף לגנרטור (בנזין/סולר)
-   - שמן מנוע לגנרטור
-   - מאריך חשמל עמיד למזג אוויר
-   - מפסק זרם נייד
-   - כבל הארקה לגנרטור
+2. אם יש קשישים - הוסף פריטים ספציפיים:
+   - כסא גלגלים נייד או הליכון
+   - תרופות נוספות לבעיות נפוצות (לחץ דם, כולסטרול)
+   - משקפיים רזרביות
+   - כרית אורתופדית
 
-3. אם אין מקרר נייד או מזגן בממ"ד - הוסף פריטים ספציפיים:
-   - צידנית קשיחה גדולה + קרח יבש
-   - מאוורר נייד שעובד על סוללות
-   - בקבוקי מים קפואים
-   - מגבות רטובות לקירור הגוף
-   - כובע רחב שוליים
-   - בגדים קלים ונושמים
+3. אם יש חיות מחמד - הוסף פריטים לפי סוג החיה:
+   - לכלבים: רצועה, קולר עם פרטים, צעצועים
+   - לחתולים: ארגז חול נייד, מנשא
+   - לציפורים: כלוב נייד, מזון מיוחד
+   - לכל החיות: תרופות וטרינריות, שמיכה מוכרת
 
-4. אם יש חתולה - הוסף פריטים ספציפיים:
-   - מזון רטוב לחתולים (72 שעות)
-   - חול לחתולים + ארגז חול נייד
-   - צעצועים מרגיעים לחתולה
-   - מנשא לחתולה למקרה פינוי
-   - תרופות וטרינריות בסיסיות
-   - שמיכה מוכרת של החתולה
+4. אם יש צרכים מיוחדים רפואיים - הוסף פריטים ספציפיים:
+   - לסוכרתיים: מד סוכר נוסף, גלוקוז, מזון מתאים
+   - לאסטמטיים: משאפים נוספים, מכשיר אינהלציה
+   - לאלרגיים: תרופות אנטי-היסטמיניות, אפיפן
+   - למוגבלי ניידות: כסא רחצה, מעקות ניידים
 
-5. אם גר בקיבוץ בצפון - הוסף פריטים ספציפיים:
-   - מערכת התרעה אישית (אזעקה)
-   - מפה מפורטת של המקלטים באזור
-   - אמצעי תקשורת עם שכנים
-   - ציוד לאיטום חלונות מפני גזים
-   - מסכות גז נוספות
+5. לפי מיקום גיאוגרפי:
+   - צפון הארץ: ציוד הגנה נוסף, מערכת התרעה
+   - דרום הארץ: ציוד לחום קיצוני, מים נוספים
+   - מרכז הארץ: ציוד לצפיפות אוכלוסין
 
-6. חשב כמויות מדויקות והסבר את החישוב:
+6. לפי סוג מגורים:
+   - דירה: ציוד קומפקטי, מזון שאינו דורש בישול
+   - בית פרטי: גנרטור קטן, ציוד גינה
+   - קומות גבוהות: חבלים, ציוד פינוי
+
+7. חשב כמויות מדויקות והסבר את החישוב:
    - מים: 3 ליטר לאדם ליום × מספר אנשים × מספר ימים
    - מזון: 2000 קלוריות לאדם ליום × מספר אנשים × מספר ימים
    - תרופות: מספר מנות ליום × מספר ימים + 50% רזרבה
 
-7. וודא שכל הקטגוריות הן מהרשימה המותרת:
+8. וודא שכל הקטגוריות הן מהרשימה המותרת:
    - water_food (מים ומזון)
    - medical (ציוד רפואי)
    - hygiene (היגיינה)
@@ -407,195 +400,194 @@ ${prompt}
   }
 }
 
-// Helper function to generate a generic personalized item
+// Helper function to generate a generic personalized item based on profile
 function generateGenericPersonalizedItem(index: number, profile: any): any {
-  const genericItems = [
-    {
-      id: `generic-1`,
-      name: "מד סוכר נוסף + סוללות",
-      category: "medical",
-      quantity: 1,
-      unit: "סט",
-      importance: 4,
-      description: "מד סוכר נוסף עם סוללות רזרביות לניטור רמת הסוכר במהלך החירום.",
-      shelf_life: "3 שנים",
-      usage_instructions: "יש לבדוק את רמת הסוכר 3 פעמים ביום ולתעד את התוצאות.",
-      recommended_quantity_per_person: "1 מד לאדם עם סוכרת",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: "2027-05-01",
-      sendExpiryReminder: false,
-      personalized_note: "חיוני עבור קשיש בן 72 עם סוכרת סוג 2. יש לשמור במקום נגיש וידוע.",
-      is_mandatory: false,
-    },
-    {
-      id: `generic-2`,
-      name: "מזון מתאים לסוכרתיים",
-      category: "water_food",
-      quantity: 9,
-      unit: "מנות",
-      importance: 4,
-      description: "מזון דל פחמימות וללא סוכר מתאים לחולי סוכרת.",
-      shelf_life: "שנה",
-      usage_instructions: "יש לבדוק תוויות מזון ולוודא שאין סוכר נוסף.",
-      recommended_quantity_per_person: "3 מנות ליום",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: "2025-05-01",
-      sendExpiryReminder: false,
-      personalized_note: "מותאם לקשיש עם סוכרת סוג 2 ל-72 שעות.",
-      is_mandatory: false,
-    },
-    {
-      id: `generic-3`,
-      name: "מזון רטוב לחתולים",
-      category: "pets",
-      quantity: 9,
-      unit: "קופסאות",
-      importance: 3,
-      description: "מזון רטוב לחתולה למשך 72 שעות.",
-      shelf_life: "2 שנים",
-      usage_instructions: "יש לאחסן במקום יבש וקריר.",
-      recommended_quantity_per_person: "3 קופסאות ליום לחתולה",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: "2026-05-01",
-      sendExpiryReminder: false,
-      personalized_note: "חיוני עבור החתולה במשך 72 שעות של שהייה בבית.",
-      is_mandatory: false,
-    },
-    {
-      id: `generic-4`,
-      name: "צידנית קשיחה + קרח יבש",
-      category: "other",
-      quantity: 1,
-      unit: "סט",
-      importance: 4,
-      description: "צידנית לשמירת תרופות קרות וקירור כללי ללא מקרר נייד.",
-      shelf_life: "לא רלוונטי",
-      usage_instructions: "יש להשתמש בקרח יבש בזהירות ובאוורור טוב.",
-      recommended_quantity_per_person: "1 צידנית למשפחה",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: null,
-      sendExpiryReminder: false,
-      personalized_note: 'חיוני כיוון שאין מקרר נייד בממ"ד לשמירת תרופות.',
-      is_mandatory: false,
-    },
-    {
-      id: `generic-5`,
-      name: "דלק נוסף לגנרטור",
-      category: "lighting_energy",
-      quantity: 10,
-      unit: "ליטרים",
-      importance: 4,
-      description: "דלק נוסף לגנרטור הקטן למשך 72 שעות פעילות.",
-      shelf_life: "6 חודשים",
-      usage_instructions: "יש לאחסן במקום מאוורר הרחק מחום ואש.",
-      recommended_quantity_per_person: "לפי צריכת הגנרטור",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: "2025-11-01",
-      sendExpiryReminder: false,
-      personalized_note: "נדרש עבור הגנרטור הקטן הקיים למשך 72 שעות.",
-      is_mandatory: false,
-    },
-    {
-      id: `generic-6`,
-      name: "מאוורר נייד על סוללות",
-      category: "lighting_energy",
-      quantity: 1,
-      unit: "יחידה",
-      importance: 3,
-      description: 'מאוורר נייד לקירור ללא מזגן בממ"ד.',
-      shelf_life: "5 שנים",
-      usage_instructions: "יש לוודא שהסוללות טעונות לפני השימוש.",
-      recommended_quantity_per_person: "1 מאוורר לחדר",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: null,
-      sendExpiryReminder: false,
-      personalized_note: 'חיוני כיוון שאין מזגן בממ"ד.',
-      is_mandatory: false,
-    },
-    {
-      id: `generic-7`,
-      name: "ארגז חול נייד לחתולה",
-      category: "pets",
-      quantity: 1,
-      unit: "סט",
-      importance: 3,
-      description: "ארגז חול נייד וחול לחתולה למשך 72 שעות.",
-      shelf_life: "לא רלוונטי",
-      usage_instructions: "יש להחליף חול לפי הצורך.",
-      recommended_quantity_per_person: "1 ארגז לחתולה",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: null,
-      sendExpiryReminder: false,
-      personalized_note: "נדרש עבור החתולה במשך השהייה הממושכת בבית.",
-      is_mandatory: false,
-    },
-    {
-      id: `generic-8`,
-      name: "גלוקוז למקרה היפוגליקמיה",
-      category: "medical",
-      quantity: 5,
-      unit: "אמפולות",
-      importance: 4,
-      description: "גלוקוז למקרה של ירידה חדה ברמת הסוכר.",
-      shelf_life: "2 שנים",
-      usage_instructions: "לשימוש במקרה של תסמיני היפוגליקמיה.",
-      recommended_quantity_per_person: "5 אמפולות לחולה סוכרת",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: "2026-05-01",
-      sendExpiryReminder: false,
-      personalized_note: "חיוני עבור קשיש עם סוכרת למקרה חירום רפואי.",
-      is_mandatory: false,
-    },
-    {
-      id: `generic-9`,
-      name: "מערכת התרעה אישית",
-      category: "communication",
-      quantity: 1,
-      unit: "יחידה",
-      importance: 4,
-      description: "מערכת התרעה אישית לקיבוץ בצפון הארץ.",
-      shelf_life: "5 שנים",
-      usage_instructions: "יש לבדוק תקינות אחת לחודש.",
-      recommended_quantity_per_person: "1 יחידה לאדם",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: null,
-      sendExpiryReminder: false,
-      personalized_note: "חיוני עבור תושב קיבוץ בצפון הארץ.",
-      is_mandatory: false,
-    },
-    {
-      id: `generic-10`,
-      name: "מנשא לחתולה",
-      category: "pets",
-      quantity: 1,
-      unit: "יחידה",
-      importance: 3,
-      description: "מנשא לחתולה למקרה של פינוי מהיר.",
-      shelf_life: "לא רלוונטי",
-      usage_instructions: "יש לוודא שהחתולה מכירה את המנשא מראש.",
-      recommended_quantity_per_person: "1 מנשא לחתולה",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: null,
-      sendExpiryReminder: false,
-      personalized_note: "נדרש עבור החתולה במקרה של פינוי מהקיבוץ.",
-      is_mandatory: false,
-    },
-  ]
+  const items = []
 
-  // Return a generic item based on the index, or the first one if index is out of bounds
+  // Generate items based on family composition
+  if (profile?.children > 0) {
+    items.push(
+      {
+        name: "ספרי צביעה ועפרונות צבעוניים",
+        category: "children",
+        description: "פעילות יצירתית להעסקת הילדים ולהפגת מתח במהלך החירום.",
+        personalized_note: `מותאם ל-${profile.children} ילדים במשפחה.`,
+        importance: 3,
+      },
+      {
+        name: "חטיפים בריאים לילדים",
+        category: "water_food",
+        description: "חטיפים מזינים ומוכרים לילדים למקרה שהמזון הרגיל לא זמין.",
+        personalized_note: `כמות מחושבת עבור ${profile.children} ילדים למשך ${Math.ceil((profile.duration_hours || 72) / 24)} ימים.`,
+        importance: 3,
+      },
+    )
+  }
+
+  if (profile?.babies > 0) {
+    items.push(
+      {
+        name: "חיתולים וחיתולי בד",
+        category: "children",
+        description: "חיתולים חד-פעמיים וחיתולי בד רב-פעמיים לתינוקות.",
+        personalized_note: `מותאם ל-${profile.babies} תינוקות במשפחה.`,
+        importance: 4,
+      },
+      {
+        name: "מזון לתינוקות ובקבוקים",
+        category: "children",
+        description: "מזון מוכן לתינוקות ובקבוקים נוספים.",
+        personalized_note: `חיוני עבור ${profile.babies} תינוקות במשפחה.`,
+        importance: 4,
+      },
+    )
+  }
+
+  if (profile?.elderly > 0) {
+    items.push(
+      {
+        name: "משקפיים רזרביות",
+        category: "medical",
+        description: "משקפיים נוספים למקרה של שבירה או אובדן.",
+        personalized_note: `חשוב עבור ${profile.elderly} קשישים במשפחה.`,
+        importance: 3,
+      },
+      {
+        name: "כרית אורתופדית נייד",
+        category: "medical",
+        description: "כרית תמיכה לגב ולצוואר לקשישים.",
+        personalized_note: `מותאם לנוחות ${profile.elderly} קשישים במשפחה.`,
+        importance: 3,
+      },
+    )
+  }
+
+  if (profile?.pets > 0) {
+    items.push(
+      {
+        name: "מזון נוסף לחיות מחמד",
+        category: "pets",
+        description: "מזון יבש נוסף לחיות המחמד למשך תקופת החירום.",
+        personalized_note: `מחושב עבור ${profile.pets} חיות מחמד למשך ${Math.ceil((profile.duration_hours || 72) / 24)} ימים.`,
+        importance: 4,
+      },
+      {
+        name: "רצועה וקולר עם פרטי זיהוי",
+        category: "pets",
+        description: "ציוד זיהוי וביטחון לחיות המחמד במקרה של פינוי.",
+        personalized_note: `נדרש עבור ${profile.pets} חיות מחמד במשפחה.`,
+        importance: 3,
+      },
+    )
+  }
+
+  // Add general items based on duration
+  const days = Math.ceil((profile?.duration_hours || 72) / 24)
+  if (days > 3) {
+    items.push({
+      name: "ציוד כביסה בסיסי",
+      category: "hygiene",
+      description: "סבון כביסה וחבל כביסה לשטיפה ידנית.",
+      personalized_note: `חשוב למשך ${days} ימים של שהייה ממושכת.`,
+      importance: 2,
+    })
+  }
+
+  // Add location-based items
+  if (profile?.location?.includes("צפון") || profile?.location?.includes("גליל")) {
+    items.push({
+      name: "ציוד הגנה נוסף",
+      category: "other",
+      description: "ציוד הגנה נוסף לאזורי גבול.",
+      personalized_note: `מותאם למיקום בצפון הארץ.`,
+      importance: 4,
+    })
+  }
+
+  // Add housing-based items
+  if (profile?.housing_details?.includes("דירה") || profile?.housing_details?.includes("קומה")) {
+    items.push({
+      name: "מזון שאינו דורש בישול",
+      category: "water_food",
+      description: "מזון מוכן לאכילה שאינו דורש הכנה או חימום.",
+      personalized_note: "מותאם למגורים בדירה ללא אפשרות בישול.",
+      importance: 3,
+    })
+  }
+
+  // Add general useful items
+  items.push(
+    {
+      name: "סוללות נטענות ומטען סולארי",
+      category: "lighting_energy",
+      description: "סוללות נטענות ומטען סולארי לטעינה ללא חשמל.",
+      personalized_note: "שימושי לטעינת מכשירים קטנים במהלך הפסקות חשמל.",
+      importance: 3,
+    },
+    {
+      name: "שקיות אשפה וכפפות חד-פעמיות",
+      category: "hygiene",
+      description: "שקיות לאשפה וכפפות לשמירה על היגיינה.",
+      personalized_note: "חשוב לשמירה על ניקיון וסניטציה.",
+      importance: 2,
+    },
+    {
+      name: "נרות ונרות תה",
+      category: "lighting_energy",
+      description: "נרות לתאורה ולחימום במקרה של הפסקת חשמל ממושכת.",
+      personalized_note: "גיבוי לפנסים ולתאורה ממושכת.",
+      importance: 2,
+    },
+    {
+      name: "מגבות נייר ומגבונים",
+      category: "hygiene",
+      description: "מגבות נייר ומגבונים לחים לניקוי ללא מים.",
+      personalized_note: "שימושי כאשר אין גישה למים זורמים.",
+      importance: 2,
+    },
+  )
+
+  // Return the item at the specified index, or a default if out of bounds
+  if (index < items.length) {
+    const selectedItem = items[index]
+    return {
+      id: `generic-${index + 1}`,
+      name: selectedItem.name,
+      category: selectedItem.category,
+      quantity: calculateQuantityForItem(selectedItem.name, profile),
+      unit: getUnitForItem(selectedItem.name),
+      importance: selectedItem.importance,
+      description: selectedItem.description,
+      shelf_life: getShelfLifeForItem(selectedItem.name),
+      usage_instructions: getUsageInstructionsForItem(selectedItem.name),
+      recommended_quantity_per_person: getRecommendedQuantityForItem(selectedItem.name),
+      obtained: false,
+      expiryDate: null,
+      aiSuggestedExpiryDate: getExpiryDateForItem(selectedItem.name),
+      sendExpiryReminder: false,
+      personalized_note: selectedItem.personalized_note,
+      is_mandatory: false,
+    }
+  }
+
+  // Fallback generic item
   return {
-    ...genericItems[index % genericItems.length],
     id: `generic-${index + 1}`,
+    name: "פריט כללי מותאם אישית",
+    category: "other",
+    quantity: 1,
+    unit: "יחידות",
+    importance: 2,
+    description: "פריט כללי המותאם לצרכי המשפחה.",
+    shelf_life: "שנה",
+    usage_instructions: "יש להשתמש לפי הצורך.",
+    recommended_quantity_per_person: "1 יחידה",
+    obtained: false,
+    expiryDate: null,
+    aiSuggestedExpiryDate: null,
+    sendExpiryReminder: false,
+    personalized_note: "פריט מותאם אישית לצרכי המשפחה.",
+    is_mandatory: false,
   }
 }
 
@@ -619,10 +611,71 @@ function calculateQuantity(itemName: string, profile: any): number {
   return 1
 }
 
+function calculateQuantityForItem(itemName: string, profile: any): number {
+  if (!profile) return 1
+
+  const totalPeople = (profile.adults || 1) + (profile.children || 0) + (profile.babies || 0) + (profile.elderly || 0)
+  const days = Math.ceil((profile.duration_hours || 72) / 24)
+
+  if (itemName.includes("חיתולים") && profile.babies) {
+    return profile.babies * days * 8 // 8 diapers per baby per day
+  } else if (itemName.includes("מזון") && itemName.includes("חיות")) {
+    return (profile.pets || 1) * days * 2 // 2 meals per pet per day
+  } else if (itemName.includes("ספר") || itemName.includes("משחק")) {
+    return profile.children || 1
+  } else if (itemName.includes("משקפיים")) {
+    return profile.elderly || 1
+  } else if (itemName.includes("חטיף")) {
+    return (profile.children || 1) * days * 2 // 2 snacks per child per day
+  }
+
+  return Math.max(1, Math.ceil(totalPeople / 2)) // Default: 1 item per 2 people
+}
+
 function getUnitForItem(itemName: string): string {
   if (itemName.includes("מים")) return "ליטרים"
-  if (itemName.includes("מזון")) return "מנות"
+  if (itemName.includes("מזון") || itemName.includes("חטיף")) return "מנות"
+  if (itemName.includes("חיתולים")) return "יחידות"
+  if (itemName.includes("סוללות")) return "יחידות"
+  if (itemName.includes("נרות")) return "יחידות"
   return "יחידות"
+}
+
+function getShelfLifeForItem(itemName: string): string {
+  if (itemName.includes("מזון") || itemName.includes("חטיף")) return "שנה"
+  if (itemName.includes("סוללות")) return "5 שנים"
+  if (itemName.includes("תרופות")) return "2 שנים"
+  if (itemName.includes("חיתולים")) return "3 שנים"
+  if (itemName.includes("נרות")) return "לא רלוונטי"
+  return "שנה"
+}
+
+function getUsageInstructionsForItem(itemName: string): string {
+  if (itemName.includes("סוללות")) return "יש לאחסן במקום יבש וקריר."
+  if (itemName.includes("מזון")) return "יש לבדוק תאריכי תפוגה."
+  if (itemName.includes("נרות")) return "יש להשתמש בזהירות ובאוורור טוב."
+  if (itemName.includes("תרופות")) return "יש לשמור במקום קריר ויבש."
+  return "יש להשתמש לפי הצורך."
+}
+
+function getRecommendedQuantityForItem(itemName: string): string {
+  if (itemName.includes("חיתולים")) return "8 ליום לתינוק"
+  if (itemName.includes("מזון") && itemName.includes("חיות")) return "2 מנות ליום לחיה"
+  if (itemName.includes("חטיף")) return "2 ליום לילד"
+  return "לפי הצורך"
+}
+
+function getExpiryDateForItem(itemName: string): string | null {
+  const now = new Date()
+  if (itemName.includes("מזון") || itemName.includes("חטיף")) {
+    now.setFullYear(now.getFullYear() + 1)
+    return now.toISOString().split("T")[0]
+  }
+  if (itemName.includes("תרופות")) {
+    now.setFullYear(now.getFullYear() + 2)
+    return now.toISOString().split("T")[0]
+  }
+  return null
 }
 
 function getRecommendedQuantityPerPerson(itemName: string): string {
