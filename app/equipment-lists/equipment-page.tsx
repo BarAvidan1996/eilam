@@ -1403,7 +1403,7 @@ export default function EquipmentPage() {
                                 >
                                   {getCategoryStyle(item.category).icon}
                                   <span className="ml-1">{getCategoryDisplayName(item.category)}</span>
-                                </div>
+                                </Badge>
                               </div>
                             </div>
                             {isEditing ? (
