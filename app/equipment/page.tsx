@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -438,6 +438,9 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const [isListContextLoading, setIsListContextLoading] = useState(false)
   const [successMessage, setSuccessMessage] = useState("")
 
+  const [editingItem, setEditingItem] = useState(null)
+  const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false)
+
   const isRTL = language === "he" || language === "ar"
 
   // Get category style
@@ -688,6 +691,31 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     })
   }
 
+  const handleEditItem = (item) => {
+    setEditingItem({ ...item })
+    setIsEditItemDialogOpen(true)
+  }
+
+  const handleUpdateItem = () => {
+    if (!editingItem.name.trim()) {
+      toast({
+        title: "שגיאה",
+        description: t.itemNameCannotBeEmpty || "שם הפריט אינו יכול להיות ריק.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setAIGeneratedItems((prevItems) => prevItems.map((item) => (item.id === editingItem.id ? editingItem : item)))
+    setIsEditItemDialogOpen(false)
+    setEditingItem(null)
+    toast({
+      title: "הצלחה",
+      description: "הפריט עודכן בהצלחה!",
+      variant: "default",
+    })
+  }
+
   // Handle removing an item
   const handleRemoveItem = (itemId) => {
     const itemToRemove = aiGeneratedItems.find((item) => item.id === itemId)
@@ -728,6 +756,42 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     setCurrentListName("")
     setAIUserPrompt("")
   }
+
+  useEffect(() => {
+    const loadExistingList = async () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const listId = urlParams.get("listId")
+
+      if (listId) {
+        setIsListContextLoading(true)
+        try {
+          const listData = await EquipmentService.getEquipmentList(listId)
+          if (listData) {
+            setCurrentListName(listData.title)
+            setAIGeneratedItems(listData.items || [])
+
+            // Create a profile from the description if it exists
+            let profile = { loadedFromExisting: true }
+            if (listData.description) {
+              try {
+                profile = { ...JSON.parse(listData.description), loadedFromExisting: true }
+              } catch (e) {
+                profile = { description: listData.description, loadedFromExisting: true }
+              }
+            }
+            setAIGeneratedProfile(profile)
+          }
+        } catch (error) {
+          console.error("Error loading existing list:", error)
+          setError("שגיאה בטעינת הרשימה")
+        } finally {
+          setIsListContextLoading(false)
+        }
+      }
+    }
+
+    loadExistingList()
+  }, [])
 
   const filteredItems = filterItems(aiGeneratedItems)
   const mandatoryItemsCount = aiGeneratedItems.filter((item) => item.is_mandatory).length
@@ -960,7 +1024,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                             </TooltipTrigger>
                             <TooltipContent>
                               <p className="text-xs">{t.defaultValueUsed}</p>
-                            TooltipContent>
+                            </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       )}
@@ -1254,6 +1318,20 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-100"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleEditItem(item)
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+
+                              {isEditing && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -1280,37 +1358,50 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                   </p>
                                 </div>
                               )}
+
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                {item.recommended_quantity_per_person && (
-                                  <div>
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.recommended_quantity_per_person_label}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.recommended_quantity_per_person}
-                                    </p>
-                                  </div>
-                                )}
-                                {item.usage_instructions && (
-                                  <div>
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.usage_instructions_label}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.usage_instructions}
-                                    </p>
-                                  </div>
-                                )}
+                                <div>
+                                  <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                    כמות ויחידה
+                                  </h4>
+                                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                    {item.quantity} {item.unit}
+                                  </p>
+                                </div>
+
                                 {item.shelf_life && (
-                                  <div className="block sm:hidden">
+                                  <div>
                                     <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.shelf_life_label}
+                                      {t.aiCategories.shelf_life_label || "חיי מדף"}
                                     </h4>
                                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                                       {item.shelf_life}
                                     </p>
                                   </div>
                                 )}
+
+                                {item.recommended_quantity_per_person && (
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.aiCategories.recommended_quantity_per_person_label || "כמות מומלצת לאדם"}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.recommended_quantity_per_person}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {item.usage_instructions && (
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.aiCategories.usage_instructions_label || "הוראות שימוש"}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.usage_instructions}
+                                    </p>
+                                  </div>
+                                )}
+
                                 {item.expiryDate && (
                                   <div>
                                     <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
@@ -1318,6 +1409,17 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                     </h4>
                                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                                       {item.expiryDate}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {item.personalized_note && (
+                                  <div className="sm:col-span-2">
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      הערה מותאמת אישית
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.personalized_note}
                                     </p>
                                   </div>
                                 )}
@@ -1378,7 +1480,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       <Button
                         variant="ghost"
                         onClick={() => setIsEditing(false)}
-                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2"
+                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
                       >
                         <X className="h-5 w-5" />
                         {t.cancelEditing || "צא מעריכה"}
@@ -1600,6 +1702,266 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     className="bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black"
                   >
                     {t.add || "הוסף"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Edit Item Dialog */}
+          {isEditItemDialogOpen && editingItem && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="p-3 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
+                  <h3 className="text-lg font-medium">ערוך פריט</h3>
+                </div>
+                <div className="p-3 space-y-3">
+                  <div>
+                    <label
+                      htmlFor="edit-item-name"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {t.itemName || "שם הפריט"} <span className={requiredFieldStyle}>*</span>
+                    </label>
+                    <Input
+                      id="edit-item-name"
+                      value={editingItem.name}
+                      onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="edit-item-mandatory"
+                      checked={editingItem.is_mandatory}
+                      onCheckedChange={(checked) => setEditingItem({ ...editingItem, is_mandatory: !!checked })}
+                    />
+                    <label
+                      htmlFor="edit-item-mandatory"
+                      className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      פריט חובה של פיקוד העורף
+                    </label>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="edit-item-category"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {t.itemCategory || "קטגוריה"} <span className={requiredFieldStyle}>*</span>
+                    </label>
+                    <Select
+                      value={editingItem.category}
+                      onValueChange={(value) => setEditingItem({ ...editingItem, category: value })}
+                    >
+                      <SelectTrigger id="edit-item-category" className="mt-1">
+                        <SelectValue placeholder={t.categoryFilterPlaceholder || "קטגוריה"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[
+                          "water_food",
+                          "medical",
+                          "hygiene",
+                          "lighting_energy",
+                          "communication",
+                          "documents_money",
+                          "children",
+                          "pets",
+                          "elderly",
+                          "special_needs",
+                          "other",
+                        ].map((key) => (
+                          <SelectItem key={key} value={key}>
+                            {t.aiCategories[key] || key}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label
+                        htmlFor="edit-item-quantity"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        {t.itemQuantity || "כמות"} <span className={requiredFieldStyle}>*</span>
+                      </label>
+                      <Input
+                        id="edit-item-quantity"
+                        type="number"
+                        min="1"
+                        value={editingItem.quantity}
+                        onChange={(e) =>
+                          setEditingItem({ ...editingItem, quantity: Number.parseInt(e.target.value) || 1 })
+                        }
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="edit-item-unit"
+                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        {t.itemUnit || "יחידת מידה"} <span className={requiredFieldStyle}>*</span>
+                      </label>
+                      <Input
+                        id="edit-item-unit"
+                        value={editingItem.unit}
+                        onChange={(e) => setEditingItem({ ...editingItem, unit: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="edit-item-importance"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {t.itemImportance || "חשיבות"} <span className={requiredFieldStyle}>*</span>
+                    </label>
+                    <Select
+                      value={editingItem.importance.toString()}
+                      onValueChange={(value) => setEditingItem({ ...editingItem, importance: Number.parseInt(value) })}
+                    >
+                      <SelectTrigger id="edit-item-importance" className="mt-1">
+                        <SelectValue placeholder={t.importanceFilterPlaceholder || "חשיבות"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
+                        <SelectItem value="4">{t.aiCategories.very_important || "חשוב מאוד"} (4)</SelectItem>
+                        <SelectItem value="3">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
+                        <SelectItem value="2">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
+                        <SelectItem value="1">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="edit-item-description"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {t.itemDescription || "תיאור"}
+                    </label>
+                    <Textarea
+                      id="edit-item-description"
+                      value={editingItem.description}
+                      onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
+                      className="mt-1"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="edit-item-shelf-life"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      חיי מדף
+                    </label>
+                    <Input
+                      id="edit-item-shelf-life"
+                      value={editingItem.shelf_life || ""}
+                      onChange={(e) => setEditingItem({ ...editingItem, shelf_life: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="edit-item-expiry-date"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {t.estimatedExpiryDate || "תאריך תפוגה משוער"}
+                    </label>
+                    <Input
+                      id="edit-item-expiry-date"
+                      type="date"
+                      value={editingItem.expiryDate || ""}
+                      onChange={(e) => setEditingItem({ ...editingItem, expiryDate: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div className="space-y-2 mt-2">
+                    <div className="flex items-center">
+                      <Checkbox
+                        id="edit-item-sms-notification"
+                        checked={editingItem.sms_notification}
+                        onCheckedChange={(checked) => setEditingItem({ ...editingItem, sms_notification: !!checked })}
+                      />
+                      <label
+                        htmlFor="edit-item-sms-notification"
+                        className="mr-2 text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        {t.smsNotification || "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה."}
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="edit-item-usage-instructions"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {t.itemUsageInstructions || "הוראות שימוש"}
+                    </label>
+                    <Textarea
+                      id="edit-item-usage-instructions"
+                      value={editingItem.usage_instructions || ""}
+                      onChange={(e) => setEditingItem({ ...editingItem, usage_instructions: e.target.value })}
+                      className="mt-1"
+                      placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
+                      rows={2}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="edit-item-recommended-quantity"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      כמות מומלצת לאדם
+                    </label>
+                    <Input
+                      id="edit-item-recommended-quantity"
+                      value={editingItem.recommended_quantity_per_person || ""}
+                      onChange={(e) =>
+                        setEditingItem({ ...editingItem, recommended_quantity_per_person: e.target.value })
+                      }
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="edit-item-personalized-note"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      הערה מותאמת אישית
+                    </label>
+                    <Textarea
+                      id="edit-item-personalized-note"
+                      value={editingItem.personalized_note || ""}
+                      onChange={(e) => setEditingItem({ ...editingItem, personalized_note: e.target.value })}
+                      className="mt-1"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+                <div className="p-3 border-t dark:border-gray-700 flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-gray-800 z-10">
+                  <Button variant="outline" onClick={() => setIsEditItemDialogOpen(false)}>
+                    {t.cancel || "ביטול"}
+                  </Button>
+                  <Button
+                    onClick={handleUpdateItem}
+                    className="bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black"
+                  >
+                    עדכן
                   </Button>
                 </div>
               </div>
