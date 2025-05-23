@@ -552,7 +552,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           title: "הצלחה",
           description: t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!",
           variant: "default",
-        })*/
+          })*/
 
         // גלילה לראש הדף כדי שהמשתמש יראה את ההודעה
         window.scrollTo({ top: 0, behavior: "smooth" })
@@ -1013,24 +1013,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       )}
                     </div>
                     <p className="text-xl font-semibold">{aiGeneratedProfile.elderly || 0}</p>
-                  </div>
-                  <div className="min-w-28">
-                    <div className="flex items-center gap-1">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiPets}</p>
-                      {defaultFields.includes("pets") && (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="h-3 w-3 text-red-500" />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs">{t.defaultValueUsed}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      )}
-                    </div>
-                    <p className="text-xl font-semibold">{aiGeneratedProfile.pets || 0}</p>
                   </div>
                   <div className="min-w-28">
                     <div className="flex items-center gap-1">
@@ -1576,7 +1558,12 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                   </div>
                                   <p className="text-xs text-gray-500 dark:text-gray-400 mr-6">
                                     {"ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד "}
-                                    <a href="/profile" className="text-blue-600 dark:text-blue-400 hover:underline">
+                                    <a
+                                      href="/profile"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 dark:text-blue-400 hover:underline"
+                                    >
                                       {"פרופיל"}
                                     </a>
                                     {"."}
@@ -1839,7 +1826,12 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mr-6">
                       {"ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד "}
-                      <a href="/profile" className="text-blue-600 dark:text-blue-400 hover:underline">
+                      <a
+                        href="/profile"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 dark:text-blue-400 hover:underline"
+                      >
                         {"פרופיל"}
                       </a>
                       {"."}
