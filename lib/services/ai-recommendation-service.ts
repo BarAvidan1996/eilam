@@ -14,13 +14,13 @@ const generateFallbackRecommendations = (prompt: string) => {
     adults = Number.parseInt(adultsMatch[1])
   }
 
-  // Intentar extraer números de niños
+  // Intentar extraer números de ילדים
   const childrenMatch = prompt.match(/(\d+)\s*(ילדים|ילד)/)
   if (childrenMatch) {
     children = Number.parseInt(childrenMatch[1])
   }
 
-  // Intentar extraer números de bebés
+  // Intentar extraer números de תינוקות
   const babiesMatch = prompt.match(/(\d+)\s*(תינוקות|תינוק)/)
   if (babiesMatch) {
     babies = Number.parseInt(babiesMatch[1])
@@ -310,7 +310,7 @@ const generateFallbackRecommendations = (prompt: string) => {
         importance: 3,
         description: "מגבונים לחים לניקיון אישי",
         shelf_life: "שנתיים",
-        usage_instructions: "לשמור סגור היטב",
+        usage_instructions: "לשמור במקום סגור היטב",
         recommended_quantity_per_person: "1 חבילה לאדם",
         obtained: false,
         expiryDate: null,
@@ -321,10 +321,9 @@ const generateFallbackRecommendations = (prompt: string) => {
   }
 }
 
-const generateRecommendations = async (prompt: string) => {
+const extractProfileData = async (prompt: string) => {
   try {
-    // קודם כל, חלץ את הנתונים מהפרומפט
-    const extractResponse = await fetch("/api/extract-data", {
+    const response = await fetch("/api/extract-data", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -332,13 +331,24 @@ const generateRecommendations = async (prompt: string) => {
       body: JSON.stringify({ prompt }),
     })
 
-    if (!extractResponse.ok) {
-      console.error("Error extracting data from prompt:", await extractResponse.text())
-      return generateFallbackRecommendations(prompt)
+    if (!response.ok) {
+      console.error("Error extracting data from prompt:", await response.text())
+      return {}
     }
 
-    const extractedData = await extractResponse.json()
+    const extractedData = await response.json()
     console.log("Extracted data:", extractedData)
+    return extractedData
+  } catch (error) {
+    console.error("Error extracting data:", error)
+    return {}
+  }
+}
+
+const generateRecommendations = async (prompt: string) => {
+  try {
+    // קודם כל, חלץ את הנתונים מהפרומפט
+    const extractedData = await extractProfileData(prompt)
 
     // עכשיו, השתמש בנתונים המחולצים כדי ליצור פרומפט מותאם אישית ל-AI
     const customizedPrompt = `
@@ -399,4 +409,5 @@ ${prompt}
 export const AIRecommendationService = {
   generateRecommendations,
   generateFallbackRecommendations,
+  extractProfileData,
 }
