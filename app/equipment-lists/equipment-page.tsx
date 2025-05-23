@@ -13,6 +13,7 @@ import {
   Pill,
   HeartHandshake,
   UsersIcon,
+  ShieldCheck,
 } from "lucide-react"
 import { EquipmentList } from "@/entities/EquipmentList"
 import { Badge } from "@/components/ui/badge"
@@ -584,6 +585,9 @@ const categoryIcons = {
   elderly: <UsersIcon className="h-5 w-5" />,
   special_needs: <Activity className="h-5 w-5" />,
   other: <ListChecks className="h-5 w-5" />,
+  emergency: <ShieldCheck className="h-5 w-5" />,
+  food: <Droplets className="h-5 w-5" />,
+  pet: <Cat className="h-5 w-5" />,
 }
 
 const headerStyles = `
@@ -731,13 +735,43 @@ export default function EquipmentPage() {
       darkText: "dark:text-gray-400",
       icon: <ListChecks className="h-4 w-4 sm:h-5 sm:w-5" />,
     },
+    emergency: {
+      bg: "bg-indigo-100",
+      text: "text-indigo-800",
+      darkBg: "dark:bg-indigo-900/30",
+      darkText: "dark:text-indigo-400",
+      icon: <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />,
+    },
+    food: {
+      bg: "bg-blue-100",
+      text: "text-blue-800",
+      darkBg: "dark:bg-blue-900/30",
+      darkText: "dark:text-blue-400",
+      icon: <Droplets className="h-4 w-4 sm:h-5 sm:w-5" />,
+    },
+    pet: {
+      bg: "bg-amber-100",
+      text: "text-amber-800",
+      darkBg: "dark:bg-amber-900/30",
+      darkText: "dark:text-amber-400",
+      icon: <Cat className="h-4 w-4 sm:h-5 sm:w-5" />,
+    },
   }
 
   const getCategoryStyle = (categoryKey) => {
     if (typeof categoryKey === "string" && categoryKey.includes(",")) {
       return categoryColors.other
     }
-    return categoryColors[categoryKey] || categoryColors.other
+
+    const categoryMapping = {
+      food: "water_food",
+      pet: "pets",
+      emergency: "other",
+    }
+
+    const mappedCategory = categoryMapping[categoryKey] || categoryKey
+
+    return categoryColors[mappedCategory] || categoryColors.other
   }
 
   const getImportanceBadge = (importance, forCard = false) => {
