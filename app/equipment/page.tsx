@@ -605,6 +605,9 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         })
       }
 
+      // Exit edit mode after successful save
+      setIsEditing(false)
+
       // ניווט לדף רשימות הציוד
       router.push("/equipment-lists")
     } catch (error) {
@@ -926,7 +929,17 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const handleUndoLastAction = () => {
     if (itemHistory.length > 0) {
       const lastState = itemHistory[itemHistory.length - 1]
-      setAIGeneratedItems(lastState)
+      // Check if lastState is an array (full state) or an action object
+      if (Array.isArray(lastState)) {
+        setAIGeneratedItems(lastState)
+      } else {
+        // Handle action-based undo
+        if (lastState.action === "add") {
+          setAIGeneratedItems((prevItems) => prevItems.filter((item) => item.id !== lastState.item.id))
+        } else if (lastState.action === "remove") {
+          setAIGeneratedItems((prevItems) => [...prevItems, lastState.item])
+        }
+      }
       setItemHistory(itemHistory.slice(0, -1))
     }
   }
