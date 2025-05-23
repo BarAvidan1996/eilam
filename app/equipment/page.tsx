@@ -505,7 +505,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedImportance, setSelectedImportance] = useState("all")
   const [selectedItemType, setSelectedItemType] = useState("all")
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(isEditing)
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false)
   const [defaultFields, setDefaultFields] = useState([])
   const { toast } = useToast()
@@ -595,6 +595,8 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           description: t.listUpdatedSuccessfully || "הרשימה עודכנה בהצלחה!",
           variant: "default",
         })
+        setSuccessMessage(t.listUpdatedSuccessfully || "הרשימה עודכנה בהצלחה!")
+        setTimeout(() => setSuccessMessage(""), 4000)
       } else {
         // יצירת רשימה חדשה
         await EquipmentService.createList(listData)
@@ -603,6 +605,8 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           description: t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!",
           variant: "default",
         })
+        setSuccessMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
+        setTimeout(() => setSuccessMessage(""), 4000)
       }
 
       // Exit edit mode after successful save
@@ -919,7 +923,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   }
 
   const confirmRemoveItem = () => {
-    setItemHistory([...itemHistory, [...aiGeneratedItems]])
+    setItemHistory((prevHistory) => [...prevHistory, [...aiGeneratedItems]])
     const updatedItems = aiGeneratedItems.filter((item) => item.id !== itemToRemove.id)
     setAIGeneratedItems(updatedItems)
     setIsConfirmDialogOpen(false)
@@ -929,23 +933,15 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const handleUndoLastAction = () => {
     if (itemHistory.length > 0) {
       const lastState = itemHistory[itemHistory.length - 1]
-      // Check if lastState is an array (full state) or an action object
       if (Array.isArray(lastState)) {
         setAIGeneratedItems(lastState)
-      } else {
-        // Handle action-based undo
-        if (lastState.action === "add") {
-          setAIGeneratedItems((prevItems) => prevItems.filter((item) => item.id !== lastState.item.id))
-        } else if (lastState.action === "remove") {
-          setAIGeneratedItems((prevItems) => [...prevItems, lastState.item])
-        }
       }
       setItemHistory(itemHistory.slice(0, -1))
     }
   }
 
   const handleToggleObtained = (itemId) => {
-    setItemHistory([...itemHistory, [...aiGeneratedItems]])
+    setItemHistory((prevHistory) => [...prevHistory, [...aiGeneratedItems]])
     const updatedItems = aiGeneratedItems.map((item) => {
       if (item.id === itemId) {
         return { ...item, obtained: !item.obtained }
@@ -1689,18 +1685,41 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                         {t.cancelEditing || "צא מעריכה"}
                       </Button>
 
-                      <Button
-                        className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
-                        onClick={handleSaveChanges}
-                        disabled={isAILoading}
-                      >
-                        {isAILoading ? (
-                          <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
-                        ) : (
-                          <FileText className="h-5 w-5" />
-                        )}
-                        {t.saveChanges || "שמור שינויים"}
-                      </Button>
+                      {isEditing ? (
+                        <Button
+                          className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
+                          onClick={handleSaveChanges}
+                          disabled={isAILoading}
+                        >
+                          {isAILoading ? (
+                            <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                          ) : (
+                            <FileText className="h-5 w-5" />
+                          )}
+                          {(() => {
+                            const urlParams = new URLSearchParams(window.location.search)
+                            const listId = urlParams.get("listId")
+                            return listId ? t.saveChanges || "שמור שינויים" : t.createList || "שמור רשימה"
+                          })()}
+                        </Button>
+                      ) : (
+                        <Button
+                          className="w-full py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
+                          onClick={handleSaveChanges}
+                          disabled={isAILoading}
+                        >
+                          {isAILoading ? (
+                            <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                          ) : (
+                            <FileText className="h-5 w-5" />
+                          )}
+                          {(() => {
+                            const urlParams = new URLSearchParams(window.location.search)
+                            const listId = urlParams.get("listId")
+                            return listId ? t.saveChanges || "שמור שינויים" : t.createList || "שמור רשימה"
+                          })()}
+                        </Button>
+                      )}
                     </>
                   ) : (
                     <Button
@@ -1713,7 +1732,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       ) : (
                         <FileText className="h-5 w-5" />
                       )}
-                      {t.saveChanges || "שמור שינויים"}
+                      {(() => {
+                        const urlParams = new URLSearchParams(window.location.search)
+                        const listId = urlParams.get("listId")
+                        return listId ? t.saveChanges || "שמור שינויים" : t.createList || "שמור רשימה"
+                      })()}
                     </Button>
                   )}
                 </div>
@@ -2154,7 +2177,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       <Checkbox
                         id="edit-item-sms-notification"
                         checked={editingItem.sms_notification}
-                        onCheckedChange={(checked) => setEditingItem({ ...editingItem, sms_notification: !!checked })}
+                        onChange={(checked) => setEditingItem({ ...editingItem, sms_notification: !!checked })}
                       />
                       <label
                         htmlFor="edit-item-sms-notification"
