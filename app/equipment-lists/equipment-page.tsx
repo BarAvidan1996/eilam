@@ -14,11 +14,9 @@ import {
   HeartHandshake,
   UsersIcon,
   ShieldCheck,
-  Info,
 } from "lucide-react"
 import { EquipmentList } from "@/entities/EquipmentList"
 import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { createPageUrl } from "@/utils"
 import { useNavigate } from "react-router-dom"
 // Import locales for date-fns CORRECTLY
@@ -27,6 +25,8 @@ import { enUS } from "date-fns/locale" // Corrected import for English (US)
 // If you need Arabic and Russian locales for date-fns formatting:
 // import { ar } from 'date-fns/locale';
 // import { ru } from 'date-fns/locale';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { HelpCircle } from "lucide-react"
 
 const baseTranslations = {
   he: {
@@ -159,15 +159,6 @@ const baseTranslations = {
     days: "ימים",
     unknownItem: "פריט לא ידוע",
     usageInstructionsPlaceholder: "הוראות שימוש והערות חשובות",
-    // Tooltip texts
-    tooltips: {
-      quantityAndUnit: "הכמות הכוללת שחושבה לפי מספר בני המשפחה שחולץ מהפרומפט ויחידת המידה הרלוונטית",
-      shelfLife: "זמן החיים המשוער של הפריט לפי מודל ה-AI. זהו אומדן כללי ולא תאריך תפוגה מדויק",
-      recommendedQuantityPerPerson: "הכמות המומלצת עבור אדם אחד בלבד, ללא קשר למספר בני המשפחה",
-      personalizedNote: "נימוק מודל ה-AI מדוע פריט זה רלוונטי ספציפית לתרחיש שתיארת",
-      usageInstructions: "הוראות שימוש והערות חשובות לגבי הפריט",
-      description: "תיאור כללי של הפריט ותכונותיו",
-    },
   },
   en: {
     pageTitle: "Emergency Equipment Management",
@@ -306,17 +297,6 @@ const baseTranslations = {
     days: "days",
     unknownItem: "Unknown Item",
     usageInstructionsPlaceholder: "Usage instructions and important notes",
-    // Tooltip texts
-    tooltips: {
-      quantityAndUnit:
-        "Total quantity calculated based on family size extracted from your prompt and relevant unit of measurement",
-      shelfLife:
-        "Estimated lifespan of the item according to AI model. This is a general estimate, not an exact expiration date",
-      recommendedQuantityPerPerson: "Recommended quantity for one person only, regardless of family size",
-      personalizedNote: "AI model's reasoning for why this item is specifically relevant to the scenario you described",
-      usageInstructions: "Usage instructions and important notes about the item",
-      description: "General description of the item and its features",
-    },
   },
   ar: {
     pageTitle: "إدارة معدات الطوارئ",
@@ -454,15 +434,6 @@ const baseTranslations = {
     days: "أيام",
     unknownItem: "عنصر غير معروف",
     usageInstructionsPlaceholder: "تعليمات الاستخدام والملاحظات الهامة",
-    // Tooltip texts
-    tooltips: {
-      quantityAndUnit: "الكمية الإجمالية المحسوبة بناءً على حجم الأسرة المستخرج من وصفك ووحدة القياس ذات الصلة",
-      shelfLife: "العمر المقدر للعنصر وفقًا لنموذج الذكاء الاصطناعي. هذا تقدير عام وليس تاريخ انتهاء صلاحية دقيق",
-      recommendedQuantityPerPerson: "الكمية الموصى بها لشخص واحد فقط، بغض النظر عن حجم الأسرة",
-      personalizedNote: "تبرير نموذج الذكاء الاصطناعي لسبب صلة هذا العنصر تحديدًا بالسيناريو الذي وصفته",
-      usageInstructions: "تعليمات الاستخدام والملاحظات المهمة حول العنصر",
-      description: "وصف عام للعنصر وميزاته",
-    },
   },
   ru: {
     pageTitle: "Управление аварийным оборудованием",
@@ -601,17 +572,6 @@ const baseTranslations = {
     days: "дни",
     unknownItem: "Неизвестный элемент",
     usageInstructionsPlaceholder: "Инструкции по использованию и важные примечания",
-    // Tooltip texts
-    tooltips: {
-      quantityAndUnit:
-        "Общее количество, рассчитанное на основе размера семьи, извлеченного из вашего описания, и соответствующей единицы измерения",
-      shelfLife:
-        "Предполагаемый срок службы предмета согласно модели ИИ. Это общая оценка, а не точная дата истечения срока годности",
-      recommendedQuantityPerPerson: "Рекомендуемое количество только для одного человека, независимо от размера семьи",
-      personalizedNote: "Обоснование модели ИИ, почему этот предмет конкретно актуален для описанного вами сценария",
-      usageInstructions: "Инструкции по использованию и важные заметки о предмете",
-      description: "Общее описание предмета и его характеристик",
-    },
   },
 }
 
@@ -1464,106 +1424,61 @@ export default function EquipmentPage() {
                           </div>
 
                           <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                            <div className="flex items-center gap-1">
-                              <span className="font-medium">{t.quantity}:</span>
-                              <span>
-                                {item.quantity} {item.unit}
-                              </span>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="text-xs max-w-xs">{t.tooltips.quantityAndUnit}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </div>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="font-medium cursor-help inline-flex items-center gap-1">
+                                  {t.quantity}: <HelpCircle className="h-3 w-3" />
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>כמות כוללת לפי כמות האנשים שחולצה מהפרומפט ויחידת המידה רלוונטית</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            {item.quantity} {item.unit}
                           </div>
 
                           {item.description && (
                             <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <div className="flex items-center gap-1">
-                                <span className="font-medium">{t.description}:</span>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="text-xs max-w-xs">{t.tooltips.description}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                              <p className="mt-1">{item.description}</p>
+                              <span className="font-medium">{t.description}:</span> {item.description}
                             </div>
                           )}
 
                           {item.shelf_life && (
                             <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <div className="flex items-center gap-1">
-                                <span className="font-medium">{t.aiCategories.shelf_life_label}:</span>
-                                <span>{item.shelf_life}</span>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="text-xs max-w-xs">{t.tooltips.shelfLife}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </div>
-                          )}
-
-                          {item.usage_instructions && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <div className="flex items-center gap-1">
-                                <span className="font-medium">{t.aiCategories.usage_instructions_label}:</span>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="text-xs max-w-xs">{t.tooltips.usageInstructions}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                              <p className="mt-1">{item.usage_instructions}</p>
-                            </div>
-                          )}
-
-                          {item.recommended_quantity_per_person && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <div className="flex items-center gap-1">
-                                <span className="font-medium">
-                                  {t.aiCategories.recommended_quantity_per_person_label}:
-                                </span>
-                                <span>{item.recommended_quantity_per_person}</span>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="text-xs max-w-xs">{t.tooltips.recommendedQuantityPerPerson}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="font-medium cursor-help inline-flex items-center gap-1">
+                                    {t.aiCategories.shelf_life_label}: <HelpCircle className="h-3 w-3" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>זמן החיים המשוער לפי מודל ה-AI, לא מדויק לרמת תאריך תפוגה</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              {item.shelf_life}
                             </div>
                           )}
 
                           {item.personalized_note && (
                             <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                              <div className="flex items-center gap-1">
-                                <span className="font-medium">הערה מותאמת אישית:</span>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p className="text-xs max-w-xs">{t.tooltips.personalizedNote}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                              <p className="mt-1 italic">{item.personalized_note}</p>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="font-medium cursor-help inline-flex items-center gap-1">
+                                    הערה מותאמת אישית: <HelpCircle className="h-3 w-3" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>נימוק מודל ה-AI מדוע פריט זה רלוונטי לתרחיש שהמשתמש תיאר</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              {item.personalized_note}
+                            </div>
+                          )}
+
+                          {item.usage_instructions && (
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                              <span className="font-medium">{t.aiCategories.usage_instructions_label}:</span>{" "}
+                              {item.usage_instructions}
                             </div>
                           )}
 
@@ -1709,17 +1624,16 @@ export default function EquipmentPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="flex items-center gap-1 mb-1">
-                      <label className="block text-sm font-medium">{t.itemQuantity}</label>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs max-w-xs">{t.tooltips.quantityAndUnit}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <label className="block text-sm font-medium mb-1 cursor-help inline-flex items-center gap-1">
+                          {t.itemQuantity} <HelpCircle className="h-3 w-3" />
+                        </label>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>כמות כוללת לפי כמות האנשים שחולצה מהפרומפט ויחידת המידה רלוונטית</p>
+                      </TooltipContent>
+                    </Tooltip>
                     <input
                       type="number"
                       value={newItem.quantity}
@@ -1729,17 +1643,7 @@ export default function EquipmentPage() {
                     />
                   </div>
                   <div>
-                    <div className="flex items-center gap-1 mb-1">
-                      <label className="block text-sm font-medium">{t.itemUnit}</label>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs max-w-xs">{t.tooltips.quantityAndUnit}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
+                    <label className="block text-sm font-medium mb-1">{t.itemUnit}</label>
                     <input
                       type="text"
                       value={newItem.unit}
@@ -1763,17 +1667,7 @@ export default function EquipmentPage() {
                   </select>
                 </div>
                 <div>
-                  <div className="flex items-center gap-1 mb-1">
-                    <label className="block text-sm font-medium">{t.itemDescription}</label>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs max-w-xs">{t.tooltips.description}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
+                  <label className="block text-sm font-medium mb-1">{t.itemDescription}</label>
                   <textarea
                     value={newItem.description}
                     onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
@@ -1782,17 +1676,16 @@ export default function EquipmentPage() {
                   ></textarea>
                 </div>
                 <div>
-                  <div className="flex items-center gap-1 mb-1">
-                    <label className="block text-sm font-medium">{t.itemShelfLife}</label>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs max-w-xs">{t.tooltips.shelfLife}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <label className="block text-sm font-medium mb-1 cursor-help inline-flex items-center gap-1">
+                        {t.itemShelfLife} <HelpCircle className="h-3 w-3" />
+                      </label>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>זמן החיים המשוער לפי מודל ה-AI, לא מדויק לרמת תאריך תפוגה</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <input
                     type="text"
                     value={newItem.shelf_life}
@@ -1801,17 +1694,26 @@ export default function EquipmentPage() {
                   />
                 </div>
                 <div>
-                  <div className="flex items-center gap-1 mb-1">
-                    <label className="block text-sm font-medium">{t.itemUsageInstructions}</label>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs max-w-xs">{t.tooltips.usageInstructions}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <label className="block text-sm font-medium mb-1 cursor-help inline-flex items-center gap-1">
+                        {t.itemRecommendedQuantity} <HelpCircle className="h-3 w-3" />
+                      </label>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>הכמות המומלצת עבור אדם אחד בלבד</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <input
+                    type="text"
+                    value={newItem.recommended_quantity_per_person}
+                    onChange={(e) => setNewItem({ ...newItem, recommended_quantity_per_person: e.target.value })}
+                    className="w-full px-3 py-2 border rounded"
+                    placeholder="לדוגמה: 3 יחידות ליום"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t.itemUsageInstructions}</label>
                   <textarea
                     value={newItem.usage_instructions}
                     onChange={(e) => setNewItem({ ...newItem, usage_instructions: e.target.value })}
@@ -1819,25 +1721,6 @@ export default function EquipmentPage() {
                     rows="2"
                     placeholder={t.usageInstructionsPlaceholder}
                   ></textarea>
-                </div>
-                <div>
-                  <div className="flex items-center gap-1 mb-1">
-                    <label className="block text-sm font-medium">{t.itemRecommendedQuantity}</label>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs max-w-xs">{t.tooltips.recommendedQuantityPerPerson}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <input
-                    type="text"
-                    value={newItem.recommended_quantity_per_person}
-                    onChange={(e) => setNewItem({ ...newItem, recommended_quantity_per_person: e.target.value })}
-                    className="w-full px-3 py-2 border rounded"
-                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">{t.expiryDate}</label>
