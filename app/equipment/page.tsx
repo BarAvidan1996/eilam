@@ -40,6 +40,179 @@ import { EquipmentService } from "@/lib/services/equipment-service"
 
 const requiredFieldStyle = "text-red-500 ml-1"
 
+// Define mandatory items that must be included - moved to component level
+const MANDATORY_ITEMS = [
+  {
+    id: "mandatory-1",
+    name: "מים (3 ליטר לאדם ליום)",
+    category: "water_food",
+    importance: 5,
+    description: "מים לשתייה ולשימוש בסיסי. פריט חובה של פיקוד העורף.",
+    shelf_life: "שנה",
+    usage_instructions: "יש לאחסן במקום קריר ויבש. מומלץ להחליף כל שנה.",
+    recommended_quantity_per_person: "3 ליטר ליום",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-2",
+    name: "מזון יבש/משומר",
+    category: "water_food",
+    importance: 5,
+    description: "מזון שאינו דורש קירור או בישול. פריט חובה של פיקוד העורף.",
+    shelf_life: "שנה",
+    usage_instructions: "יש לבדוק תאריכי תפוגה ולהחליף בהתאם.",
+    recommended_quantity_per_person: "מנה ליום",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-3",
+    name: "ערכת עזרה ראשונה",
+    category: "medical",
+    importance: 5,
+    description: "ערכה בסיסית לטיפול בפציעות קלות. פריט חובה של פיקוד העורף.",
+    shelf_life: "שנתיים",
+    usage_instructions: "יש לבדוק שלמות ותקינות הפריטים אחת לחצי שנה.",
+    recommended_quantity_per_person: "1 ערכה למשפחה",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-4",
+    name: "תרופות קבועות + מרשמים מודפסים",
+    category: "medical",
+    importance: 5,
+    description: "תרופות קבועות לבני המשפחה ומרשמים מודפסים. פריט חובה של פיקוד העורף.",
+    shelf_life: "בהתאם לתרופה",
+    usage_instructions: "יש לוודא מלאי לפחות לשבוע ימים ולבדוק תאריכי תפוגה.",
+    recommended_quantity_per_person: "לפי הצורך הרפואי",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-5",
+    name: "רדיו + סוללות",
+    category: "communication",
+    importance: 5,
+    description: "רדיו המופעל על סוללות לקבלת עדכונים. פריט חובה של פיקוד העורף.",
+    shelf_life: "5 שנים",
+    usage_instructions: "יש לבדוק תקינות אחת לחודש ולהחליף סוללות בהתאם.",
+    recommended_quantity_per_person: "1 רדיו למשפחה",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-6",
+    name: "פנסים + סוללות",
+    category: "lighting_energy",
+    importance: 5,
+    description: "פנסים לתאורת חירום. פריט חובה של פיקוד העורף.",
+    shelf_life: "5 שנים",
+    usage_instructions: "יש לבדוק תקינות אחת לחודש ולהחליף סוללות בהתאם.",
+    recommended_quantity_per_person: "1 פנס לאדם",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-7",
+    name: "מטענים ניידים לטלפונים",
+    category: "communication",
+    importance: 5,
+    description: "מטענים ניידים לטעינת טלפונים ניידים. פריט חובה של פיקוד העורף.",
+    shelf_life: "3 שנים",
+    usage_instructions: "יש לוודא שהמטענים טעונים במלואם.",
+    recommended_quantity_per_person: "1 מטען לטלפון",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-8",
+    name: "ציוד ייחודי לתינוקות/קשישים/חיות מחמד",
+    category: "other",
+    importance: 5,
+    description: "ציוד ייחודי בהתאם לצרכים המיוחדים של בני המשפחה. פריט חובה של פיקוד העורף.",
+    shelf_life: "בהתאם לפריט",
+    usage_instructions: "יש להתאים לצרכים הספציפיים של המשפחה.",
+    recommended_quantity_per_person: "לפי הצורך",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-9",
+    name: "עותקים של מסמכים חשובים",
+    category: "documents_money",
+    importance: 5,
+    description: "עותקים של תעודות זהות, דרכונים, רישיונות וכו'. פריט חובה של פיקוד העורף.",
+    shelf_life: "לא רלוונטי",
+    usage_instructions: "יש לשמור במקום אטום למים ולעדכן בהתאם לשינויים.",
+    recommended_quantity_per_person: "עותק לכל מסמך",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-10",
+    name: "מטף כיבוי אש",
+    category: "other",
+    importance: 5,
+    description: "מטף לכיבוי שריפות קטנות. פריט חובה של פיקוד העורף.",
+    shelf_life: "5 שנים",
+    usage_instructions: "יש לבדוק תקינות אחת לשנה ולתחזק בהתאם להוראות היצרן.",
+    recommended_quantity_per_person: "1 מטף למשפחה",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-11",
+    name: "חצי מיכל דלק ברכב",
+    category: "other",
+    importance: 5,
+    description: "שמירה על לפחות חצי מיכל דלק ברכב. פריט חובה של פיקוד העורף.",
+    shelf_life: "לא רלוונטי",
+    usage_instructions: "יש לוודא שהרכב תמיד עם לפחות חצי מיכל דלק.",
+    recommended_quantity_per_person: "חצי מיכל",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-12",
+    name: "משחקים ופעילויות לילדים",
+    category: "children",
+    importance: 5,
+    description: "משחקים ופעילויות להפגת מתח ושעמום. פריט חובה של פיקוד העורף.",
+    shelf_life: "לא רלוונטי",
+    usage_instructions: "יש להתאים לגיל הילדים ולהעדפותיהם.",
+    recommended_quantity_per_person: "לפי מספר הילדים",
+    is_mandatory: true,
+  },
+  {
+    id: "mandatory-13",
+    name: "ציוד בסיסי לחיות מחמד",
+    category: "pets",
+    importance: 5,
+    description: "מזון, מים, ותרופות לחיות המחמד. פריט חובה של פיקוד העורף.",
+    shelf_life: "בהתאם לפריט",
+    usage_instructions: "יש להתאים לסוג חיית המחמד ולצרכיה.",
+    recommended_quantity_per_person: "לפי מספר החיות",
+    is_mandatory: true,
+  },
+]
+
+// Helper functions for calculating quantities and units
+function calculateQuantity(itemName: string, profile: any): number {
+  if (!profile) return 1
+
+  const totalPeople = (profile.adults || 2) + (profile.children || 0) + (profile.babies || 0) + (profile.elderly || 0)
+  const days = Math.ceil((profile.duration_hours || 48) / 24)
+
+  if (itemName.includes("מים")) {
+    return 3 * totalPeople * days // 3 liters per person per day
+  } else if (itemName.includes("מזון")) {
+    return totalPeople * days // 1 unit per person per day
+  } else if (itemName.includes("חיות מחמד") && profile.pets) {
+    return profile.pets // 1 unit per pet
+  } else if (itemName.includes("משחקים") && profile.children) {
+    return profile.children // 1 unit per child
+  }
+
+  return 1
+}
+
+function getUnitForItem(itemName: string): string {
+  if (itemName.includes("מים")) return "ליטרים"
+  if (itemName.includes("מזון")) return "מנות"
+  return "יחידות"
+}
+
 // Base translations
 const baseTranslations = {
   he: {
@@ -355,6 +528,9 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     expiryDate: null,
     sms_notification: false,
     usage_instructions: "",
+    shelf_life: "",
+    recommended_quantity_per_person: "",
+    personalized_note: "",
     is_mandatory: false,
   })
   const [itemHistory, setItemHistory] = useState([])
@@ -536,58 +712,49 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
       const recommendations = await AIRecommendationService.generateRecommendations(aiUserPrompt)
 
-      // בדיקה שהתוצאה היא תקינה ומכילה מערך של פריטים
-      let itemsArray = []
-      if (recommendations && recommendations.items && Array.isArray(recommendations.items)) {
-        itemsArray = recommendations.items
-      } else if (Array.isArray(recommendations)) {
-        itemsArray = recommendations
-      } else {
-        console.error("Unexpected recommendations format:", recommendations)
-        setError("התקבל פורמט לא צפוי מהשירות. אנא נסה שוב.")
-        setIsAILoading(false)
-        setLoadingState({
-          isLoading: false,
-          step: "",
-          progress: 0,
-        })
-        return
-      }
-
-      if (itemsArray.length === 0) {
-        setError("לא נמצאו המלצות. אנא נסה שוב עם תיאור מפורט יותר.")
-        setIsAILoading(false)
-        setLoadingState({
-          isLoading: false,
-          step: "",
-          progress: 0,
-        })
-        return
-      }
-
       setLoadingState((prevState) => ({
         ...prevState,
         step: "processing",
         progress: 60,
       }))
 
-      const processedItems = itemsArray.map((item) => ({
+      // Create mandatory items with calculated quantities
+      const mandatoryItems = MANDATORY_ITEMS.map((item) => ({
+        ...item,
         id: crypto.randomUUID(),
-        name: item.name || t.unknownItem || "פריט לא ידוע",
-        category: item.category || "other",
-        quantity: item.quantity || 1,
-        unit: "יחידות",
+        quantity: calculateQuantity(item.name, profile),
+        unit: getUnitForItem(item.name),
         obtained: false,
-        importance: item.importance || 3,
-        description: item.description || "",
-        expiryDate: item.expiryDate || null,
+        expiryDate: null,
         sms_notification: false,
-        usage_instructions: "",
-        shelf_life: "",
-        recommended_quantity_per_person: "",
         personalized_note: "",
-        is_mandatory: false,
+        is_mandatory: true, // Ensure this is explicitly set to true
       }))
+
+      // Get personalized items from AI
+      let personalizedItems = []
+      if (recommendations && recommendations.items && Array.isArray(recommendations.items)) {
+        personalizedItems = recommendations.items.map((item) => ({
+          id: crypto.randomUUID(),
+          name: item.name || t.unknownItem || "פריט לא ידוע",
+          category: item.category || "other",
+          quantity: item.quantity || 1,
+          unit: item.unit || "יחידות",
+          obtained: false,
+          importance: Math.min(item.importance || 3, 4), // Cap at 4 for personalized items
+          description: item.description || "",
+          expiryDate: item.expiryDate || null,
+          sms_notification: false,
+          usage_instructions: item.usage_instructions || "",
+          shelf_life: item.shelf_life || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+          personalized_note: item.personalized_note || "",
+          is_mandatory: false, // Personalized items are never mandatory
+        }))
+      }
+
+      // Combine mandatory and personalized items
+      const allItems = [...mandatoryItems, ...personalizedItems]
 
       setLoadingState((prevState) => ({
         ...prevState,
@@ -595,7 +762,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         progress: 90,
       }))
 
-      setAIGeneratedItems(processedItems)
+      setAIGeneratedItems(allItems)
       setAIGeneratedProfile({ ...profile, loadedFromExisting: false })
 
       if (!currentListName) {
@@ -618,6 +785,10 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         step: "",
         progress: 100,
       })
+
+      console.log(
+        `Generated ${mandatoryItems.length} mandatory items and ${personalizedItems.length} personalized items`,
+      )
     } catch (error) {
       console.error("AI Generation Error:", error)
       setError(t.errorSavingList || "שגיאה ביצירת רשימה. אנא נסה שוב.")
@@ -687,6 +858,9 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       expiryDate: null,
       sms_notification: false,
       usage_instructions: "",
+      shelf_life: "",
+      recommended_quantity_per_person: "",
+      personalized_note: "",
       is_mandatory: false,
     })
   }
@@ -1437,8 +1611,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                 )}
               </Accordion>
 
-              {/* נעדכן את החלק של הכפתורים בתחתית הדף כדי לשחזר את המראה והפונקציונליות המקוריים
-              החלף את הקוד הקיים של הכפתורים בתחתית הדף עם הקוד הבא: */}
               <div className="mt-6">
                 <div className="flex flex-col md:flex-row gap-2">
                   {isEditing ? (
@@ -1537,6 +1709,18 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       className="mt-1"
                     />
                   </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="item-mandatory"
+                      checked={newItem.is_mandatory}
+                      onCheckedChange={(checked) => setNewItem({ ...newItem, is_mandatory: !!checked })}
+                    />
+                    <label htmlFor="item-mandatory" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      פריט חובה של פיקוד העורף
+                    </label>
+                  </div>
+
                   <div>
                     <label
                       htmlFor="item-category"
@@ -1639,6 +1823,22 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       rows={2}
                     />
                   </div>
+
+                  <div>
+                    <label
+                      htmlFor="item-shelf-life"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      חיי מדף
+                    </label>
+                    <Input
+                      id="item-shelf-life"
+                      value={newItem.shelf_life}
+                      onChange={(e) => setNewItem({ ...newItem, shelf_life: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+
                   <div>
                     <label
                       htmlFor="item-expiry-date"
@@ -1689,6 +1889,37 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       onChange={(e) => setNewItem({ ...newItem, usage_instructions: e.target.value })}
                       className="mt-1"
                       placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
+                      rows={2}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="item-recommended-quantity"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      כמות מומלצת לאדם
+                    </label>
+                    <Input
+                      id="item-recommended-quantity"
+                      value={newItem.recommended_quantity_per_person}
+                      onChange={(e) => setNewItem({ ...newItem, recommended_quantity_per_person: e.target.value })}
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="item-personalized-note"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      הערה מותאמת אישית
+                    </label>
+                    <Textarea
+                      id="item-personalized-note"
+                      value={newItem.personalized_note}
+                      onChange={(e) => setNewItem({ ...newItem, personalized_note: e.target.value })}
+                      className="mt-1"
                       rows={2}
                     />
                   </div>
