@@ -5,14 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {
   ListChecks,
-  ChevronLeft,
-  ChevronRight,
   PlusCircle,
   Trash2,
-  Printer,
   Edit,
-  FileText,
-  MoreHorizontal,
   Droplets,
   Pill,
   HeartHandshake,
@@ -22,7 +17,8 @@ import {
   Activity,
   UsersIcon,
   ShieldCheck,
-  Download,
+  Eye,
+  FileText,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -35,13 +31,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -98,8 +87,6 @@ const translations = {
     viewList: "צפה ברשימה",
     editList: "ערוך רשימה",
     deleteList: "מחק רשימה",
-    printList: "הדפס רשימה",
-    exportList: "ייצא רשימה",
     editTitle: "ערוך כותרת",
     moreActions: "פעולות נוספות",
     noLists: "עדיין לא יצרת רשימות ציוד",
@@ -118,9 +105,6 @@ const translations = {
     editTitleDialog: "ערוך כותרת רשימה",
     newTitle: "כותרת חדשה",
     titleUpdated: "הכותרת עודכנה בהצלחה",
-    exportToPDF: "ייצא ל-PDF",
-    exportToExcel: "ייצא ל-Excel",
-    exportToText: "ייצא לטקסט",
   },
   en: {
     pageTitle: "Equipment Lists",
@@ -130,8 +114,6 @@ const translations = {
     viewList: "View List",
     editList: "Edit List",
     deleteList: "Delete List",
-    printList: "Print List",
-    exportList: "Export List",
     editTitle: "Edit Title",
     moreActions: "More Actions",
     noLists: "You haven't created any equipment lists yet",
@@ -150,9 +132,6 @@ const translations = {
     editTitleDialog: "Edit List Title",
     newTitle: "New Title",
     titleUpdated: "Title updated successfully",
-    exportToPDF: "Export to PDF",
-    exportToExcel: "Export to Excel",
-    exportToText: "Export to Text",
   },
 }
 
@@ -241,35 +220,6 @@ export default function EquipmentListsPage() {
     }
   }
 
-  // Handle print list
-  const handlePrintList = (list) => {
-    // פתיחת העמוד של הרשימה בחלון חדש והדפסה
-    const listUrl = `/equipment/${list.id}`
-    const printWindow = window.open(listUrl, "_blank")
-
-    if (printWindow) {
-      // מחכים שהעמוד ייטען ואז מדפיסים
-      printWindow.addEventListener("load", () => {
-        printWindow.print()
-      })
-    }
-  }
-
-  // Handle export to PDF
-  const handleExportToPDF = (list) => {
-    // פתיחת העמוד של הרשימה בחלון חדש
-    const listUrl = `/equipment/${list.id}`
-    const pdfWindow = window.open(listUrl, "_blank")
-
-    if (pdfWindow) {
-      // מחכים שהעמוד ייטען ואז מציגים הודעה למשתמש
-      pdfWindow.addEventListener("load", () => {
-        // מציגים הודעה למשתמש שמסבירה כיצד לשמור כ-PDF
-        pdfWindow.alert('כדי לשמור כ-PDF, לחץ על "הדפסה" (Ctrl+P או Cmd+P) ובחר "שמור כ-PDF" כמדפסת')
-      })
-    }
-  }
-
   // Open delete dialog
   const openDeleteDialog = (list) => {
     setListToDelete(list)
@@ -353,69 +303,59 @@ export default function EquipmentListsPage() {
           {equipmentLists.map((list) => (
             <Card key={list.id} className="shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800">
               <CardContent className="p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0 mr-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                  <div className="flex-1 min-w-0">
                     <h2 className="text-xl font-semibold text-[#005c72] dark:text-gray-100 mb-2">{list.title}</h2>
                     {list.description && (
                       <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
                         {extractFamilyInfo(list.description)}
                       </p>
                     )}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {list.itemCount} {t.items}
                       </p>
-                      <span className="hidden sm:inline text-gray-400">•</span>
+                      <span className="text-gray-400">•</span>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
                         {t.createdAt} {formatDate(list.created_at)}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {/* Primary action - View List */}
-                    <Link href={`/equipment/${list.id}`}>
+                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-3 sm:mt-0">
+                    {/* View List Button */}
+                    <Link href={`/equipment/${list.id}`} className="flex-1 sm:flex-none">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
+                        className="w-full sm:w-auto bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
                       >
-                        <span className="hidden sm:inline mr-2">{t.viewList}</span>
-                        {isRTL ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        <Eye className="mr-2 h-4 w-4" />
+                        <span>{t.viewList}</span>
                       </Button>
                     </Link>
 
-                    {/* More actions dropdown */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">{t.moreActions}</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={() => openEditTitleDialog(list)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          {t.editTitle}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handlePrintList(list)}>
-                          <Printer className="mr-2 h-4 w-4" />
-                          {t.printList}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleExportToPDF(list)}>
-                          <Download className="mr-2 h-4 w-4" />
-                          {t.exportToPDF}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => openDeleteDialog(list)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {t.deleteList}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {/* Edit Title Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditTitleDialog(list)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <Edit className="mr-2 h-4 w-4" />
+                      <span>{t.editTitle}</span>
+                    </Button>
+
+                    {/* Delete Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openDeleteDialog(list)}
+                      className="flex-1 sm:flex-none text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:hover:bg-red-950"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>{t.deleteList}</span>
+                    </Button>
                   </div>
                 </div>
               </CardContent>
