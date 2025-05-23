@@ -2,17 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   ListChecks,
-  ChevronLeft,
-  ChevronRight,
-  PlusCircle,
-  Trash2,
-  Printer,
-  Edit,
   FileText,
-  MoreHorizontal,
   Droplets,
   Pill,
   HeartHandshake,
@@ -23,7 +15,6 @@ import {
   UsersIcon,
   ShieldCheck,
 } from "lucide-react"
-import Link from "next/link"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,13 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu"
 import {
   Dialog,
   DialogContent,
@@ -54,24 +38,28 @@ import { Label } from "@/components/ui/label"
 import { EquipmentService } from "@/lib/services/equipment-service"
 import { format } from "date-fns"
 import { he } from "date-fns/locale"
+import { useNavigate } from "react-router-dom"
+import { EquipmentList } from "@/entities/EquipmentList"
+import { createPageUrl } from "@/utils"
 
-// נוסיף פונקציה שתחזיר את האייקון המתאים לקטגוריה
+// מיפוי קטגוריות לאייקונים
 const getCategoryIcon = (category) => {
-  const icons = {
-    water_food: <Droplets className="h-5 w-5 text-blue-500" />,
-    medical: <Pill className="h-5 w-5 text-red-500" />,
-    hygiene: <HeartHandshake className="h-5 w-5 text-green-500" />,
-    lighting_energy: <Lightbulb className="h-5 w-5 text-yellow-500" />,
-    communication: <FileText className="h-5 w-5 text-purple-500" />,
-    documents_money: <FileText className="h-5 w-5 text-indigo-500" />,
-    children: <Baby className="h-5 w-5 text-pink-500" />,
-    pets: <Cat className="h-5 w-5 text-amber-500" />,
-    elderly: <UsersIcon className="h-5 w-5 text-teal-500" />,
-    special_needs: <Activity className="h-5 w-5 text-cyan-500" />,
-    other: <ListChecks className="h-5 w-5 text-gray-500" />,
-    emergency: <ShieldCheck className="h-5 w-5 text-red-600" />,
-    food: <Droplets className="h-5 w-5 text-blue-500" />,
-    pet: <Cat className="h-5 w-5 text-amber-500" />,
+  // מיפוי קטגוריות לאייקונים
+  const categoryIcons = {
+    water_food: <Droplets className="h-5 w-5" />,
+    medical: <Pill className="h-5 w-5" />,
+    hygiene: <HeartHandshake className="h-5 w-5" />,
+    lighting_energy: <Lightbulb className="h-5 w-5" />,
+    communication: <FileText className="h-5 w-5" />,
+    documents_money: <FileText className="h-5 w-5" />,
+    children: <Baby className="h-5 w-5" />,
+    pets: <Cat className="h-5 w-5" />,
+    elderly: <UsersIcon className="h-5 w-5" />,
+    special_needs: <Activity className="h-5 w-5" />,
+    other: <ListChecks className="h-5 w-5" />,
+    emergency: <ShieldCheck className="h-5 w-5" />,
+    food: <Droplets className="h-5 w-5" />,
+    pet: <Cat className="h-5 w-5" />,
   }
 
   // מיפוי קטגוריות נוספות לקטגוריות קיימות
@@ -84,7 +72,7 @@ const getCategoryIcon = (category) => {
   // אם יש מיפוי לקטגוריה, נשתמש בו
   const mappedCategory = categoryMapping[category] || category
 
-  return icons[mappedCategory] || icons.other
+  return categoryIcons[mappedCategory] || categoryIcons.other
 }
 
 // Translations
@@ -156,10 +144,11 @@ const translations = {
 }
 
 export default function EquipmentListsPage() {
+  const navigate = useNavigate()
+  const [lists, setLists] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [equipmentLists, setEquipmentLists] = useState([])
+  const [error, setError] = useState(null)
   const [isRTL, setIsRTL] = useState(true)
-  const [error, setError] = useState("")
   const [listToDelete, setListToDelete] = useState(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isEditTitleDialogOpen, setIsEditTitleDialogOpen] = useState(false)
@@ -182,22 +171,27 @@ export default function EquipmentListsPage() {
   useEffect(() => {
     const fetchLists = async () => {
       setIsLoading(true)
-      setError("")
-
       try {
-        const data = await EquipmentService.getEquipmentLists()
-        setEquipmentLists(data || [])
-      } catch (error) {
-        console.error("Error fetching equipment lists:", error)
-        setError(t.errorLoading)
-        setEquipmentLists([])
+        const data = await EquipmentList.getAll()
+        setLists(data)
+      } catch (err) {
+        console.error("Error fetching equipment lists:", err)
+        setError("Failed to load equipment lists")
       } finally {
         setIsLoading(false)
       }
     }
 
     fetchLists()
-  }, [t])
+  }, [])
+
+  const handleListClick = (listId) => {
+    navigate(createPageUrl("EquipmentPage") + "?listId=" + listId)
+  }
+
+  const handleCreateList = () => {
+    navigate(createPageUrl("EquipmentPage"))
+  }
 
   // Handle delete list
   const handleDeleteList = async () => {
@@ -205,7 +199,7 @@ export default function EquipmentListsPage() {
 
     try {
       await EquipmentService.deleteList(listToDelete.id)
-      setEquipmentLists(equipmentLists.filter((list) => list.id !== listToDelete.id))
+      setLists(lists.filter((list) => list.id !== listToDelete.id))
     } catch (error) {
       console.error("Error deleting list:", error)
       setError(t.errorDeleting)
@@ -227,9 +221,7 @@ export default function EquipmentListsPage() {
       })
 
       // Update the local state
-      setEquipmentLists(
-        equipmentLists.map((list) => (list.id === listToEdit.id ? { ...list, title: newTitle.trim() } : list)),
-      )
+      setLists(lists.map((list) => (list.id === listToEdit.id ? { ...list, title: newTitle.trim() } : list)))
 
       setIsEditTitleDialogOpen(false)
       setListToEdit(null)
@@ -343,125 +335,56 @@ ${
 
   if (isLoading) {
     return (
-      <div className="min-h-full flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">{t.loading}</p>
-        </div>
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-          <ListChecks className="text-purple-600" /> {t.pageTitle}
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300">{t.pageDescription}</p>
-      </header>
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">{error}</div>
-      )}
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-4">רשימות ציוד חירום</h1>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">צור, ערוך ונהל רשימות ציוד חיוני למצבי חירום.</p>
 
       <div className="mb-6">
-        <Link href="/equipment">
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            {t.createNewList}
-          </Button>
-        </Link>
+        <button onClick={handleCreateList} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 mb-4">
+          צור רשימה חדשה
+        </button>
       </div>
 
-      {equipmentLists.length > 0 ? (
-        <div className="space-y-4">
-          {equipmentLists.map((list) => (
-            <Card key={list.id} className="shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800">
-              <CardContent className="p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1 min-w-0 mr-4">
-                    <h2 className="text-xl font-semibold text-purple-700 dark:text-gray-100 mb-2">{list.title}</h2>
-                    {list.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                        {extractFamilyInfo(list.description)}
-                      </p>
-                    )}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {list.itemCount} {t.items}
-                      </p>
-                      <span className="hidden sm:inline text-gray-400">•</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t.createdAt} {formatDate(list.created_at)}
-                      </p>
-                    </div>
-                  </div>
+      <h2 className="text-xl font-semibold mb-4">הרשימות שלי</h2>
 
-                  <div className="flex items-center gap-2">
-                    {/* Primary action - View List */}
-                    <Link href={`/equipment/${list.id}`}>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
-                      >
-                        <span className="hidden sm:inline mr-2">{t.viewList}</span>
-                        {isRTL ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      </Button>
-                    </Link>
-
-                    {/* More actions dropdown */}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">{t.moreActions}</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem onClick={() => openEditTitleDialog(list)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          {t.editTitle}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handlePrintList(list)}>
-                          <Printer className="mr-2 h-4 w-4" />
-                          {t.printList}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleExportToText(list)}>
-                          <FileText className="mr-2 h-4 w-4" />
-                          {t.exportToText}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => openDeleteDialog(list)}
-                          className="text-red-600 focus:text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {t.deleteList}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+      {lists.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 text-center">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">עדיין לא יצרת רשימות ציוד.</p>
+          <p className="text-gray-600 dark:text-gray-400">לחץ על 'צור רשימה חדשה' כדי להתחיל.</p>
         </div>
       ) : (
-        <Card className="shadow-md dark:bg-gray-800">
-          <CardContent className="p-6 text-center">
-            <ListChecks className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-            <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t.noLists}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t.noListsDescription}</p>
-            <Link href="/equipment">
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                {t.createNewList}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {lists.map((list) => (
+            <div
+              key={list.id}
+              onClick={() => handleListClick(list.id)}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
+            >
+              <h3 className="text-lg font-semibold mb-2">{list.name}</h3>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600 dark:text-gray-400">{list.items?.length || 0} פריטים</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {new Date(list.updatedAt || list.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Delete Dialog */}

@@ -124,6 +124,14 @@ const categoryStyles = {
 
 // פונקציה לקבלת האייקון והסגנון המתאימים לקטגוריה
 const getCategoryInfo = (category) => {
+  // אם הקטגוריה היא מחרוזת ריקה או לא מוגדרת, נחזיר קטגוריית ברירת מחדל
+  if (!category) {
+    return {
+      icon: <ListChecks className="h-4 w-4" />,
+      style: categoryStyles.other,
+    }
+  }
+
   // מיפוי קטגוריות נוספות לקטגוריות קיימות
   const categoryMapping = {
     food: "water_food",
@@ -257,7 +265,7 @@ export const EquipmentListItem = ({ item, t, isRTL = true, onToggleObtained, isE
         )}
 
         {/* Personalized item badge */}
-        {!item.is_mandatory && (
+        {!item.is_mandatory && item.personalized_note && (
           <Badge
             variant="outline"
             className="text-xs ml-1 bg-[#005c72]/10 text-[#005c72] dark:bg-[#005c72]/20 dark:text-white border-[#005c72]/20 dark:border-[#005c72]/40"
