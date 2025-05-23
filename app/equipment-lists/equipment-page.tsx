@@ -619,7 +619,7 @@ export default function EquipmentPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [aiUserPrompt, setAIUserPrompt] = useState("")
-  const [isAILoading, setIsAILoading] = useState(false)
+  const [isAILoading, setIsAILoading] = useState(isAILoading)
   const [aiGeneratedItems, setAIGeneratedItems] = useState([])
   const [aiGeneratedProfile, setAIGeneratedProfile] = useState(null)
   const [openAccordionItem, setOpenAccordionItem] = useState(null)
@@ -1161,9 +1161,16 @@ export default function EquipmentPage() {
       await EquipmentList.update(listId, listToUpdate)
       setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
       setIsEditing(false)
+      setTimeout(() => {
+        setLastSavedMessage("")
+      }, 3000)
+      setIsEditing(false)
     } catch (error) {
       console.error("Error saving changes:", error)
       setError(t.errorSavingChanges || "שגיאה בשמירת השינויים.")
+      setTimeout(() => {
+        setError("")
+      }, 5000)
     } finally {
       setIsAILoading(false)
     }
