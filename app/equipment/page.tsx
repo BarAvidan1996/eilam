@@ -1945,7 +1945,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       // Generate AI recommendations based on the user prompt
       const recommendations = await generateAIRecommendations(aiUserPrompt)
 
-      if (!recommendations.items || recommendations.items.length === 0) {
+      if (!recommendations || recommendations.length === 0) {
         setError("לא נמצאו המלצות. אנא נסה שוב עם תיאור מפורט יותר.")
         setIsAILoading(false)
         setLoadingState({
@@ -1963,7 +1963,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       }))
 
       // Process the AI recommendations
-      const processedItems = recommendations.items.map((item) => ({
+      const processedItems = recommendations.map((item) => ({
         id: crypto.randomUUID(),
         name: item.name || t.unknownItem || "פריט לא ידוע",
         category: item.category || "other",
