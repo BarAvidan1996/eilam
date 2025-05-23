@@ -324,7 +324,7 @@ export default function EquipmentListsPage() {
 
                   <div className="flex flex-col gap-2 w-full sm:w-auto mt-3 sm:mt-0">
                     {/* View List Button */}
-                    <Link href={`/equipment?listId=${list.id}`} className="w-full">
+                    <Link href={`/equipment/${list.id}`} className="w-full">
                       <Button
                         variant="outline"
                         size="sm"
