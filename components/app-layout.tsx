@@ -697,28 +697,6 @@ export default function AppLayout({ children }) {
           color: #000 !important;
         }
 
-        /* Fix for "שיחה חדשה" button and all buttons with #d3e3fd background */
-        .dark button[style*="#d3e3fd"],
-        .dark a[style*="#d3e3fd"],
-        .dark .bg-\\[\\#d3e3fd\\] *,
-        .dark .dark\\:bg-\\[\\#d3e3fd\\] *,
-        .dark button.bg-\\[\\#d3e3fd\\] *,
-        .dark a.bg-\\[\\#d3e3fd\\] *,
-        .dark [class*="bg-[#d3e3fd]"],
-        .dark [class*="bg-[#d3e3fd]"] *,
-        .dark .bg-blue-100 *,
-        .dark .bg-blue-200 * {
-          color: #000 !important;
-        }
-
-        /* Specific fix for new chat button */
-        .dark a[href="/chat"],
-        .dark a[href="/chat"] span,
-        .dark button[onclick*="chat"],
-        .dark button[onclick*="chat"] span {
-          color: #000 !important;
-        }
-
         .dark .dark\\:bg-\\[\\#d3e3fd\\]:hover,
         .dark .dark\\:hover\\:bg-\\[\\#b4cef9\\]:hover,
         .dark .hover\\:bg-\\[\\#b4cef9\\]:hover,
@@ -739,14 +717,7 @@ export default function AppLayout({ children }) {
         /* Fix for "פעולה חדשה" button in dark mode */
         .dark button.bg-purple-600.w-full,
         .dark button.hover\\:bg-purple-700.w-full {
-          color: #000 !important; /* Make the "פעולה חדשה" button text black */
-        }
-
-        /* Fix for dropdown menu items to keep white text */
-        .dark .dropdown-menu-content a,
-        .dark .dropdown-menu-content button,
-        .dark .dropdown-menu-content span {
-          color: #e5e7eb !important; /* Keep dropdown menu items white */
+          color: #fff !important; /* Keep this white as it's the main action button */
         }
 
         /* Fix for profile page buttons */
@@ -757,6 +728,22 @@ export default function AppLayout({ children }) {
 
         /* Direct fix for sidebar active links */
         .dark aside a[href="${pathname}"] {
+          color: #000 !important;
+        }
+
+        /* Fix for "שיחה חדשה" button in dark mode */
+        .dark a[href="/chat"],
+        .dark a[href="/chat"] *,
+        .dark .dropdown-menu-content a[href="/chat"],
+        .dark .dropdown-menu-content a[href="/chat"] * {
+          color: #000 !important;
+        }
+
+        /* Fix for dropdown menu items with #d3e3fd background */
+        .dark .dropdown-menu-content a.bg-[#d3e3fd],
+        .dark .dropdown-menu-content a.dark\\:bg-[#d3e3fd],
+        .dark .dropdown-menu-content a.bg-[#d3e3fd] *,
+        .dark .dropdown-menu-content a.dark\\:bg-[#d3e3fd] * {
           color: #000 !important;
         }
       `}</style>
