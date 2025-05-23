@@ -332,12 +332,12 @@ const LoadingIndicator = ({ state, t }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between mb-1">
-        <span className="text-sm font-medium text-[#005c72] dark:text-white">{getStepText()}</span>
-        <span className="text-sm font-medium text-[#005c72] dark:text-white">{state.progress}%</span>
+        <span className="text-sm font-medium text-[#005c72] dark:text-[#d3e3fd]">{getStepText()}</span>
+        <span className="text-sm font-medium text-[#005c72] dark:text-[#d3e3fd]">{state.progress}%</span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
         <div
-          className="bg-[#005c72] dark:bg-[#005c72] h-2.5 rounded-full transition-all duration-300 ease-in-out"
+          className="bg-[#005c72] dark:bg-[#d3e3fd] h-2.5 rounded-full transition-all duration-300 ease-in-out"
           style={{ width: `${state.progress}%` }}
         ></div>
       </div>
@@ -865,7 +865,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
             <Button
               onClick={handleSaveListAndGenerateItems}
               disabled={!aiUserPrompt.trim() || isAILoading}
-              className="w-full bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#005c72] dark:hover:bg-[#005c72]/90 text-white flex items-center justify-center gap-2"
+              className="w-full bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
             >
               {isAILoading ? (
                 <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
@@ -1462,7 +1462,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                   <Button
                     onClick={saveAIGeneratedList}
                     disabled={isAILoading}
-                    className="bg-[#005c72] hover:bg-[#005c72]/90 text-white flex items-center gap-1"
+                    className="bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center gap-1"
                   >
                     {isAILoading ? (
                       <div className="h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
