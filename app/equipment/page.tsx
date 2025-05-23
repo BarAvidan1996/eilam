@@ -193,6 +193,9 @@ const baseTranslations = {
     mandatoryItemsCount: "פריטי חובה",
     personalizedItemsCount: "פריטים מותאמים אישית",
     estimatedExpiryDate: "תאריך תפוגה משוער",
+    smsNotification: "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה.",
+    smsNotificationInfo: "ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד פרופיל.",
+    profilePage: "פרופיל",
   },
   en: {
     pageTitle: "Emergency Equipment Management",
@@ -392,6 +395,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     sendExpiryReminder: false,
     usage_instructions: "",
     is_mandatory: false,
+    sms_notification: false,
   })
   const [itemHistory, setItemHistory] = useState([])
   const [itemToRemove, setItemToRemove] = useState(null)
@@ -692,6 +696,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       sendExpiryReminder: false,
       usage_instructions: "",
       is_mandatory: false,
+      sms_notification: false,
     })
   }
 
@@ -1416,6 +1421,58 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                               </div>
                             </div>
                           </div>
+
+                          {isEditing && openAccordionItem === item.id && (
+                            <div className="mt-4 pt-3 border-t dark:border-gray-700">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    {t.estimatedExpiryDate || "תאריך תפוגה משוער"}
+                                  </label>
+                                  <Input
+                                    type="date"
+                                    value={item.expiryDate || ""}
+                                    onChange={(e) => {
+                                      const updatedItems = aiGeneratedItems.map((i) =>
+                                        i.id === item.id ? { ...i, expiryDate: e.target.value } : i,
+                                      )
+                                      setAIGeneratedItems(updatedItems)
+                                    }}
+                                    className="text-sm"
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <div className="flex items-center">
+                                    <Checkbox
+                                      id={`item-sms-notification-${item.id}`}
+                                      checked={item.sms_notification}
+                                      onCheckedChange={(checked) => {
+                                        const updatedItems = aiGeneratedItems.map((i) =>
+                                          i.id === item.id ? { ...i, sms_notification: !!checked } : i,
+                                        )
+                                        setAIGeneratedItems(updatedItems)
+                                      }}
+                                    />
+                                    <label
+                                      htmlFor={`item-sms-notification-${item.id}`}
+                                      className="mr-2 text-xs font-medium text-gray-700 dark:text-gray-300"
+                                    >
+                                      {t.smsNotification ||
+                                        "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה."}
+                                    </label>
+                                  </div>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mr-6">
+                                    {t.smsNotificationInfo ||
+                                      "ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד "}
+                                    <a href="/profile" className="text-blue-600 dark:text-blue-400 hover:underline">
+                                      {t.profilePage || "פרופיל"}
+                                    </a>
+                                    .
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </AccordionContent>
                       </AccordionItem>
                     )
@@ -1528,10 +1585,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     >
                       {t.itemCategory || "קטגוריה"}
                     </label>
-                    <Select
-                      value={newItem.category}
-                      onValueChange={(value) => setNewItem({ ...newItem, category: value })}
-                    >
+                    <Select value={newItem.category} onChange={(value) => setNewItem({ ...newItem, category: value })}>
                       <SelectTrigger id="item-category" className="mt-1">
                         <SelectValue placeholder={t.categoryFilterPlaceholder || "קטגוריה"} />
                       </SelectTrigger>
@@ -1594,7 +1648,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     </label>
                     <Select
                       value={newItem.importance.toString()}
-                      onValueChange={(value) => setNewItem({ ...newItem, importance: Number.parseInt(value) })}
+                      onChange={(value) => setNewItem({ ...newItem, importance: Number.parseInt(value) })}
                     >
                       <SelectTrigger id="item-importance" className="mt-1">
                         <SelectValue placeholder={t.importanceFilterPlaceholder || "חשיבות"} />
@@ -1654,25 +1708,40 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       rows={2}
                     />
                   </div>
-                  <div className="flex items-center">
-                    <Checkbox
-                      id="item-mandatory"
-                      checked={newItem.is_mandatory}
-                      onCheckedChange={(checked) => setNewItem({ ...newItem, is_mandatory: !!checked })}
-                    />
-                    <label
-                      htmlFor="item-mandatory"
-                      className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {t.mandatoryItem || "פריט חובה"}
-                    </label>
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <Checkbox
+                        id="item-sms-notification"
+                        checked={newItem.sms_notification}
+                        onCheckedChange={(checked) => setNewItem({ ...newItem, sms_notification: !!checked })}
+                      />
+                      <label
+                        htmlFor="item-sms-notification"
+                        className="mr-2 text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        {t.smsNotification || "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה."}
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mr-6">
+                      {t.smsNotificationInfo ||
+                        "ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד "}
+                      <a href="/profile" className="text-blue-600 dark:text-blue-400 hover:underline">
+                        {t.profilePage || "פרופיל"}
+                      </a>
+                      .
+                    </p>
                   </div>
                 </div>
                 <div className="p-3 border-t dark:border-gray-700 flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-gray-800 z-10">
                   <Button variant="outline" onClick={() => setIsAddItemDialogOpen(false)}>
                     {t.cancel || "ביטול"}
                   </Button>
-                  <Button onClick={handleAddItem}>{t.add || "הוסף"}</Button>
+                  <Button
+                    onClick={handleAddItem}
+                    className="bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-black"
+                  >
+                    {t.add || "הוסף"}
+                  </Button>
                 </div>
               </div>
             </div>
