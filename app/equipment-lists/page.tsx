@@ -22,6 +22,7 @@ import {
   Activity,
   UsersIcon,
   ShieldCheck,
+  Download,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -242,58 +243,31 @@ export default function EquipmentListsPage() {
 
   // Handle print list
   const handlePrintList = (list) => {
-    const printWindow = window.open("", "_blank")
-    printWindow.document.write(`
-     <html>
-       <head>
-         <title>${list.title}</title>
-         <style>
-           body { font-family: Arial, sans-serif; margin: 20px; }
-           h1 { color: #333; }
-           .meta { color: #666; margin-bottom: 20px; }
-           .summary { background: #f5f5f5; padding: 10px; margin: 20px 0; }
-         </style>
-       </head>
-       <body>
-         <h1>${list.title}</h1>
-         <div class="meta">
-           <p>${t.createdAt} ${formatDate(list.created_at)}</p>
-           <p>${list.itemCount} ${t.items}</p>
-         </div>
-         ${list.description ? `<p><strong>תיאור:</strong> ${list.description}</p>` : ""}
-         <div class="summary">
-           <p>רשימה זו נוצרה באפליקציה לניהול ציוד חירום</p>
-         </div>
-       </body>
-     </html>
-   `)
-    printWindow.document.close()
-    printWindow.print()
+    // פתיחת העמוד של הרשימה בחלון חדש והדפסה
+    const listUrl = `/equipment/${list.id}`
+    const printWindow = window.open(listUrl, "_blank")
+
+    if (printWindow) {
+      // מחכים שהעמוד ייטען ואז מדפיסים
+      printWindow.addEventListener("load", () => {
+        printWindow.print()
+      })
+    }
   }
 
-  // Handle export to text
-  const handleExportToText = (list) => {
-    const content = `${list.title}
-${"=".repeat(list.title.length)}
+  // Handle export to PDF
+  const handleExportToPDF = (list) => {
+    // פתיחת העמוד של הרשימה בחלון חדש
+    const listUrl = `/equipment/${list.id}`
+    const pdfWindow = window.open(listUrl, "_blank")
 
-${t.createdAt} ${formatDate(list.created_at)}
-${list.itemCount} ${t.items}
-
-${
-  list.description
-    ? `תיאור: ${list.description}
-
-`
-    : ""
-}נוצר באפליקציה לניהול ציוד חירום`
-
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${list.title}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
+    if (pdfWindow) {
+      // מחכים שהעמוד ייטען ואז מציגים הודעה למשתמש
+      pdfWindow.addEventListener("load", () => {
+        // מציגים הודעה למשתמש שמסבירה כיצד לשמור כ-PDF
+        pdfWindow.alert('כדי לשמור כ-PDF, לחץ על "הדפסה" (Ctrl+P או Cmd+P) ובחר "שמור כ-PDF" כמדפסת')
+      })
+    }
   }
 
   // Open delete dialog
@@ -428,9 +402,9 @@ ${
                           <Printer className="mr-2 h-4 w-4" />
                           {t.printList}
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleExportToText(list)}>
-                          <FileText className="mr-2 h-4 w-4" />
-                          {t.exportToText}
+                        <DropdownMenuItem onClick={() => handleExportToPDF(list)}>
+                          <Download className="mr-2 h-4 w-4" />
+                          {t.exportToPDF}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
