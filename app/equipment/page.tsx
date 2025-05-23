@@ -194,7 +194,7 @@ const baseTranslations = {
     personalizedItemsCount: "פריטים מותאמים אישית",
     estimatedExpiryDate: "תאריך תפוגה משוער",
     smsNotification: "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה.",
-    smsNotificationInfo: "ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד פרופיל.",
+    smsNotificationInfo: "ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד",
     profilePage: "פרופיל",
   },
   en: {
@@ -384,7 +384,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
   const t = translations
 
-  const [newItem, setNewItem] = useState({
+  const [newItem, setnewItem] = useState({
     name: "",
     category: "water_food",
     quantity: 1,
@@ -685,7 +685,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     setAIGeneratedItems((prevItems) => [...prevItems, itemToAdd])
     setItemHistory((prevHistory) => [...prevHistory, { action: "add", item: itemToAdd }])
     setIsAddItemDialogOpen(false)
-    setNewItem({
+    setnewItem({
       name: "",
       category: "water_food",
       quantity: 1,
@@ -1462,12 +1462,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                     </label>
                                   </div>
                                   <p className="text-xs text-gray-500 dark:text-gray-400 mr-6">
-                                    {t.smsNotificationInfo ||
-                                      "ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד "}
+                                    {"ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד "}
                                     <a href="/profile" className="text-blue-600 dark:text-blue-400 hover:underline">
-                                      {t.profilePage || "פרופיל"}
+                                      {"פרופיל"}
                                     </a>
-                                    .
+                                    {"."}
                                   </p>
                                 </div>
                               </div>
@@ -1574,7 +1573,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     <Input
                       id="item-name"
                       value={newItem.name}
-                      onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                      onChange={(e) => setnewItem({ ...newItem, name: e.target.value })}
                       className="mt-1"
                     />
                   </div>
@@ -1585,7 +1584,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     >
                       {t.itemCategory || "קטגוריה"}
                     </label>
-                    <Select value={newItem.category} onChange={(value) => setNewItem({ ...newItem, category: value })}>
+                    <Select value={newItem.category} onChange={(value) => setnewItem({ ...newItem, category: value })}>
                       <SelectTrigger id="item-category" className="mt-1">
                         <SelectValue placeholder={t.categoryFilterPlaceholder || "קטגוריה"} />
                       </SelectTrigger>
@@ -1623,7 +1622,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                         type="number"
                         min="1"
                         value={newItem.quantity}
-                        onChange={(e) => setNewItem({ ...newItem, quantity: Number.parseInt(e.target.value) || 1 })}
+                        onChange={(e) => setnewItem({ ...newItem, quantity: Number.parseInt(e.target.value) || 1 })}
                         className="mt-1"
                       />
                     </div>
@@ -1634,7 +1633,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       <Input
                         id="item-unit"
                         value={newItem.unit}
-                        onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                        onChange={(e) => setnewItem({ ...newItem, unit: e.target.value })}
                         className="mt-1"
                       />
                     </div>
@@ -1648,7 +1647,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     </label>
                     <Select
                       value={newItem.importance.toString()}
-                      onChange={(value) => setNewItem({ ...newItem, importance: Number.parseInt(value) })}
+                      onChange={(value) => setnewItem({ ...newItem, importance: Number.parseInt(value) })}
                     >
                       <SelectTrigger id="item-importance" className="mt-1">
                         <SelectValue placeholder={t.importanceFilterPlaceholder || "חשיבות"} />
@@ -1672,7 +1671,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     <Textarea
                       id="item-description"
                       value={newItem.description}
-                      onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                      onChange={(e) => setnewItem({ ...newItem, description: e.target.value })}
                       className="mt-1"
                       rows={2}
                     />
@@ -1688,9 +1687,31 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       id="item-expiry-date"
                       type="date"
                       value={newItem.expiryDate || ""}
-                      onChange={(e) => setNewItem({ ...newItem, expiryDate: e.target.value })}
+                      onChange={(e) => setnewItem({ ...newItem, expiryDate: e.target.value })}
                       className="mt-1"
                     />
+                  </div>
+                  <div className="space-y-2 mt-2">
+                    <div className="flex items-center">
+                      <Checkbox
+                        id="item-sms-notification"
+                        checked={newItem.sms_notification}
+                        onCheckedChange={(checked) => setnewItem({ ...newItem, sms_notification: !!checked })}
+                      />
+                      <label
+                        htmlFor="item-sms-notification"
+                        className="mr-2 text-sm font-medium text-gray-700 dark:text-gray-300"
+                      >
+                        {t.smsNotification || "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה."}
+                      </label>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mr-6">
+                      {"ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד "}
+                      <a href="/profile" className="text-blue-600 dark:text-blue-400 hover:underline">
+                        {"פרופיל"}
+                      </a>
+                      {"."}
+                    </p>
                   </div>
                   <div>
                     <label
@@ -1702,34 +1723,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     <Textarea
                       id="item-usage-instructions"
                       value={newItem.usage_instructions}
-                      onChange={(e) => setNewItem({ ...newItem, usage_instructions: e.target.value })}
+                      onChange={(e) => setnewItem({ ...newItem, usage_instructions: e.target.value })}
                       className="mt-1"
                       placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
                       rows={2}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <Checkbox
-                        id="item-sms-notification"
-                        checked={newItem.sms_notification}
-                        onCheckedChange={(checked) => setNewItem({ ...newItem, sms_notification: !!checked })}
-                      />
-                      <label
-                        htmlFor="item-sms-notification"
-                        className="mr-2 text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        {t.smsNotification || "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה."}
-                      </label>
-                    </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mr-6">
-                      {t.smsNotificationInfo ||
-                        "ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד "}
-                      <a href="/profile" className="text-blue-600 dark:text-blue-400 hover:underline">
-                        {t.profilePage || "פרופיל"}
-                      </a>
-                      .
-                    </p>
                   </div>
                 </div>
                 <div className="p-3 border-t dark:border-gray-700 flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-gray-800 z-10">
@@ -1738,7 +1736,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                   </Button>
                   <Button
                     onClick={handleAddItem}
-                    className="bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-black"
+                    className="bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black"
                   >
                     {t.add || "הוסף"}
                   </Button>
