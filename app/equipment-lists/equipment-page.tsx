@@ -159,6 +159,7 @@ const baseTranslations = {
     days: "ימים",
     unknownItem: "פריט לא ידוע",
     usageInstructionsPlaceholder: "הוראות שימוש והערות חשובות",
+    saveList: "שמור רשימה",
   },
   en: {
     pageTitle: "Emergency Equipment Management",
@@ -297,6 +298,7 @@ const baseTranslations = {
     days: "days",
     unknownItem: "Unknown Item",
     usageInstructionsPlaceholder: "Usage instructions and important notes",
+    saveList: "Save List",
   },
   ar: {
     pageTitle: "إدارة معدات الطوارئ",
@@ -434,6 +436,7 @@ const baseTranslations = {
     days: "أيام",
     unknownItem: "عنصر غير معروف",
     usageInstructionsPlaceholder: "تعليمات الاستخدام والملاحظات الهامة",
+    saveList: "حفظ القائمة",
   },
   ru: {
     pageTitle: "Управление аварийным оборудованием",
@@ -572,6 +575,7 @@ const baseTranslations = {
     days: "дни",
     unknownItem: "Неизвестный элемент",
     usageInstructionsPlaceholder: "Инструкции по использованию и важные примечания",
+    saveList: "Сохранить список",
   },
 }
 
@@ -1272,7 +1276,7 @@ export default function EquipmentPage() {
                           <span className="animate-spin mr-2">⟳</span> {t.saveChanges}
                         </span>
                       ) : (
-                        t.saveChanges
+                        t.saveList || "שמור רשימה"
                       )}
                     </button>
                   </>
@@ -1399,7 +1403,7 @@ export default function EquipmentPage() {
                                 >
                                   {getCategoryStyle(item.category).icon}
                                   <span className="ml-1">{getCategoryDisplayName(item.category)}</span>
-                                </Badge>
+                                </div>
                               </div>
                             </div>
                             {isEditing ? (
