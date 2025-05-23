@@ -532,7 +532,7 @@ function generateGenericPersonalizedItem(index: number, profile: any): any {
       importance: 2,
     },
     {
-      name: "נרות ונרות תה",
+      name: "נרות",
       category: "lighting_energy",
       description: "נרות לתאורה ולחימום במקרה של הפסקת חשמל ממושכת.",
       personalized_note: "גיבוי לפנסים ולתאורה ממושכת.",
