@@ -404,7 +404,7 @@ ${
                       <Button
                         variant="outline"
                         size="sm"
-                        className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black border-none"
+                        className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
                       >
                         <span className="hidden sm:inline mr-2">{t.viewList}</span>
                         {isRTL ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}

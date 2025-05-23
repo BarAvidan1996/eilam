@@ -686,16 +686,16 @@ export default function AppLayout({ children }) {
           color: #e5e5e5 !important;
         }
 
-        /* Fix for dark mode buttons with light background */
-        .dark .bg-\\[\\#d3e3fd\\], 
-        .dark .dark\\:bg-\\[\\#d3e3fd\\] {
-          color: #000 !important;
-        }
-        
-        .dark .dark\\:bg-\\[\\#d3e3fd\\]:hover,
-        .dark .dark\\:hover\\:bg-\\[\\#b4cef9\\]:hover {
-          color: #000 !important;
-        }
+/* Fix for dark mode buttons with light background - make text black */
+.dark .bg-\\[\\#d3e3fd\\], 
+.dark .dark\\:bg-\\[\\#d3e3fd\\] {
+  color: #000 !important;
+}
+
+.dark .dark\\:bg-\\[\\#d3e3fd\\]:hover,
+.dark .dark\\:hover\\:bg-\\[\\#b4cef9\\]:hover {
+  color: #000 !important;
+}
       `}</style>
     </div>
   )
