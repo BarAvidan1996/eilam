@@ -704,6 +704,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
       const profile = await AIRecommendationService.extractProfileData(aiUserPrompt)
 
+      // תיקון: אם יש קשישים, לא לספור אותם גם כמבוגרים
+      if (profile.elderly && profile.elderly > 0 && profile.adults && profile.adults > 0) {
+        profile.adults = Math.max(0, profile.adults - profile.elderly)
+      }
+
       setLoadingState((prevState) => ({
         ...prevState,
         step: "generating",
@@ -734,23 +739,35 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       // Get personalized items from AI
       let personalizedItems = []
       if (recommendations && recommendations.items && Array.isArray(recommendations.items)) {
-        personalizedItems = recommendations.items.map((item) => ({
-          id: crypto.randomUUID(),
-          name: item.name || t.unknownItem || "פריט לא ידוע",
-          category: item.category || "other",
-          quantity: item.quantity || 1,
-          unit: item.unit || "יחידות",
-          obtained: false,
-          importance: Math.min(item.importance || 3, 4), // Cap at 4 for personalized items
-          description: item.description || "",
-          expiryDate: item.expiryDate || null,
-          sms_notification: false,
-          usage_instructions: item.usage_instructions || "",
-          shelf_life: item.shelf_life || "",
-          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
-          personalized_note: item.personalized_note || "",
-          is_mandatory: false, // Personalized items are never mandatory
-        }))
+        // תיקון: סינון פריטים מותאמים אישית כדי למנוע כפילות עם פריטי חובה
+        personalizedItems = recommendations.items
+          .filter((item) => {
+            // בדיקה אם הפריט כבר קיים ברשימת פריטי החובה
+            const isMandatoryItem = MANDATORY_ITEMS.some(
+              (mandatoryItem) =>
+                mandatoryItem.name === item.name ||
+                item.name.includes(mandatoryItem.name) ||
+                mandatoryItem.name.includes(item.name),
+            )
+            return !isMandatoryItem // שמור רק פריטים שאינם פריטי חובה
+          })
+          .map((item) => ({
+            id: crypto.randomUUID(),
+            name: item.name || t.unknownItem || "פריט לא ידוע",
+            category: item.category || "other",
+            quantity: item.quantity || 1,
+            unit: item.unit || "יחידות",
+            obtained: false,
+            importance: Math.min(item.importance || 3, 4), // Cap at 4 for personalized items
+            description: item.description || "",
+            expiryDate: item.expiryDate || null,
+            sms_notification: false,
+            usage_instructions: item.usage_instructions || "",
+            shelf_life: item.shelf_life || "",
+            recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+            personalized_note: item.personalized_note || "",
+            is_mandatory: false, // Personalized items are never mandatory
+          }))
       }
 
       // Combine mandatory and personalized items
@@ -768,6 +785,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       if (!currentListName) {
         let autoListName = t.equipmentListFor || "רשימת ציוד עבור"
         if (profile.adults) autoListName += ` ${profile.adults} ${t.adults || "מבוגרים"}`
+        if (profile.elderly) autoListName += ` ו-${profile.elderly} קשישים`
         setCurrentListName(autoListName)
       }
 
