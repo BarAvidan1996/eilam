@@ -446,6 +446,20 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     }
   }
 
+  // Undo last action
+  const handleUndo = () => {
+    if (itemHistory.length === 0) return
+
+    const lastAction = itemHistory[itemHistory.length - 1]
+    setItemHistory((prevHistory) => prevHistory.slice(0, -1))
+
+    if (lastAction.action === "add") {
+      setAIGeneratedItems((prevItems) => prevItems.filter((item) => item.id !== lastAction.item.id))
+    } else if (lastAction.action === "remove") {
+      setAIGeneratedItems((prevItems) => [...prevItems, lastAction.item])
+    }
+  }
+
   // Get category style
   const getCategoryStyle = (categoryKey) => {
     if (typeof categoryKey === "string" && categoryKey.includes(",")) {
@@ -820,7 +834,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-          <strong className="font-bold">שגיאה: </strong> 
+          <strong className="font-bold">שגיאה: </strong>
           <span className="block sm:inline">{error}</span>
         </div>
         <button
@@ -1384,4 +1398,221 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 {item.recommended_quantity_per_person && (
                                   <div>
-                                    <h4 className=\"text-xs sm:text-sm font
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.aiCategories.recommended_quantity_per_person_label || "כמות מומלצת לאדם"}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.recommended_quantity_per_person}
+                                    </p>
+                                  </div>
+                                )}
+                                {item.shelf_life && (
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.aiCategories.shelf_life_label || "חיי מדף"}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.shelf_life}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                              {item.usage_instructions && (
+                                <div>
+                                  <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                    {t.aiCategories.usage_instructions_label || "הוראות שימוש"}
+                                  </h4>
+                                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                    {item.usage_instructions}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )
+                  })
+                ) : (
+                  <div className="text-center p-4 text-gray-500 dark:text-gray-400">
+                    {t.noItemsFound || "לא נמצאו פריטים התואמים את החיפוש"}
+                    {searchQuery && (
+                      <Button variant="link" onClick={() => setSearchQuery("")} className="ml-2">
+                        {t.showAllItemsButton || "הצג את כל הפריטים"}
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </Accordion>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-between items-center mt-4">
+            <Button
+              variant="outline"
+              onClick={handleUndo}
+              disabled={itemHistory.length === 0}
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              {t.undoAction || "בטל פעולה אחרונה"}
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={() => setIsAddItemDialogOpen(true)}>
+                {t.addItem || "הוסף פריט"}
+              </Button>
+              <Button onClick={() => setIsEditing(!isEditing)} className="flex items-center gap-2">
+                {isAILoading ? (
+                  <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                ) : (
+                  <FileText className="h-5 w-5" />
+                )}
+                {isEditing ? t.saveChanges : t.saveList || "שמור רשימה"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Add Item Dialog */}
+      {isAddItemDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="max-w-md w-full p-6 dark:bg-gray-800">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">{t.addNewItem || "הוספת פריט חדש"}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label htmlFor="itemName" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t.itemName || "שם הפריט"}
+                </label>
+                <Input
+                  type="text"
+                  id="itemName"
+                  value={newItem.name}
+                  onChange={(e) => setnewItem({ ...newItem, name: e.target.value })}
+                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                />
+              </div>
+              <div>
+                <label htmlFor="itemCategory" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t.itemCategory || "קטגוריה"}
+                </label>
+                <Select value={newItem.category} onValueChange={(value) => setnewItem({ ...newItem, category: value })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={t.itemCategory || "קטגוריה"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[
+                      "water_food",
+                      "medical",
+                      "hygiene",
+                      "lighting_energy",
+                      "communication",
+                      "documents_money",
+                      "children",
+                      "pets",
+                      "elderly",
+                      "special_needs",
+                      "other",
+                    ].map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {t.aiCategories[key] || key}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label htmlFor="itemQuantity" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t.itemQuantity || "כמות"}
+                </label>
+                <Input
+                  type="number"
+                  id="itemQuantity"
+                  value={newItem.quantity}
+                  onChange={(e) => setnewItem({ ...newItem, quantity: Number.parseInt(e.target.value) })}
+                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                />
+              </div>
+              <div>
+                <label htmlFor="itemUnit" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t.itemUnit || "יחידת מידה"}
+                </label>
+                <Input
+                  type="text"
+                  id="itemUnit"
+                  value={newItem.unit}
+                  onChange={(e) => setnewItem({ ...newItem, unit: e.target.value })}
+                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                />
+              </div>
+              <div>
+                <label htmlFor="itemImportance" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t.itemImportance || "חשיבות"}
+                </label>
+                <Select
+                  value={newItem.importance}
+                  onValueChange={(value) => setnewItem({ ...newItem, importance: Number.parseInt(value) })}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={t.itemImportance || "חשיבות"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
+                    <SelectItem value="4">{t.aiCategories.very_important || "חשוב מאוד"} (4)</SelectItem>
+                    <SelectItem value="3">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
+                    <SelectItem value="2">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
+                    <SelectItem value="1">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label htmlFor="itemDescription" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {t.itemDescription || "תיאור"}
+                </label>
+                <Textarea
+                  id="itemDescription"
+                  value={newItem.description}
+                  onChange={(e) => setnewItem({ ...newItem, description: e.target.value })}
+                  className="mt-1 dark:bg-gray-700 dark:text-white dark:border-gray-600"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setIsAddItemDialogOpen(false)}>
+                  {t.cancel || "ביטול"}
+                </Button>
+                <Button onClick={handleAddItem}>{t.add || "הוסף"}</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Confirm Remove Dialog */}
+      {isConfirmDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <Card className="max-w-md w-full p-6 dark:bg-gray-800">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">{t.removeItem || "הסר פריט"}</CardTitle>
+              <CardDescription>
+                {t.removeItemDescription || "פעולה זו תסיר את הפריט מהרשימה ולא ניתן יהיה לשחזר אותו."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p>{t.removeItemConfirm || "האם אתה בטוח שברצונך להסיר את הפריט?"}</p>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setIsConfirmDialogOpen(false)}>
+                  {t.cancelRemove || "ביטול"}
+                </Button>
+                <Button variant="destructive" onClick={confirmRemoveItem}>
+                  {t.confirmRemove || "הסר"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+    </div>
+  )
+}
