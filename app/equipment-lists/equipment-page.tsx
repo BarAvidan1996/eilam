@@ -1160,14 +1160,17 @@ export default function EquipmentPage() {
 
       await EquipmentList.update(listId, listToUpdate)
       setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
-      setIsEditing(false)
+      setIsEditing(false) // יציאה ממצב עריכה אחרי שמירה מוצלחת
+
+      // הצגת ההודעה למשך 3 שניות ואז הסתרה
       setTimeout(() => {
         setLastSavedMessage("")
       }, 3000)
-      setIsEditing(false)
     } catch (error) {
       console.error("Error saving changes:", error)
       setError(t.errorSavingChanges || "שגיאה בשמירת השינויים.")
+
+      // הסתרת הודעת השגיאה אחרי 5 שניות
       setTimeout(() => {
         setError("")
       }, 5000)
