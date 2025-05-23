@@ -331,7 +331,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedImportance, setSelectedImportance] = useState("all")
   const [selectedItemType, setSelectedItemType] = useState("all")
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(isEditing)
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false)
   const [defaultFields, setDefaultFields] = useState([])
   const { toast } = useToast()
@@ -458,7 +458,25 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
       const recommendations = await AIRecommendationService.generateRecommendations(aiUserPrompt)
 
-      if (!recommendations || recommendations.length === 0) {
+      // בדיקה שהתוצאה היא תקינה ומכילה מערך של פריטים
+      let itemsArray = []
+      if (recommendations && recommendations.items && Array.isArray(recommendations.items)) {
+        itemsArray = recommendations.items
+      } else if (Array.isArray(recommendations)) {
+        itemsArray = recommendations
+      } else {
+        console.error("Unexpected recommendations format:", recommendations)
+        setError("התקבל פורמט לא צפוי מהשירות. אנא נסה שוב.")
+        setIsAILoading(false)
+        setLoadingState({
+          isLoading: false,
+          step: "",
+          progress: 0,
+        })
+        return
+      }
+
+      if (itemsArray.length === 0) {
         setError("לא נמצאו המלצות. אנא נסה שוב עם תיאור מפורט יותר.")
         setIsAILoading(false)
         setLoadingState({
@@ -475,7 +493,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         progress: 60,
       }))
 
-      const processedItems = recommendations.map((item) => ({
+      const processedItems = itemsArray.map((item) => ({
         id: crypto.randomUUID(),
         name: item.name || t.unknownItem || "פריט לא ידוע",
         category: item.category || "other",
