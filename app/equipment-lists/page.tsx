@@ -322,13 +322,13 @@ export default function EquipmentListsPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-3 sm:mt-0">
+                  <div className="flex flex-col gap-2 w-full sm:w-auto mt-3 sm:mt-0">
                     {/* View List Button */}
-                    <Link href={`/equipment/${list.id}`} className="flex-1 sm:flex-none">
+                    <Link href={`/equipment/${list.id}`} className="w-full">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="w-full sm:w-auto bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
+                        className="w-full bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
                       >
                         <Eye className="mr-2 h-4 w-4" />
                         <span>{t.viewList}</span>
@@ -336,12 +336,7 @@ export default function EquipmentListsPage() {
                     </Link>
 
                     {/* Edit Title Button */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openEditTitleDialog(list)}
-                      className="flex-1 sm:flex-none"
-                    >
+                    <Button variant="outline" size="sm" onClick={() => openEditTitleDialog(list)} className="w-full">
                       <Edit className="mr-2 h-4 w-4" />
                       <span>{t.editTitle}</span>
                     </Button>
@@ -351,7 +346,7 @@ export default function EquipmentListsPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => openDeleteDialog(list)}
-                      className="flex-1 sm:flex-none text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:hover:bg-red-950"
+                      className="w-full bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 dark:bg-red-600 dark:hover:bg-red-700 dark:text-white dark:border-red-600 dark:hover:border-red-700"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
                       <span>{t.deleteList}</span>
