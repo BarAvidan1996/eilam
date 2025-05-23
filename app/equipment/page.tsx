@@ -36,6 +36,7 @@ import { useRouter } from "next/navigation"
 import { AIRecommendationService } from "@/lib/services/ai-recommendation-service"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
+import { EquipmentService } from "@/lib/services/equipment-service"
 
 const requiredFieldStyle = "text-red-500 ml-1"
 
@@ -652,6 +653,64 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     setAIGeneratedItems([])
     setCurrentListName("")
     setAIUserPrompt("")
+  }
+
+  const handleSaveChanges = async () => {
+    if (!currentListName) {
+      toast({
+        title: "שגיאה",
+        description: t.listNameCannotBeEmpty || "שם הרשימה אינו יכול להיות ריק.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsAILoading(true)
+
+      // הכנת הנתונים לשמירה
+      const listData = {
+        name: currentListName,
+        description: aiGeneratedProfile ? JSON.stringify(aiGeneratedProfile) : "",
+        items: aiGeneratedItems.map((item) => ({
+          name: item.name,
+          category: item.category || "other",
+          quantity: item.quantity || 1,
+          unit: item.unit || "יחידות",
+          description: item.description || "",
+          importance: item.importance || 3,
+          obtained: item.obtained || false,
+          expiryDate: item.expiryDate || null,
+          sms_notification: item.sms_notification || false,
+          usage_instructions: item.usage_instructions || "",
+          shelf_life: item.shelf_life || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+          personalized_note: item.personalized_note || "",
+          is_mandatory: item.is_mandatory || false,
+        })),
+      }
+
+      // שמירת הרשימה
+      await EquipmentService.createList(listData)
+
+      toast({
+        title: "הצלחה",
+        description: t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!",
+        variant: "default",
+      })
+
+      // ניווט לדף רשימות הציוד
+      router.push("/equipment-lists")
+    } catch (error) {
+      console.error("Error saving list:", error)
+      toast({
+        title: "שגיאה",
+        description: t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAILoading(false)
+    }
   }
 
   const filteredItems = filterItems(aiGeneratedItems)
@@ -1305,15 +1364,14 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
                   <Button
                     className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
-                    onClick={() => {
-                      toast({
-                        title: "הצלחה",
-                        description: t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!",
-                        variant: "default",
-                      })
-                    }}
+                    onClick={handleSaveChanges}
+                    disabled={isAILoading}
                   >
-                    <FileText className="h-5 w-5" />
+                    {isAILoading ? (
+                      <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                    ) : (
+                      <FileText className="h-5 w-5" />
+                    )}
                     {t.saveChanges || "שמור שינויים"}
                   </Button>
                 </div>
