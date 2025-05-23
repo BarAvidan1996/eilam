@@ -524,34 +524,34 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           setSuccessMessage("")
         }, 5000)
 
-        setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
+        //setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
 
         // יציאה ממצב עריכה אחרי שמירה מוצלחת
         setIsEditing(false)
 
         // הצגת הודעת הצלחה
-        toast({
+        /*toast({
           title: "הצלחה",
           description: t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!",
           variant: "default",
-        })
+        })*/
 
         // גלילה לראש הדף כדי שהמשתמש יראה את ההודעה
         window.scrollTo({ top: 0, behavior: "smooth" })
       } else {
         console.log("➕ Creating new list")
         savedList = await EquipmentService.createList(listToSave)
-        setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
+        setSuccessMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
 
         // יציאה ממצב עריכה אחרי שמירה מוצלחת
         setIsEditing(false)
 
         // הצגת הודעת הצלחה
-        toast({
+        /*toast({
           title: "הצלחה",
           description: t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!",
           variant: "default",
-        })
+        })*/
 
         // גלילה לראש הדף כדי שהמשתמש יראה את ההודעה
         window.scrollTo({ top: 0, behavior: "smooth" })
@@ -784,11 +784,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         </h1>
         <p className="text-gray-600 dark:text-gray-400">{t.pageDescription}</p>
       </header>
-      {lastSavedMessage && (
-        <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-center">
-          {lastSavedMessage}
-        </div>
-      )}
+
       {error && (
         <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-center">
           {error}
