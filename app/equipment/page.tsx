@@ -1431,34 +1431,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
               <div className="mt-6">
                 {isEditing ? (
                   <div className="flex flex-col md:flex-row gap-2">
-                    <Button
-                      onClick={saveAIGeneratedList}
-                      disabled={isAILoading}
-                      className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
-                    >
-                      {isAILoading ? (
-                        <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
-                      ) : (
-                        <FileText className="h-5 w-5" />
-                      )}
-                      {t.saveChanges || "שמור שינויים"}
-                    </Button>
-
-                    <div className="flex flex-col md:flex-row gap-2 w-full md:w-1/2">
-                      <Button
-                        variant="outline"
-                        onClick={handleUndo}
-                        disabled={itemHistory.length === 0}
-                        className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2"
-                      >
-                        <RotateCcw className="h-5 w-5" />
-                        {t.undoAction || "בטל פעולה אחרונה"}
-                      </Button>
-
+                    <div className="flex flex-col md:flex-row gap-2 w-full md:w-1/2 order-2 md:order-2">
                       <Button
                         variant="destructive"
                         onClick={() => setIsEditing(false)}
-                        className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2"
+                        className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2 order-1"
                       >
                         <X className="h-5 w-5" />
                         {t.cancelEditing || "בטל עריכה"}
@@ -1467,19 +1444,51 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       <Button
                         variant="outline"
                         onClick={() => setIsAddItemDialogOpen(true)}
-                        className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2"
+                        className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2 order-2"
                       >
                         <Plus className="h-5 w-5" />
                         {t.addItem || "הוסף פריט"}
                       </Button>
+
+                      <Button
+                        variant="outline"
+                        onClick={handleUndo}
+                        disabled={itemHistory.length === 0}
+                        className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2 order-3"
+                      >
+                        <RotateCcw className="h-5 w-5" />
+                        {t.undoAction || "בטל פעולה אחרונה"}
+                      </Button>
                     </div>
+
+                    <Button
+                      onClick={saveAIGeneratedList}
+                      disabled={isAILoading}
+                      className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2 order-1 md:order-1"
+                    >
+                      {isAILoading ? (
+                        <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                      ) : (
+                        <FileText className="h-5 w-5" />
+                      )}
+                      {t.saveChanges || "שמור שינויים"}
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex flex-col md:flex-row gap-2">
                     <Button
+                      variant="outline"
+                      onClick={() => setIsEditing(true)}
+                      className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2 order-1"
+                    >
+                      <Pencil className="h-5 w-5" />
+                      {t.editList || "ערוך רשימה"}
+                    </Button>
+
+                    <Button
                       onClick={saveAIGeneratedList}
                       disabled={isAILoading}
-                      className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
+                      className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2 order-2"
                     >
                       {isAILoading ? (
                         <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
@@ -1487,15 +1496,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                         <FileText className="h-5 w-5" />
                       )}
                       {t.aiSaveList || "שמור רשימה מומלצת"}
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsEditing(true)}
-                      className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2"
-                    >
-                      <Pencil className="h-5 w-5" />
-                      {t.editList || "ערוך רשימה"}
                     </Button>
                   </div>
                 )}
