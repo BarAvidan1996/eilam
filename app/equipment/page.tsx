@@ -191,8 +191,8 @@ const MANDATORY_ITEMS = [
 function calculateQuantity(itemName: string, profile: any): number {
   if (!profile) return 1
 
-  const totalPeople = (profile.adults || 2) + (profile.children || 0) + (profile.babies || 0) + (profile.elderly || 0)
-  const days = Math.ceil((profile.duration_hours || 48) / 24)
+  const totalPeople = (profile.adults || 1) + (profile.children || 0) + (profile.babies || 0) + (profile.elderly || 0)
+  const days = Math.ceil((profile.duration_hours || 72) / 24)
 
   if (itemName.includes("מים")) {
     return 3 * totalPeople * days // 3 liters per person per day
@@ -505,7 +505,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedImportance, setSelectedImportance] = useState("all")
   const [selectedItemType, setSelectedItemType] = useState("all")
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditing, setIsEditing] = useState(isEditing)
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false)
   const [defaultFields, setDefaultFields] = useState([])
   const { toast } = useToast()
@@ -1670,7 +1670,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       <Button
                         variant="ghost"
                         onClick={() => setIsEditing(false)}
-                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2 text-white bg-red-600 hover:text-white hover:bg-red-700 dark:text-white dark:bg-red-600 dark:hover:bg-red-700"
                       >
                         <X className="h-5 w-5" />
                         {t.cancelEditing || "צא מעריכה"}

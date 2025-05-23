@@ -229,13 +229,13 @@ async function getPersonalizedItems(prompt: string, extractedData: any): Promise
 ${
   extractedData
     ? `
-- מבוגרים: ${extractedData.adults}
-- ילדים: ${extractedData.children}${extractedData.children_ages?.length ? ` (גילאים: ${extractedData.children_ages.join(", ")})` : ""}
-- תינוקות: ${extractedData.babies}
-- קשישים: ${extractedData.elderly}
-- חיות מחמד: ${extractedData.pets}${extractedData.pet_types?.length ? ` (${extractedData.pet_types.join(", ")})` : ""}
+- מבוגרים: ${extractedData.adults || 0}
+- ילדים: ${extractedData.children || 0}${extractedData.children_ages?.length ? ` (גילאים: ${extractedData.children_ages.join(", ")})` : ""}
+- תינוקות: ${extractedData.babies || 0}
+- קשישים: ${extractedData.elderly || 0}
+- חיות מחמד: ${extractedData.pets || 0}${extractedData.pet_types?.length ? ` (${extractedData.pet_types.join(", ")})` : ""}
 - צרכים מיוחדים: ${extractedData.special_needs || "אין"}
-- משך זמן חירום צפוי: ${extractedData.duration_hours} שעות
+- משך זמן חירום צפוי: ${extractedData.duration_hours || 72} שעות
 - מיקום בארץ: ${extractedData.location || "לא צוין"}
 - סוג מגורים: ${extractedData.housing_details || "לא צוין"}
 `
@@ -248,13 +248,73 @@ ${prompt}
 המשימה שלך היא ליצור בדיוק 10 פריטים מותאמים אישית בהתבסס על המאפיינים הספציפיים של המשפחה.
 אל תכלול פריטים שכבר נמצאים ברשימת החובה של פיקוד העורף (מים, מזון, ערכת עזרה ראשונה, תרופות, רדיו, פנסים, מטענים, מטף, מסמכים, דלק, משחקים לילדים, ציוד לחיות מחמד).
 
+הנה כיצד להתאים את הרשימה באופן מושלם:
+
+1. אם יש קשיש בן 72 עם סוכרת וכולסטרול - הוסף פריטים ספציפיים:
+   - מד סוכר נוסף + סוללות רזרביות
+   - רצועות למד סוכר (כמות ל-72 שעות)
+   - גלוקוז/דקסטרוז למקרה של היפוגליקמיה
+   - תרופות סוכרת נוספות (מטפורמין, אינסולין אם נדרש)
+   - תרופות כולסטרול נוספות
+   - מזון מתאים לסוכרתיים (ללא סוכר, דל פחמימות)
+   - מאזן דיגיטלי לשקילה יומית
+   - רשימת מזונים מותרים ואסורים
+
+2. אם יש גנרטור קטן - הוסף פריטים ספציפיים:
+   - דלק נוסף לגנרטור (בנזין/סולר)
+   - שמן מנוע לגנרטור
+   - מאריך חשמל עמיד למזג אוויר
+   - מפסק זרם נייד
+   - כבל הארקה לגנרטור
+
+3. אם אין מקרר נייד או מזגן בממ"ד - הוסף פריטים ספציפיים:
+   - צידנית קשיחה גדולה + קרח יבש
+   - מאוורר נייד שעובד על סוללות
+   - בקבוקי מים קפואים
+   - מגבות רטובות לקירור הגוף
+   - כובע רחב שוליים
+   - בגדים קלים ונושמים
+
+4. אם יש חתולה - הוסף פריטים ספציפיים:
+   - מזון רטוב לחתולים (72 שעות)
+   - חול לחתולים + ארגז חול נייד
+   - צעצועים מרגיעים לחתולה
+   - מנשא לחתולה למקרה פינוי
+   - תרופות וטרינריות בסיסיות
+   - שמיכה מוכרת של החתולה
+
+5. אם גר בקיבוץ בצפון - הוסף פריטים ספציפיים:
+   - מערכת התרעה אישית (אזעקה)
+   - מפה מפורטת של המקלטים באזור
+   - אמצעי תקשורת עם שכנים
+   - ציוד לאיטום חלונות מפני גזים
+   - מסכות גז נוספות
+
+6. חשב כמויות מדויקות והסבר את החישוב:
+   - מים: 3 ליטר לאדם ליום × מספר אנשים × מספר ימים
+   - מזון: 2000 קלוריות לאדם ליום × מספר אנשים × מספר ימים
+   - תרופות: מספר מנות ליום × מספר ימים + 50% רזרבה
+
+7. וודא שכל הקטגוריות הן מהרשימה המותרת:
+   - water_food (מים ומזון)
+   - medical (ציוד רפואי)
+   - hygiene (היגיינה)
+   - lighting_energy (תאורה ואנרגיה)
+   - communication (תקשורת)
+   - documents_money (מסמכים וכסף)
+   - children (ילדים)
+   - pets (חיות מחמד)
+   - elderly (קשישים)
+   - special_needs (צרכים מיוחדים)
+   - other (ציוד כללי)
+
 החזר את התשובה בפורמט JSON הבא:
 {
   "items": [
     {
       "id": "unique-id",
       "name": "שם הפריט",
-      "category": "קטגוריה",
+      "category": "אחת מהקטגוריות המותרות בלבד",
       "quantity": מספר,
       "unit": "יחידת מידה",
       "importance": דירוג חשיבות (1-4, כאשר 4 הוא חשוב מאוד),
@@ -352,182 +412,182 @@ function generateGenericPersonalizedItem(index: number, profile: any): any {
   const genericItems = [
     {
       id: `generic-1`,
-      name: "משאף אסטמה נוסף",
+      name: "מד סוכר נוסף + סוללות",
       category: "medical",
-      quantity: 2,
-      unit: "יחידות",
+      quantity: 1,
+      unit: "סט",
       importance: 4,
-      description: "משאף נוסף לילד הסובל מאסטמה, למקרה של אובדן או תקלה במשאף העיקרי.",
-      shelf_life: "שנה",
-      usage_instructions: "יש לבדוק את תאריך התפוגה ולוודא שהמשאף תקין.",
-      recommended_quantity_per_person: "1 ליום + 1 גיבוי",
+      description: "מד סוכר נוסף עם סוללות רזרביות לניטור רמת הסוכר במהלך החירום.",
+      shelf_life: "3 שנים",
+      usage_instructions: "יש לבדוק את רמת הסוכר 3 פעמים ביום ולתעד את התוצאות.",
+      recommended_quantity_per_person: "1 מד לאדם עם סוכרת",
       obtained: false,
       expiryDate: null,
-      aiSuggestedExpiryDate: "2024-05-01",
+      aiSuggestedExpiryDate: "2027-05-01",
       sendExpiryReminder: false,
-      personalized_note: "חשוב במיוחד עבור הילד הסובל מאסטמה. יש לשמור במקום נגיש וידוע לכל בני המשפחה.",
+      personalized_note: "חיוני עבור קשיש בן 72 עם סוכרת סוג 2. יש לשמור במקום נגיש וידוע.",
       is_mandatory: false,
     },
     {
       id: `generic-2`,
-      name: "תרופות אנטי-היסטמיניות",
-      category: "medical",
-      quantity: 1,
-      unit: "חבילה",
+      name: "מזון מתאים לסוכרתיים",
+      category: "water_food",
+      quantity: 9,
+      unit: "מנות",
       importance: 4,
-      description: "תרופות לטיפול באלרגיה לבוטנים.",
+      description: "מזון דל פחמימות וללא סוכר מתאים לחולי סוכרת.",
       shelf_life: "שנה",
-      usage_instructions: "יש לקחת בהתאם להוראות הרופא.",
-      recommended_quantity_per_person: "לפי הצורך",
+      usage_instructions: "יש לבדוק תוויות מזון ולוודא שאין סוכר נוסף.",
+      recommended_quantity_per_person: "3 מנות ליום",
       obtained: false,
       expiryDate: null,
-      aiSuggestedExpiryDate: "2024-05-01",
+      aiSuggestedExpiryDate: "2025-05-01",
       sendExpiryReminder: false,
-      personalized_note: "חשוב במיוחד עבור הילד עם אלרגיה לבוטנים.",
+      personalized_note: "מותאם לקשיש עם סוכרת סוג 2 ל-72 שעות.",
       is_mandatory: false,
     },
     {
       id: `generic-3`,
-      name: "מזון לכלב",
+      name: "מזון רטוב לחתולים",
       category: "pets",
-      quantity: 2,
-      unit: "ק״ג",
+      quantity: 9,
+      unit: "קופסאות",
       importance: 3,
-      description: "מזון יבש לכלב קטן.",
-      shelf_life: "6 חודשים",
+      description: "מזון רטוב לחתולה למשך 72 שעות.",
+      shelf_life: "2 שנים",
       usage_instructions: "יש לאחסן במקום יבש וקריר.",
-      recommended_quantity_per_person: "לא רלוונטי",
+      recommended_quantity_per_person: "3 קופסאות ליום לחתולה",
       obtained: false,
       expiryDate: null,
-      aiSuggestedExpiryDate: "2024-05-01",
+      aiSuggestedExpiryDate: "2026-05-01",
       sendExpiryReminder: false,
-      personalized_note: "חשוב עבור הכלב הקטן של המשפחה.",
+      personalized_note: "חיוני עבור החתולה במשך 72 שעות של שהייה בבית.",
       is_mandatory: false,
     },
     {
       id: `generic-4`,
-      name: "צעצועים לילדים",
-      category: "children",
-      quantity: 4,
-      unit: "יחידות",
-      importance: 3,
-      description: "צעצועים שקטים שאינם דורשים סוללות.",
+      name: "צידנית קשיחה + קרח יבש",
+      category: "other",
+      quantity: 1,
+      unit: "סט",
+      importance: 4,
+      description: "צידנית לשמירת תרופות קרות וקירור כללי ללא מקרר נייד.",
       shelf_life: "לא רלוונטי",
-      usage_instructions: "יש לבחור צעצועים שאינם רועשים מדי.",
-      recommended_quantity_per_person: "2 לכל ילד",
+      usage_instructions: "יש להשתמש בקרח יבש בזהירות ובאוורור טוב.",
+      recommended_quantity_per_person: "1 צידנית למשפחה",
       obtained: false,
       expiryDate: null,
       aiSuggestedExpiryDate: null,
       sendExpiryReminder: false,
-      personalized_note: "חשוב להפגת מתח ושעמום אצל הילדים.",
+      personalized_note: 'חיוני כיוון שאין מקרר נייד בממ"ד לשמירת תרופות.',
       is_mandatory: false,
     },
     {
       id: `generic-5`,
-      name: "ספרים לילדים",
-      category: "children",
-      quantity: 4,
-      unit: "יחידות",
-      importance: 3,
-      description: "ספרים מתאימים לגילאי הילדים.",
-      shelf_life: "לא רלוונטי",
-      usage_instructions: "יש לבחור ספרים מוכרים ואהובים.",
-      recommended_quantity_per_person: "2 לכל ילד",
+      name: "דלק נוסף לגנרטור",
+      category: "lighting_energy",
+      quantity: 10,
+      unit: "ליטרים",
+      importance: 4,
+      description: "דלק נוסף לגנרטור הקטן למשך 72 שעות פעילות.",
+      shelf_life: "6 חודשים",
+      usage_instructions: "יש לאחסן במקום מאוורר הרחק מחום ואש.",
+      recommended_quantity_per_person: "לפי צריכת הגנרטור",
       obtained: false,
       expiryDate: null,
-      aiSuggestedExpiryDate: null,
+      aiSuggestedExpiryDate: "2025-11-01",
       sendExpiryReminder: false,
-      personalized_note: "חשוב להפגת מתח ושעמום אצל הילדים.",
+      personalized_note: "נדרש עבור הגנרטור הקטן הקיים למשך 72 שעות.",
       is_mandatory: false,
     },
     {
       id: `generic-6`,
-      name: "תיק חירום קל לנשיאה",
-      category: "other",
+      name: "מאוורר נייד על סוללות",
+      category: "lighting_energy",
       quantity: 1,
       unit: "יחידה",
-      importance: 4,
-      description: "תיק המכיל את הציוד החיוני ביותר למקרה של פינוי מהיר.",
-      shelf_life: "לא רלוונטי",
-      usage_instructions: "יש לשמור במקום נגיש וידוע לכל בני המשפחה.",
-      recommended_quantity_per_person: "1 לכל משפחה",
+      importance: 3,
+      description: 'מאוורר נייד לקירור ללא מזגן בממ"ד.',
+      shelf_life: "5 שנים",
+      usage_instructions: "יש לוודא שהסוללות טעונות לפני השימוש.",
+      recommended_quantity_per_person: "1 מאוורר לחדר",
       obtained: false,
       expiryDate: null,
       aiSuggestedExpiryDate: null,
       sendExpiryReminder: false,
-      personalized_note: "חשוב במיוחד למשפחה הגרה בדירה בקומה שלישית.",
+      personalized_note: 'חיוני כיוון שאין מזגן בממ"ד.',
       is_mandatory: false,
     },
     {
       id: `generic-7`,
-      name: "מזון ללא בוטנים",
-      category: "water_food",
-      quantity: 10,
-      unit: "מנות",
-      importance: 4,
-      description: "מזון שאינו מכיל בוטנים או עקבות בוטנים.",
-      shelf_life: "שנה",
-      usage_instructions: "יש לבדוק את תווית המזון לפני האכילה.",
-      recommended_quantity_per_person: "5 מנות ליום",
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: "2024-05-01",
-      sendExpiryReminder: false,
-      personalized_note: "חשוב במיוחד עבור הילד עם אלרגיה לבוטנים.",
-      is_mandatory: false,
-    },
-    {
-      id: `generic-8`,
-      name: "רצועה וקולר לכלב",
+      name: "ארגז חול נייד לחתולה",
       category: "pets",
       quantity: 1,
       unit: "סט",
       importance: 3,
-      description: "רצועה וקולר לכלב למקרה של פינוי.",
+      description: "ארגז חול נייד וחול לחתולה למשך 72 שעות.",
       shelf_life: "לא רלוונטי",
-      usage_instructions: "יש לשמור במקום נגיש.",
-      recommended_quantity_per_person: "לא רלוונטי",
+      usage_instructions: "יש להחליף חול לפי הצורך.",
+      recommended_quantity_per_person: "1 ארגז לחתולה",
       obtained: false,
       expiryDate: null,
       aiSuggestedExpiryDate: null,
       sendExpiryReminder: false,
-      personalized_note: "חשוב עבור הכלב הקטן של המשפחה במקרה של פינוי.",
+      personalized_note: "נדרש עבור החתולה במשך השהייה הממושכת בבית.",
+      is_mandatory: false,
+    },
+    {
+      id: `generic-8`,
+      name: "גלוקוז למקרה היפוגליקמיה",
+      category: "medical",
+      quantity: 5,
+      unit: "אמפולות",
+      importance: 4,
+      description: "גלוקוז למקרה של ירידה חדה ברמת הסוכר.",
+      shelf_life: "2 שנים",
+      usage_instructions: "לשימוש במקרה של תסמיני היפוגליקמיה.",
+      recommended_quantity_per_person: "5 אמפולות לחולה סוכרת",
+      obtained: false,
+      expiryDate: null,
+      aiSuggestedExpiryDate: "2026-05-01",
+      sendExpiryReminder: false,
+      personalized_note: "חיוני עבור קשיש עם סוכרת למקרה חירום רפואי.",
       is_mandatory: false,
     },
     {
       id: `generic-9`,
-      name: "מסכת חמצן ביתית",
-      category: "medical",
+      name: "מערכת התרעה אישית",
+      category: "communication",
       quantity: 1,
       unit: "יחידה",
       importance: 4,
-      description: "מסכת חמצן ביתית לטיפול בהתקפי אסטמה.",
+      description: "מערכת התרעה אישית לקיבוץ בצפון הארץ.",
       shelf_life: "5 שנים",
       usage_instructions: "יש לבדוק תקינות אחת לחודש.",
-      recommended_quantity_per_person: "1 לכל חולה אסטמה",
+      recommended_quantity_per_person: "1 יחידה לאדם",
       obtained: false,
       expiryDate: null,
       aiSuggestedExpiryDate: null,
       sendExpiryReminder: false,
-      personalized_note: "חשוב במיוחד עבור הילד הסובל מאסטמה.",
+      personalized_note: "חיוני עבור תושב קיבוץ בצפון הארץ.",
       is_mandatory: false,
     },
     {
       id: `generic-10`,
-      name: "מטהר אוויר",
-      category: "other",
+      name: "מנשא לחתולה",
+      category: "pets",
       quantity: 1,
       unit: "יחידה",
       importance: 3,
-      description: "מטהר אוויר לסינון אלרגנים ומזהמים.",
-      shelf_life: "5 שנים",
-      usage_instructions: "יש להחליף פילטרים בהתאם להוראות היצרן.",
-      recommended_quantity_per_person: "1 לכל חדר",
+      description: "מנשא לחתולה למקרה של פינוי מהיר.",
+      shelf_life: "לא רלוונטי",
+      usage_instructions: "יש לוודא שהחתולה מכירה את המנשא מראש.",
+      recommended_quantity_per_person: "1 מנשא לחתולה",
       obtained: false,
       expiryDate: null,
       aiSuggestedExpiryDate: null,
       sendExpiryReminder: false,
-      personalized_note: "חשוב במיוחד עבור הילד הסובל מאסטמה ואלרגיה.",
+      personalized_note: "נדרש עבור החתולה במקרה של פינוי מהקיבוץ.",
       is_mandatory: false,
     },
   ]
