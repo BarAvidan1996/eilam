@@ -1276,7 +1276,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 variant="outline"
                                 className={`text-xs transition-colors px-1.5 sm:px-2 py-0.5 flex items-center gap-1 shrink-0 max-w-[120px] sm:max-w-none ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText}`}
                               >
-                                {categoryColors[item.category]?.icon || categoryColors.other.icon}
+                                {getCategoryStyle(item.category).icon}
                                 <span className="truncate">{t.aiCategories[item.category] || item.category}</span>
                               </Badge>
                             </div>
@@ -1424,7 +1424,161 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
                           {isEditing && openAccordionItem === item.id && (
                             <div className="mt-4 pt-3 border-t dark:border-gray-700">
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    {t.itemName || "שם הפריט"}
+                                  </label>
+                                  <Input
+                                    value={item.name}
+                                    onChange={(e) => {
+                                      const updatedItems = aiGeneratedItems.map((i) =>
+                                        i.id === item.id ? { ...i, name: e.target.value } : i,
+                                      )
+                                      setAIGeneratedItems(updatedItems)
+                                    }}
+                                    className="text-sm"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    {t.itemCategory || "קטגוריה"}
+                                  </label>
+                                  <Select
+                                    value={item.category}
+                                    onValueChange={(value) => {
+                                      const updatedItems = aiGeneratedItems.map((i) =>
+                                        i.id === item.id ? { ...i, category: value } : i,
+                                      )
+                                      setAIGeneratedItems(updatedItems)
+                                    }}
+                                  >
+                                    <SelectTrigger className="text-sm">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {[
+                                        "water_food",
+                                        "medical",
+                                        "hygiene",
+                                        "lighting_energy",
+                                        "communication",
+                                        "documents_money",
+                                        "children",
+                                        "pets",
+                                        "elderly",
+                                        "special_needs",
+                                        "other",
+                                      ].map((key) => (
+                                        <SelectItem key={key} value={key}>
+                                          {t.aiCategories[key] || key}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                      {t.itemQuantity || "כמות"}
+                                    </label>
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      value={item.quantity}
+                                      onChange={(e) => {
+                                        const updatedItems = aiGeneratedItems.map((i) =>
+                                          i.id === item.id
+                                            ? { ...i, quantity: Number.parseInt(e.target.value) || 1 }
+                                            : i,
+                                        )
+                                        setAIGeneratedItems(updatedItems)
+                                      }}
+                                      className="text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                      {t.itemUnit || "יחידת מידה"}
+                                    </label>
+                                    <Input
+                                      value={item.unit}
+                                      onChange={(e) => {
+                                        const updatedItems = aiGeneratedItems.map((i) =>
+                                          i.id === item.id ? { ...i, unit: e.target.value } : i,
+                                        )
+                                        setAIGeneratedItems(updatedItems)
+                                      }}
+                                      className="text-sm"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    {t.itemImportance || "חשיבות"}
+                                  </label>
+                                  <Select
+                                    value={item.importance.toString()}
+                                    onValueChange={(value) => {
+                                      const updatedItems = aiGeneratedItems.map((i) =>
+                                        i.id === item.id ? { ...i, importance: Number.parseInt(value) } : i,
+                                      )
+                                      setAIGeneratedItems(updatedItems)
+                                    }}
+                                  >
+                                    <SelectTrigger className="text-sm">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="5">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
+                                      <SelectItem value="4">
+                                        {t.aiCategories.very_important || "חשוב מאוד"} (4)
+                                      </SelectItem>
+                                      <SelectItem value="3">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
+                                      <SelectItem value="2">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
+                                      <SelectItem value="1">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    {t.itemDescription || "תיאור"}
+                                  </label>
+                                  <Textarea
+                                    value={item.description || ""}
+                                    onChange={(e) => {
+                                      const updatedItems = aiGeneratedItems.map((i) =>
+                                        i.id === item.id ? { ...i, description: e.target.value } : i,
+                                      )
+                                      setAIGeneratedItems(updatedItems)
+                                    }}
+                                    className="text-sm"
+                                    rows={2}
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    {t.itemUsageInstructions || "הוראות שימוש"}
+                                  </label>
+                                  <Textarea
+                                    value={item.usage_instructions || ""}
+                                    onChange={(e) => {
+                                      const updatedItems = aiGeneratedItems.map((i) =>
+                                        i.id === item.id ? { ...i, usage_instructions: e.target.value } : i,
+                                      )
+                                      setAIGeneratedItems(updatedItems)
+                                    }}
+                                    className="text-sm"
+                                    placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
+                                    rows={2}
+                                  />
+                                </div>
+
                                 <div>
                                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
                                     {t.estimatedExpiryDate || "תאריך תפוגה משוער"}
@@ -1441,7 +1595,8 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                     className="text-sm"
                                   />
                                 </div>
-                                <div className="space-y-2">
+
+                                <div className="space-y-2 mt-2">
                                   <div className="flex items-center">
                                     <Checkbox
                                       id={`item-sms-notification-${item.id}`}
@@ -1468,6 +1623,25 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                     </a>
                                     {"."}
                                   </p>
+                                </div>
+
+                                <div className="flex items-center">
+                                  <Checkbox
+                                    id={`item-mandatory-${item.id}`}
+                                    checked={item.is_mandatory}
+                                    onCheckedChange={(checked) => {
+                                      const updatedItems = aiGeneratedItems.map((i) =>
+                                        i.id === item.id ? { ...i, is_mandatory: !!checked } : i,
+                                      )
+                                      setAIGeneratedItems(updatedItems)
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor={`item-mandatory-${item.id}`}
+                                    className="mr-2 text-xs font-medium text-gray-700 dark:text-gray-300"
+                                  >
+                                    {t.mandatoryItem || "פריט חובה"}
+                                  </label>
                                 </div>
                               </div>
                             </div>
