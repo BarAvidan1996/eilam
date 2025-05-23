@@ -28,6 +28,7 @@ import {
   Pencil,
   X,
   Plus,
+  Bell,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -627,24 +628,27 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       obtained: false,
     }
 
+    setItemHistory((prevHistory) => [...prevHistory, [...aiGeneratedItems]])
     setAIGeneratedItems((prevItems) => [...prevItems, itemToAdd])
-    setItemHistory((prevHistory) => [...prevHistory, { action: "add", item: itemToAdd }])
     setIsAddItemDialogOpen(false)
     toast({
       title: "הצלחה",
       description: t.itemAddedSuccessfully || "הפריט נוסף בהצלחה!",
       variant: "default",
     })
-    setnewItem({
+    setNewItem({
       name: "",
       category: "water_food",
       quantity: 1,
-      unit: "יחידות",
+      unit: t.aiCategories?.default_unit || "יחידות",
       importance: 3,
       description: "",
       expiryDate: null,
       sms_notification: false,
       usage_instructions: "",
+      shelf_life: "",
+      recommended_quantity_per_person: "",
+      personalized_note: "",
       is_mandatory: false,
     })
   }
@@ -658,11 +662,9 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
   // Confirm item removal
   const confirmRemoveItem = () => {
-    if (!itemToRemove) return
-
+    setItemHistory((prevHistory) => [...prevHistory, [...aiGeneratedItems]])
     const updatedItems = aiGeneratedItems.filter((item) => item.id !== itemToRemove.id)
     setAIGeneratedItems(updatedItems)
-    setItemHistory((prevHistory) => [...prevHistory, { action: "remove", item: itemToRemove }])
     setIsConfirmDialogOpen(false)
     setItemToRemove(null)
   }
@@ -1364,9 +1366,14 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                     <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
                                       {t.expiryDate || "תאריך תפוגה"}
                                     </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.expiryDate}
-                                    </p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                        {item.expiryDate}
+                                      </p>
+                                      {item.sms_notification && (
+                                        <Bell className="h-4 w-4 text-blue-500" title="יתקבל SMS לפני תפוגה" />
+                                      )}
+                                    </div>
                                   </div>
                                 )}
                               </div>
