@@ -1,5 +1,7 @@
 "use client"
 
+import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -28,7 +30,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
@@ -693,6 +694,28 @@ export default function AppLayout({ children }) {
         .dark a.bg-\\[\\#d3e3fd\\],
         .dark .bg-blue-100,
         .dark .bg-blue-200 {
+          color: #000 !important;
+        }
+
+        /* Fix for "שיחה חדשה" button and all buttons with #d3e3fd background */
+        .dark button[style*="#d3e3fd"],
+        .dark a[style*="#d3e3fd"],
+        .dark .bg-\\[\\#d3e3fd\\] *,
+        .dark .dark\\:bg-\\[\\#d3e3fd\\] *,
+        .dark button.bg-\\[\\#d3e3fd\\] *,
+        .dark a.bg-\\[\\#d3e3fd\\] *,
+        .dark [class*="bg-[#d3e3fd]"],
+        .dark [class*="bg-[#d3e3fd]"] *,
+        .dark .bg-blue-100 *,
+        .dark .bg-blue-200 * {
+          color: #000 !important;
+        }
+
+        /* Specific fix for new chat button */
+        .dark a[href="/chat"],
+        .dark a[href="/chat"] span,
+        .dark button[onclick*="chat"],
+        .dark button[onclick*="chat"] span {
           color: #000 !important;
         }
 
