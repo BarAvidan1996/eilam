@@ -419,7 +419,7 @@ export default function AppLayout({ children }) {
             <Button
               variant="default"
               className={cn(
-                "w-full justify-center bg-purple-600 hover:bg-purple-700 text-white",
+                "w-full justify-center bg-[#d3e3fd] hover:bg-[#b4cef9] dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] text-black dark:text-black",
                 isSidebarExpanded ? "gap-2" : "",
               )}
             >
@@ -432,16 +432,19 @@ export default function AppLayout({ children }) {
             align={isSidebarExpanded && isRTL ? "start" : "end"}
             sideOffset={5}
           >
-            {newActionItems.map((item) => (
+            {newActionItems.map((item, index) => (
               <DropdownMenuItem
                 key={item.name}
                 asChild
                 disabled={item.disabled}
-                className="cursor-pointer dark:text-gray-200 dark:hover:bg-gray-700"
+                className={cn("cursor-pointer", index === 3 ? "dark:text-purple-400" : "dark:text-black")}
               >
                 <Link
                   href={!item.disabled ? item.path : "#"}
-                  className={cn("flex items-center gap-2 w-full", item.className)}
+                  className={cn(
+                    "flex items-center gap-2 w-full",
+                    index === 3 ? item.className : "dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9]",
+                  )}
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{item.name}</span>
@@ -714,12 +717,6 @@ export default function AppLayout({ children }) {
           color: #000 !important;
         }
 
-        /* Fix for "פעולה חדשה" button in dark mode */
-        .dark button.bg-purple-600.w-full,
-        .dark button.hover\\:bg-purple-700.w-full {
-          color: #fff !important; /* Keep this white as it's the main action button */
-        }
-
         /* Fix for profile page buttons */
         .dark .bg-purple-600:not(.w-full),
         .dark .hover\\:bg-purple-700:not(.w-full) {
@@ -731,20 +728,15 @@ export default function AppLayout({ children }) {
           color: #000 !important;
         }
 
-        /* Fix for "שיחה חדשה" button in dark mode */
-        .dark a[href="/chat"],
-        .dark a[href="/chat"] *,
-        .dark .dropdown-menu-content a[href="/chat"],
-        .dark .dropdown-menu-content a[href="/chat"] * {
+        /* Fix for equipment-lists save button */
+        .dark button.bg-\\[\\#005c72\\] {
+          background-color: #d3e3fd !important;
           color: #000 !important;
         }
-
-        /* Fix for dropdown menu items with #d3e3fd background */
-        .dark .dropdown-menu-content a.bg-[#d3e3fd],
-        .dark .dropdown-menu-content a.dark\\:bg-[#d3e3fd],
-        .dark .dropdown-menu-content a.bg-[#d3e3fd] *,
-        .dark .dropdown-menu-content a.dark\\:bg-[#d3e3fd] * {
-          color: #000 !important;
+        
+        button.bg-\\[\\#005c72\\] {
+          background-color: #005c72 !important;
+          color: #fff !important;
         }
       `}</style>
     </div>
