@@ -517,7 +517,7 @@ export default function UserProfilePage() {
                     <Button
                       onClick={handleChangePassword}
                       disabled={isChangingPasswordLoading}
-                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                      className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black"
                     >
                       {isChangingPasswordLoading ? (
                         <>
@@ -543,7 +543,11 @@ export default function UserProfilePage() {
             >
               {t.cancel}
             </Button>
-            <Button onClick={handleSave} className="bg-purple-600 hover:bg-purple-700 text-white" disabled={isSaving}>
+            <Button
+              onClick={handleSave}
+              className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black"
+              disabled={isSaving}
+            >
               {isSaving ? (
                 <>
                   <Spinner size="small" className={isRTL ? "ml-2" : "mr-2"} /> {t.saveChanges}
