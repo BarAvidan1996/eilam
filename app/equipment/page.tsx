@@ -392,10 +392,9 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     importance: 3,
     description: "",
     expiryDate: null,
-    sendExpiryReminder: false,
+    sms_notification: false,
     usage_instructions: "",
     is_mandatory: false,
-    sms_notification: false,
   })
   const [itemHistory, setItemHistory] = useState([])
   const [itemToRemove, setItemToRemove] = useState(null)
@@ -610,7 +609,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           importance: item.importance || 3,
           description: item.description || "",
           expiryDate: item.expiryDate || null,
-          sendExpiryReminder: item.sendExpiryReminder || false,
           sms_notification: item.sms_notification || false,
           usage_instructions: item.usage_instructions || "",
           shelf_life: item.shelf_life || "",
@@ -693,10 +691,9 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       importance: 3,
       description: "",
       expiryDate: null,
-      sendExpiryReminder: false,
+      sms_notification: false,
       usage_instructions: "",
       is_mandatory: false,
-      sms_notification: false,
     })
   }
 
