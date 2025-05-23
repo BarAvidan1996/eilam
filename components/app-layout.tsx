@@ -419,7 +419,7 @@ export default function AppLayout({ children }) {
             <Button
               variant="default"
               className={cn(
-                "w-full justify-center bg-[#d3e3fd] hover:bg-[#b4cef9] dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] text-black dark:text-black",
+                "w-full justify-center bg-[#005c72] hover:bg-[#004a5e] dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] text-white dark:text-black",
                 isSidebarExpanded ? "gap-2" : "",
               )}
             >
@@ -437,14 +437,14 @@ export default function AppLayout({ children }) {
                 key={item.name}
                 asChild
                 disabled={item.disabled}
-                className={cn("cursor-pointer", index === 3 ? "dark:text-purple-400" : "dark:text-black")}
+                className={cn(
+                  "cursor-pointer",
+                  index === 3 ? "dark:text-purple-400" : theme === "dark" ? "text-white" : "text-gray-800",
+                )}
               >
                 <Link
                   href={!item.disabled ? item.path : "#"}
-                  className={cn(
-                    "flex items-center gap-2 w-full",
-                    index === 3 ? item.className : "dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9]",
-                  )}
+                  className={cn("flex items-center gap-2 w-full", index === 3 ? item.className : "")}
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{item.name}</span>
