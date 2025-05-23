@@ -432,7 +432,7 @@ ${prompt}
       "obtained": false,
       "expiryDate": null,
       "aiSuggestedExpiryDate": "YYYY-MM-DD",
-      "sendExpiryReminder: false,
+      "sendExpiryReminder": false,
       "personalized_note": "הערה מותאמת אישית המסבירה את החשיבות הספציפית של פריט זה למשפחה זו",
       "is_mandatory": false
     }
