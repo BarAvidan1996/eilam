@@ -160,42 +160,107 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    // Create mandatory items with calculated quantities
-    const mandatoryItems = MANDATORY_ITEMS.map((item, index) => ({
-      ...item,
-      id: `mandatory-${index + 1}`, // Ensure unique IDs
-      quantity: calculateQuantity(item.name, extractedData),
-      unit: getUnitForItem(item.name),
-      recommended_quantity_per_person: getRecommendedQuantityPerPerson(item.name),
-      obtained: false,
-      expiryDate: null,
-      aiSuggestedExpiryDate: null,
-      sms_notification: false,
-      usage_instructions: item.usage_instructions || "",
-      shelf_life: item.shelf_life || "",
-      personalized_note: "",
-      is_mandatory: true,
-    }))
+    console.log("Starting AI recommendations generation...")
+    console.log("Extracted data:", extractedData)
 
-    console.log(`Created ${mandatoryItems.length} mandatory items`)
+    // Create ALL 13 mandatory items - NO EXCEPTIONS
+    const mandatoryItems = MANDATORY_ITEMS.map((item, index) => {
+      const mandatoryItem = {
+        id: `mandatory-${index + 1}`,
+        name: item.name,
+        category: item.category,
+        quantity: calculateQuantity(item.name, extractedData),
+        unit: getUnitForItem(item.name),
+        importance: 5, // Always 5 for mandatory items
+        description: item.description,
+        shelf_life: item.shelf_life,
+        usage_instructions: item.usage_instructions,
+        recommended_quantity_per_person: getRecommendedQuantityPerPerson(item.name),
+        obtained: false,
+        expiryDate: null,
+        aiSuggestedExpiryDate: getExpiryDateForItem(item.name),
+        sms_notification: false,
+        personalized_note: "",
+        is_mandatory: true,
+      }
+      console.log(`Created mandatory item ${index + 1}: ${mandatoryItem.name}`)
+      return mandatoryItem
+    })
+
+    // VERIFY we have exactly 13 mandatory items
+    if (mandatoryItems.length !== 13) {
+      console.error(`CRITICAL ERROR: Expected 13 mandatory items, got ${mandatoryItems.length}`)
+      throw new Error(`Failed to create all mandatory items. Expected 13, got ${mandatoryItems.length}`)
+    }
+
+    console.log(`✅ Successfully created ${mandatoryItems.length} mandatory items`)
 
     // Get personalized items from AI
-    const personalizedItems = await getPersonalizedItems(prompt, extractedData)
+    let personalizedItems: any[] = []
 
-    console.log(`Generated ${personalizedItems.length} personalized items`)
+    try {
+      personalizedItems = await getPersonalizedItems(prompt, extractedData)
+      console.log(`AI generated ${personalizedItems.length} personalized items`)
+    } catch (error) {
+      console.error("Error getting AI personalized items:", error)
+      personalizedItems = []
+    }
 
-    // Ensure we have exactly 10 personalized items
+    // ENSURE we have exactly 10 personalized items
     while (personalizedItems.length < 10) {
-      personalizedItems.push(generateGenericPersonalizedItem(personalizedItems.length, extractedData))
+      const newItem = generateGenericPersonalizedItem(personalizedItems.length, extractedData)
+      personalizedItems.push(newItem)
+      console.log(`Added fallback personalized item ${personalizedItems.length}: ${newItem.name}`)
     }
 
     // Trim if we have more than 10
     if (personalizedItems.length > 10) {
-      personalizedItems.splice(10)
+      personalizedItems = personalizedItems.slice(0, 10)
+      console.log(`Trimmed personalized items to 10`)
     }
+
+    // VERIFY we have exactly 10 personalized items
+    if (personalizedItems.length !== 10) {
+      console.error(`CRITICAL ERROR: Expected 10 personalized items, got ${personalizedItems.length}`)
+      throw new Error(`Failed to create enough personalized items. Expected 10, got ${personalizedItems.length}`)
+    }
+
+    console.log(`✅ Successfully created ${personalizedItems.length} personalized items`)
+
+    // Ensure all personalized items are marked correctly
+    personalizedItems.forEach((item, index) => {
+      item.is_mandatory = false
+      item.id = item.id || `personalized-${index + 1}`
+      if (item.importance >= 5) {
+        item.importance = 4 // Cap at 4 for personalized items
+      }
+    })
 
     // Combine mandatory and personalized items
     const allItems = [...mandatoryItems, ...personalizedItems]
+
+    console.log(`Final verification:`)
+    console.log(`- Mandatory items: ${mandatoryItems.length}`)
+    console.log(`- Personalized items: ${personalizedItems.length}`)
+    console.log(`- Total items: ${allItems.length}`)
+
+    // FINAL VERIFICATION
+    const mandatoryCount = allItems.filter((item) => item.is_mandatory === true).length
+    const personalizedCount = allItems.filter((item) => item.is_mandatory === false).length
+
+    if (mandatoryCount !== 13) {
+      console.error(`FINAL CHECK FAILED: Expected 13 mandatory items, got ${mandatoryCount}`)
+      throw new Error(`Final verification failed for mandatory items`)
+    }
+
+    if (personalizedCount !== 10) {
+      console.error(`FINAL CHECK FAILED: Expected 10 personalized items, got ${personalizedCount}`)
+      throw new Error(`Final verification failed for personalized items`)
+    }
+
+    console.log(
+      `✅ FINAL VERIFICATION PASSED: ${mandatoryCount} mandatory + ${personalizedCount} personalized = ${allItems.length} total`,
+    )
 
     // Create the final response
     const finalResponse = {
@@ -203,25 +268,46 @@ export async function POST(request: NextRequest) {
       items: allItems,
     }
 
-    console.log(`Generated ${mandatoryItems.length} mandatory items and ${personalizedItems.length} personalized items`)
-
-    // Ensure we have the correct counts
-    if (mandatoryItems.length !== 13) {
-      console.error(`Warning: Expected 13 mandatory items, got ${mandatoryItems.length}`)
-    }
-
-    if (personalizedItems.length !== 10) {
-      console.error(`Warning: Expected 10 personalized items, got ${personalizedItems.length}`)
-    }
-
-    console.log(
-      `Final result: ${mandatoryItems.length} mandatory + ${personalizedItems.length} personalized = ${allItems.length} total items`,
-    )
-
     return NextResponse.json(finalResponse)
   } catch (error) {
     console.error("Error generating AI recommendations:", error)
-    return NextResponse.json({ error: "Failed to generate recommendations" }, { status: 500 })
+
+    // Even in case of error, return the mandatory items + fallback personalized items
+    console.log("Generating fallback response with all mandatory items...")
+
+    const fallbackMandatoryItems = MANDATORY_ITEMS.map((item, index) => ({
+      id: `mandatory-${index + 1}`,
+      name: item.name,
+      category: item.category,
+      quantity: calculateQuantity(item.name, extractedData),
+      unit: getUnitForItem(item.name),
+      importance: 5,
+      description: item.description,
+      shelf_life: item.shelf_life,
+      usage_instructions: item.usage_instructions,
+      recommended_quantity_per_person: getRecommendedQuantityPerPerson(item.name),
+      obtained: false,
+      expiryDate: null,
+      aiSuggestedExpiryDate: getExpiryDateForItem(item.name),
+      sms_notification: false,
+      personalized_note: "",
+      is_mandatory: true,
+    }))
+
+    const fallbackPersonalizedItems = Array.from({ length: 10 }, (_, i) =>
+      generateGenericPersonalizedItem(i, extractedData),
+    )
+
+    const fallbackResponse = {
+      profile: extractedData || {},
+      items: [...fallbackMandatoryItems, ...fallbackPersonalizedItems],
+    }
+
+    console.log(
+      `Fallback response created with ${fallbackMandatoryItems.length} mandatory + ${fallbackPersonalizedItems.length} personalized items`,
+    )
+
+    return NextResponse.json(fallbackResponse)
   }
 }
 
@@ -428,81 +514,101 @@ ${prompt}
 
 // Helper function to generate a generic personalized item based on profile
 function generateGenericPersonalizedItem(index: number, profile: any): any {
-  // מערך של פריטים מותאמים אישית לפי קטגוריות שונות
+  // רשימה קבועה של 10 פריטים מותאמים אישית
   const fallbackItems = [
     {
       name: "סוללות נטענות ומטען סולארי",
       category: "lighting_energy",
-      description: "סוללות נטענות ומטען סולארי לטעינה ללא חשמל.",
+      description: "סוללות נטענות ומטען סולארי לטעינה ללא חשמל במהלך הפסקות חשמל ממושכות.",
       personalized_note: "שימושי לטעינת מכשירים קטנים במהלך הפסקות חשמל.",
       importance: 3,
+      shelf_life: "5 שנים",
+      usage_instructions: "יש לאחסן במקום יבש וקריר.",
     },
     {
       name: "שקיות אשפה וכפפות חד-פעמיות",
       category: "hygiene",
-      description: "שקיות לאשפה וכפפות לשמירה על היגיינה.",
-      personalized_note: "חשוב לשמירה על ניקיון וסניטציה.",
+      description: "שקיות לאשפה וכפפות חד-פעמיות לשמירה על היגיינה וניקיון במהלך החירום.",
+      personalized_note: "חשוב לשמירה על ניקיון וסניטציה במקלט.",
       importance: 2,
+      shelf_life: "3 שנים",
+      usage_instructions: "יש להשתמש לפי הצורך ולהחליף כפפות בין שימושים.",
     },
     {
       name: "נרות ומקלות גפרורים",
       category: "lighting_energy",
       description: "נרות לתאורה ולחימום במקרה של הפסקת חשמל ממושכת.",
-      personalized_note: "גיבוי לפנסים ולתאורה ממושכת.",
+      personalized_note: "גיבוי לפנסים ולתאורה ממושכת במקלט.",
       importance: 2,
+      shelf_life: "לא רלוונטי",
+      usage_instructions: "יש להשתמש בזהירות ובאוורור טוב.",
     },
     {
-      name: "מגבות נייר ומגבונים",
+      name: "מגבות נייר ומגבונים לחים",
       category: "hygiene",
-      description: "מגבות נייר ומגבונים לחים לניקוי ללא מים.",
-      personalized_note: "שימושי כאשר אין גישה למים זורמים.",
+      description: "מגבות נייר ומגבונים לחים לניקוי ללא מים זורמים.",
+      personalized_note: "שימושי כאשר אין גישה למים זורמים במקלט.",
       importance: 2,
+      shelf_life: "2 שנים",
+      usage_instructions: "יש לשמור במקום יבש ולהשתמש לפי הצורך.",
     },
     {
-      name: "ערכת תיקונים קטנה",
+      name: "ערכת תיקונים בסיסית",
       category: "other",
-      description: "ערכה קטנה הכוללת כלי עבודה בסיסיים, סלוטייפ, חוט ברזל וכו'.",
-      personalized_note: "שימושית לתיקונים קטנים בזמן חירום.",
+      description: "ערכה קטנה הכוללת כלי עבודה בסיסיים, סלוטייפ, חוט ברזל ומברגים קטנים.",
+      personalized_note: "שימושית לתיקונים קטנים וחיוניים בזמן חירום.",
       importance: 2,
+      shelf_life: "10 שנים",
+      usage_instructions: "יש לבדוק תקינות הכלים מעת לעת.",
     },
     {
       name: "מטהר מים נייד",
       category: "water_food",
-      description: "מטהר מים נייד לטיהור מים במקרה שאין גישה למים נקיים.",
-      personalized_note: "חשוב במקרה של פגיעה במערכת המים.",
+      description: "מטהר מים נייד או טבליות לטיהור מים במקרה שאין גישה למים נקיים.",
+      personalized_note: "חשוב במקרה של פגיעה במערכת המים או זיהום.",
       importance: 3,
+      shelf_life: "5 שנים",
+      usage_instructions: "יש לפעול לפי הוראות היצרן בדיוק.",
     },
     {
-      name: "שמיכה תרמית",
+      name: "שמיכה תרמית חירום",
       category: "other",
-      description: "שמיכה תרמית קלה לשמירה על חום הגוף.",
+      description: "שמיכה תרמית קלה וקומפקטית לשמירה על חום הגוף.",
       personalized_note: "שימושית במקלטים קרים או בלילות קרים.",
       importance: 2,
+      shelf_life: "לא רלוונטי",
+      usage_instructions: "יש לפרוש על הגוף או להתכסות בה.",
     },
     {
-      name: "אמצעי בישול חלופי",
+      name: "כירת גז נייד קטן",
       category: "water_food",
-      description: "כירת גז קטנה או כירה על בסיס אלכוהול לחימום מזון.",
+      description: "כירת גז קטנה וניידת לחימום מזון ומים במקרה של הפסקת חשמל.",
       personalized_note: "שימושי לחימום מזון במקרה של הפסקת חשמל ממושכת.",
       importance: 2,
+      shelf_life: "10 שנים",
+      usage_instructions: "יש להשתמש רק באוורור טוב ולבדוק דליפות גז.",
     },
     {
-      name: "מזון מוכן לאכילה",
+      name: "מזון מוכן לאכילה (קופסאות שימורים)",
       category: "water_food",
-      description: "מזון שאינו דורש בישול או חימום.",
+      description: "מזון מוכן לאכילה שאינו דורש בישול או חימום - קופסאות שימורים, חטיפי אנרגיה.",
       personalized_note: "חשוב במקרה שאין אפשרות לבשל או לחמם מזון.",
       importance: 3,
+      shelf_life: "2 שנים",
+      usage_instructions: "יש לבדוק תאריכי תפוגה ולהחליף בהתאם.",
     },
     {
-      name: "ערכת עזרה ראשונה מורחבת",
-      category: "medical",
-      description: "ערכת עזרה ראשונה מורחבת הכוללת פריטים נוספים מעבר לערכה הבסיסית.",
-      personalized_note: "חשובה לטיפול במגוון רחב יותר של פציעות ומצבים רפואיים.",
+      name: "ערכת היגיינה אישית מורחבת",
+      category: "hygiene",
+      description: "ערכת היגיינה הכוללת מברשת שיניים, משחת שיניים, סבון, שמפו יבש ומוצרי היגיינה נוספים.",
+      personalized_note: "חשובה לשמירה על היגיינה אישית במהלך שהייה ממושכת במקלט.",
       importance: 3,
+      shelf_life: "2 שנים",
+      usage_instructions: "יש להשתמש במינון חסכוני ולשמור על ניקיון.",
     },
   ]
 
-  // בחר פריט לפי האינדקס
+  // בחר פריט לפי האינדקס (עם מודולו כדי למנוע חריגה מהמערך)
   const selectedItem = fallbackItems[index % fallbackItems.length]
 
   // החזר את הפריט המלא עם כל השדות הנדרשים
@@ -514,8 +620,8 @@ function generateGenericPersonalizedItem(index: number, profile: any): any {
     unit: getUnitForItem(selectedItem.name),
     importance: selectedItem.importance,
     description: selectedItem.description,
-    shelf_life: getShelfLifeForItem(selectedItem.name),
-    usage_instructions: getUsageInstructionsForItem(selectedItem.name),
+    shelf_life: selectedItem.shelf_life,
+    usage_instructions: selectedItem.usage_instructions,
     recommended_quantity_per_person: getRecommendedQuantityForItem(selectedItem.name),
     obtained: false,
     expiryDate: null,
