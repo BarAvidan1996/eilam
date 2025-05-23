@@ -14,6 +14,7 @@ import {
   Activity,
   UsersIcon,
   ShieldCheck,
+  PlusCircle,
 } from "lucide-react"
 import {
   AlertDialog,
@@ -38,9 +39,9 @@ import { Label } from "@/components/ui/label"
 import { EquipmentService } from "@/lib/services/equipment-service"
 import { format } from "date-fns"
 import { he } from "date-fns/locale"
-import { useNavigate } from "react-router-dom"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { EquipmentList } from "@/entities/EquipmentList"
-import { createPageUrl } from "@/utils"
 
 // מיפוי קטגוריות לאייקונים
 const getCategoryIcon = (category) => {
@@ -144,7 +145,7 @@ const translations = {
 }
 
 export default function EquipmentListsPage() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const [lists, setLists] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -186,11 +187,11 @@ export default function EquipmentListsPage() {
   }, [])
 
   const handleListClick = (listId) => {
-    navigate(createPageUrl("EquipmentPage") + "?listId=" + listId)
+    router.push(`/equipment/${listId}`)
   }
 
   const handleCreateList = () => {
-    navigate(createPageUrl("EquipmentPage"))
+    router.push("/equipment")
   }
 
   // Handle delete list
@@ -355,9 +356,12 @@ ${
       <p className="text-gray-600 dark:text-gray-400 mb-6">צור, ערוך ונהל רשימות ציוד חיוני למצבי חירום.</p>
 
       <div className="mb-6">
-        <button onClick={handleCreateList} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 mb-4">
-          צור רשימה חדשה
-        </button>
+        <Link href="/equipment">
+          <Button className="bg-purple-600 hover:bg-purple-700 text-white mb-4">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            צור רשימה חדשה
+          </Button>
+        </Link>
       </div>
 
       <h2 className="text-xl font-semibold mb-4">הרשימות שלי</h2>
@@ -370,19 +374,17 @@ ${
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {lists.map((list) => (
-            <div
-              key={list.id}
-              onClick={() => handleListClick(list.id)}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
-            >
-              <h3 className="text-lg font-semibold mb-2">{list.name}</h3>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600 dark:text-gray-400">{list.items?.length || 0} פריטים</span>
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {new Date(list.updatedAt || list.createdAt).toLocaleDateString()}
-                </span>
+            <Link key={list.id} href={`/equipment/${list.id}`}>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow">
+                <h3 className="text-lg font-semibold mb-2">{list.name}</h3>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{list.items?.length || 0} פריטים</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {new Date(list.updatedAt || list.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
