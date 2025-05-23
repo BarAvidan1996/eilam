@@ -23,9 +23,11 @@ import {
   RotateCcw,
   Info,
   Sparkles,
-  Utensils,
-  Phone,
-  Wallet,
+  FileText,
+  Droplets,
+  Pencil,
+  X,
+  Plus,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -219,12 +221,12 @@ const generateAIRecommendations = async (prompt) => {
 
 // Category icons and styles
 const categoryIcons = {
-  water_food: <Utensils className="h-5 w-5" />,
+  water_food: <Droplets className="h-5 w-5" />,
   medical: <Pill className="h-5 w-5" />,
   hygiene: <HeartHandshake className="h-5 w-5" />,
   lighting_energy: <Lightbulb className="h-5 w-5" />,
-  communication: <Phone className="h-5 w-5" />,
-  documents_money: <Wallet className="h-5 w-5" />,
+  communication: <FileText className="h-5 w-5" />,
+  documents_money: <FileText className="h-5 w-5" />,
   children: <Baby className="h-5 w-5" />,
   pets: <Cat className="h-5 w-5" />,
   elderly: <UsersIcon className="h-5 w-5" />,
@@ -238,7 +240,7 @@ const categoryColors = {
     text: "text-blue-800",
     darkBg: "dark:bg-blue-900/30",
     darkText: "dark:text-blue-400",
-    icon: <Utensils className="h-4 w-4 sm:h-5 sm:w-5" />,
+    icon: <Droplets className="h-4 w-4 sm:h-5 sm:w-5" />,
   },
   medical: {
     bg: "bg-red-100",
@@ -266,14 +268,14 @@ const categoryColors = {
     text: "text-purple-800",
     darkBg: "dark:bg-purple-900/30",
     darkText: "dark:text-purple-400",
-    icon: <Phone className="h-4 w-4 sm:h-5 sm:w-5" />,
+    icon: <FileText className="h-4 w-4 sm:h-5 sm:w-5" />,
   },
   documents_money: {
     bg: "bg-indigo-100",
     text: "text-indigo-800",
     darkBg: "dark:bg-indigo-900/30",
     darkText: "dark:text-indigo-400",
-    icon: <Wallet className="h-4 w-4 sm:h-5 sm:w-5" />,
+    icon: <FileText className="h-4 w-4 sm:h-5 sm:w-5" />,
   },
   children: {
     bg: "bg-pink-100",
@@ -1426,50 +1428,77 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                 )}
               </Accordion>
 
-              <div className="mt-6 flex justify-between">
-                <div className="flex gap-2">
-                  {isEditing && (
+              <div className="mt-6">
+                {isEditing ? (
+                  <div className="flex flex-col md:flex-row gap-2">
                     <Button
-                      variant="outline"
-                      onClick={handleUndo}
-                      disabled={itemHistory.length === 0}
-                      className="flex items-center gap-1"
+                      onClick={saveAIGeneratedList}
+                      disabled={isAILoading}
+                      className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
                     >
-                      <RotateCcw className="h-4 w-4" />
-                      {t.undoAction || "בטל פעולה אחרונה"}
+                      {isAILoading ? (
+                        <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                      ) : (
+                        <FileText className="h-5 w-5" />
+                      )}
+                      {t.saveChanges || "שמור שינויים"}
                     </Button>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {isEditing ? (
-                    <>
+
+                    <div className="flex flex-col md:flex-row gap-2 w-full md:w-1/2">
+                      <Button
+                        variant="outline"
+                        onClick={handleUndo}
+                        disabled={itemHistory.length === 0}
+                        className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2"
+                      >
+                        <RotateCcw className="h-5 w-5" />
+                        {t.undoAction || "בטל פעולה אחרונה"}
+                      </Button>
+
+                      <Button
+                        variant="destructive"
+                        onClick={() => setIsEditing(false)}
+                        className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2"
+                      >
+                        <X className="h-5 w-5" />
+                        {t.cancelEditing || "בטל עריכה"}
+                      </Button>
+
                       <Button
                         variant="outline"
                         onClick={() => setIsAddItemDialogOpen(true)}
-                        className="flex items-center gap-1"
+                        className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2"
                       >
+                        <Plus className="h-5 w-5" />
                         {t.addItem || "הוסף פריט"}
                       </Button>
-                      <Button variant="outline" onClick={() => setIsEditing(false)} className="flex items-center gap-1">
-                        {t.cancelEditing || "בטל עריכה"}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button variant="outline" onClick={() => setIsEditing(true)} className="flex items-center gap-1">
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col md:flex-row gap-2">
+                    <Button
+                      onClick={saveAIGeneratedList}
+                      disabled={isAILoading}
+                      className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
+                    >
+                      {isAILoading ? (
+                        <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                      ) : (
+                        <FileText className="h-5 w-5" />
+                      )}
+                      {t.aiSaveList || "שמור רשימה מומלצת"}
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsEditing(true)}
+                      className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2"
+                    >
+                      <Pencil className="h-5 w-5" />
                       {t.editList || "ערוך רשימה"}
                     </Button>
-                  )}
-                  <Button
-                    onClick={saveAIGeneratedList}
-                    disabled={isAILoading}
-                    className="bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center gap-1"
-                  >
-                    {isAILoading ? (
-                      <div className="h-4 w-4 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
-                    ) : null}
-                    {t.aiSaveList || "שמור רשימה"}
-                  </Button>
-                </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
