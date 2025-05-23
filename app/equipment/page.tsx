@@ -318,80 +318,6 @@ const LoadingIndicator = ({ state, t }) => {
   )
 }
 
-// נתקן את פונקציית handleSaveChanges כדי לתמוך גם בעדכון רשימות קיימות
-const handleSaveChanges = async () => {
-  if (!currentListName) {
-    toast({
-      title: "שגיאה",
-      description: t.listNameCannotBeEmpty || "שם הרשימה אינו יכול להיות ריק.",
-      variant: "destructive",
-    })
-    return
-  }
-
-  try {
-    setIsAILoading(true)
-
-    // בדיקה אם זו רשימה קיימת או חדשה
-    const urlParams = new URLSearchParams(window.location.search)
-    const listId = urlParams.get("listId")
-
-    // הכנת הנתונים לשמירה
-    const listData = {
-      name: currentListName,
-      description: aiGeneratedProfile ? JSON.stringify(aiGeneratedProfile) : "",
-      items: aiGeneratedItems.map((item) => ({
-        id: item.id, // שמירה על ה-ID המקורי אם קיים
-        name: item.name,
-        category: item.category || "other",
-        quantity: item.quantity || 1,
-        unit: item.unit || "יחידות",
-        description: item.description || "",
-        importance: item.importance || 3,
-        obtained: item.obtained || false,
-        expiryDate: item.expiryDate || null,
-        sms_notification: item.sms_notification || false,
-        usage_instructions: item.usage_instructions || "",
-        shelf_life: item.shelf_life || "",
-        recommended_quantity_per_person: item.recommended_quantity_per_person || "",
-        personalized_note: item.personalized_note || "",
-        is_mandatory: item.is_mandatory || false,
-      })),
-    }
-
-    // שמירת או עדכון הרשימה
-    if (listId) {
-      // עדכון רשימה קיימת
-      await EquipmentService.updateList(listId, listData)
-      toast({
-        title: "הצלחה",
-        description: t.listUpdatedSuccessfully || "הרשימה עודכנה בהצלחה!",
-        variant: "default",
-      })
-    } else {
-      // יצירת רשימה חדשה
-      await EquipmentService.createList(listData)
-      toast({
-        title: "הצלחה",
-        description: t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!",
-        variant: "default",
-      })
-    }
-
-    // ניווט לדף רשימות הציוד
-    router.push("/equipment-lists")
-  } catch (error) {
-    console.error("Error saving list:", error)
-    toast({
-      title: "שגיאה",
-      description: t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.",
-      variant: "destructive",
-    })
-  } finally {
-    setIsAILoading(false)
-  }
-}
-
 export default function EquipmentPage({ initialList = null }: { initialList?: any }) {
   const router = useRouter()
   const [language, setLanguage] = useState("he")
@@ -442,6 +368,80 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false)
 
   const isRTL = language === "he" || language === "ar"
+
+  // נתקן את פונקציית handleSaveChanges כדי לתמוך גם בעדכון רשימות קיימות
+  const handleSaveChanges = async () => {
+    if (!currentListName) {
+      toast({
+        title: "שגיאה",
+        description: t.listNameCannotBeEmpty || "שם הרשימה אינו יכול להיות ריק.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsAILoading(true)
+
+      // בדיקה אם זו רשימה קיימת או חדשה
+      const urlParams = new URLSearchParams(window.location.search)
+      const listId = urlParams.get("listId")
+
+      // הכנת הנתונים לשמירה
+      const listData = {
+        name: currentListName,
+        description: aiGeneratedProfile ? JSON.stringify(aiGeneratedProfile) : "",
+        items: aiGeneratedItems.map((item) => ({
+          id: item.id, // שמירה על ה-ID המקורי אם קיים
+          name: item.name,
+          category: item.category || "other",
+          quantity: item.quantity || 1,
+          unit: item.unit || "יחידות",
+          description: item.description || "",
+          importance: item.importance || 3,
+          obtained: item.obtained || false,
+          expiryDate: item.expiryDate || null,
+          sms_notification: item.sms_notification || false,
+          usage_instructions: item.usage_instructions || "",
+          shelf_life: item.shelf_life || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+          personalized_note: item.personalized_note || "",
+          is_mandatory: item.is_mandatory || false,
+        })),
+      }
+
+      // שמירת או עדכון הרשימה
+      if (listId) {
+        // עדכון רשימה קיימת
+        await EquipmentService.updateList(listId, listData)
+        toast({
+          title: "הצלחה",
+          description: t.listUpdatedSuccessfully || "הרשימה עודכנה בהצלחה!",
+          variant: "default",
+        })
+      } else {
+        // יצירת רשימה חדשה
+        await EquipmentService.createList(listData)
+        toast({
+          title: "הצלחה",
+          description: t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!",
+          variant: "default",
+        })
+      }
+
+      // ניווט לדף רשימות הציוד
+      router.push("/equipment-lists")
+    } catch (error) {
+      console.error("Error saving list:", error)
+      toast({
+        title: "שגיאה",
+        description: t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAILoading(false)
+    }
+  }
 
   // Get category style
   const getCategoryStyle = (categoryKey) => {
