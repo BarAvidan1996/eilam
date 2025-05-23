@@ -1964,7 +1964,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
       // Process the AI recommendations
       const processedItems = recommendations.items.map((item) => ({
-
         id: crypto.randomUUID(),
         name: item.name || t.unknownItem || "פריט לא ידוע",
         category: item.category || "other",
