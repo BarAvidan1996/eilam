@@ -25,8 +25,8 @@ import { enUS } from "date-fns/locale" // Corrected import for English (US)
 // If you need Arabic and Russian locales for date-fns formatting:
 // import { ar } from 'date-fns/locale';
 // import { ru } from 'date-fns/locale';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { HelpCircle } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 const baseTranslations = {
   he: {
@@ -1095,8 +1095,10 @@ export default function EquipmentPage() {
   const handleUndoLastAction = () => {
     if (itemHistory.length > 0) {
       const lastState = itemHistory[itemHistory.length - 1]
-      setAIGeneratedItems(lastState)
-      setItemHistory(itemHistory.slice(0, -1))
+      if (Array.isArray(lastState)) {
+        setAIGeneratedItems(lastState)
+        setItemHistory(itemHistory.slice(0, -1))
+      }
     }
   }
 
@@ -1184,6 +1186,16 @@ export default function EquipmentPage() {
       setIsAILoading(false)
     }
   }
+
+  // וודא שהמערכים מאותחלים כראוי
+  useEffect(() => {
+    if (!Array.isArray(aiGeneratedItems)) {
+      setAIGeneratedItems([])
+    }
+    if (!Array.isArray(filteredItems)) {
+      setFilteredItems([])
+    }
+  }, [])
 
   // Render the equipment page UI
   return (
@@ -1276,7 +1288,7 @@ export default function EquipmentPage() {
                           <span className="animate-spin mr-2">⟳</span> {t.saveChanges}
                         </span>
                       ) : (
-                        t.saveList || "שמור רשימה"
+                        t.saveList
                       )}
                     </button>
                   </>
@@ -1324,7 +1336,7 @@ export default function EquipmentPage() {
                         className="px-3 py-2 border rounded"
                       >
                         <option value="all">{t.allCategories}</option>
-                        {Object.keys(aiCategories)
+                        {Object.keys(aiCategories || {})
                           .filter(
                             (key) =>
                               !key.includes("_label") &&
@@ -1515,7 +1527,7 @@ export default function EquipmentPage() {
                                   onChange={(e) => handleUpdateItem(item.id, { category: e.target.value })}
                                   className="px-2 py-1 border rounded text-sm col-span-2"
                                 >
-                                  {Object.keys(aiCategories)
+                                  {Object.keys(aiCategories || {})
                                     .filter(
                                       (key) =>
                                         !key.includes("_label") &&
@@ -1609,7 +1621,7 @@ export default function EquipmentPage() {
                     onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
                     className="w-full px-3 py-2 border rounded"
                   >
-                    {Object.keys(aiCategories)
+                    {Object.keys(aiCategories || {})
                       .filter(
                         (key) =>
                           !key.includes("_label") &&
