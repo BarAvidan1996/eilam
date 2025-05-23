@@ -1,218 +1,44 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardDescription, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
-  Trash2,
+  FileText,
   AlertTriangle,
   ListChecks,
   Lightbulb,
-  ShieldCheck,
-  Filter,
-  Search,
   Baby,
   Cat,
   Activity,
+  Droplets,
   Pill,
   HeartHandshake,
   UsersIcon,
+  ShieldCheck,
   RotateCcw,
-  Info,
   Sparkles,
-  FileText,
-  Droplets,
-  Pencil,
-  X,
-  Plus,
+  Info,
+  Search,
+  Filter,
+  Trash2,
 } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { useRouter } from "next/navigation"
-import { EquipmentService } from "@/lib/services/equipment-service"
+import { enUS } from "date-fns/locale" // Corrected import for English (US)
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { useToast } from "@/hooks/use-toast"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { useToast } from "@/components/ui/use-toast"
+import { EquipmentService } from "@/services/equipment.service"
+import { AIRecommendationService } from "@/services/ai-recommendation.service"
+import { MANDATORY_ITEMS } from "@/constants/mandatory-items"
+import { calculateQuantity } from "@/utils/calculate-quantity"
+import { getUnitForItem } from "@/utils/get-unit-for-item"
 
-const requiredFieldStyle = "text-red-500 ml-1"
-
-// Define mandatory items that must be included - moved to component level
-const MANDATORY_ITEMS = [
-  {
-    id: "mandatory-1",
-    name: "מים (3 ליטר לאדם ליום)",
-    category: "water_food",
-    importance: 5,
-    description: "מים לשתייה ולשימוש בסיסי. פריט חובה של פיקוד העורף.",
-    shelf_life: "שנה",
-    usage_instructions: "יש לאחסן במקום קריר ויבש. מומלץ להחליף כל שנה.",
-    recommended_quantity_per_person: "3 ליטר ליום",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-2",
-    name: "מזון יבש/משומר",
-    category: "water_food",
-    importance: 5,
-    description: "מזון שאינו דורש קירור או בישול. פריט חובה של פיקוד העורף.",
-    shelf_life: "שנה",
-    usage_instructions: "יש לבדוק תאריכי תפוגה ולהחליף בהתאם.",
-    recommended_quantity_per_person: "מנה ליום",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-3",
-    name: "ערכת עזרה ראשונה",
-    category: "medical",
-    importance: 5,
-    description: "ערכה בסיסית לטיפול בפציעות קלות. פריט חובה של פיקוד העורף.",
-    shelf_life: "שנתיים",
-    usage_instructions: "יש לבדוק שלמות ותקינות הפריטים אחת לחצי שנה.",
-    recommended_quantity_per_person: "1 ערכה למשפחה",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-4",
-    name: "תרופות קבועות + מרשמים מודפסים",
-    category: "medical",
-    importance: 5,
-    description: "תרופות קבועות לבני המשפחה ומרשמים מודפסים. פריט חובה של פיקוד העורף.",
-    shelf_life: "בהתאם לתרופה",
-    usage_instructions: "יש לוודא מלאי לפחות לשבוע ימים ולבדוק תאריכי תפוגה.",
-    recommended_quantity_per_person: "לפי הצורך הרפואי",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-5",
-    name: "רדיו + סוללות",
-    category: "communication",
-    importance: 5,
-    description: "רדיו המופעל על סוללות לקבלת עדכונים. פריט חובה של פיקוד העורף.",
-    shelf_life: "5 שנים",
-    usage_instructions: "יש לבדוק תקינות אחת לחודש ולהחליף סוללות בהתאם.",
-    recommended_quantity_per_person: "1 רדיו למשפחה",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-6",
-    name: "פנסים + סוללות",
-    category: "lighting_energy",
-    importance: 5,
-    description: "פנסים לתאורת חירום. פריט חובה של פיקוד העורף.",
-    shelf_life: "5 שנים",
-    usage_instructions: "יש לבדוק תקינות אחת לחודש ולהחליף סוללות בהתאם.",
-    recommended_quantity_per_person: "1 פנס לאדם",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-7",
-    name: "מטענים ניידים לטלפונים",
-    category: "communication",
-    importance: 5,
-    description: "מטענים ניידים לטעינת טלפונים ניידים. פריט חובה של פיקוד העורף.",
-    shelf_life: "3 שנים",
-    usage_instructions: "יש לוודא שהמטענים טעונים במלואם.",
-    recommended_quantity_per_person: "1 מטען לטלפון",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-8",
-    name: "ציוד ייחודי לתינוקות/קשישים/חיות מחמד",
-    category: "other",
-    importance: 5,
-    description: "ציוד ייחודי בהתאם לצרכים המיוחדים של בני המשפחה. פריט חובה של פיקוד העורף.",
-    shelf_life: "בהתאם לפריט",
-    usage_instructions: "יש להתאים לצרכים הספציפיים של המשפחה.",
-    recommended_quantity_per_person: "לפי הצורך",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-9",
-    name: "עותקים של מסמכים חשובים",
-    category: "documents_money",
-    importance: 5,
-    description: "עותקים של תעודות זהות, דרכונים, רישיונות וכו'. פריט חובה של פיקוד העורף.",
-    shelf_life: "לא רלוונטי",
-    usage_instructions: "יש לשמור במקום אטום למים ולעדכן בהתאם לשינויים.",
-    recommended_quantity_per_person: "עותק לכל מסמך",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-10",
-    name: "מטף כיבוי אש",
-    category: "other",
-    importance: 5,
-    description: "מטף לכיבוי שריפות קטנות. פריט חובה של פיקוד העורף.",
-    shelf_life: "5 שנים",
-    usage_instructions: "יש לבדוק תקינות אחת לשנה ולתחזק בהתאם להוראות היצרן.",
-    recommended_quantity_per_person: "1 מטף למשפחה",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-11",
-    name: "חצי מיכל דלק ברכב",
-    category: "other",
-    importance: 5,
-    description: "שמירה על לפחות חצי מיכל דלק ברכב. פריט חובה של פיקוד העורף.",
-    shelf_life: "לא רלוונטי",
-    usage_instructions: "יש לוודא שהרכב תמיד עם לפחות חצי מיכל דלק.",
-    recommended_quantity_per_person: "חצי מיכל",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-12",
-    name: "משחקים ופעילויות לילדים",
-    category: "children",
-    importance: 5,
-    description: "משחקים ופעילויות להפגת מתח ושעמום. פריט חובה של פיקוד העורף.",
-    shelf_life: "לא רלוונטי",
-    usage_instructions: "יש להתאים לגיל הילדים ולהעדפותיהם.",
-    recommended_quantity_per_person: "לפי מספר הילדים",
-    is_mandatory: true,
-  },
-  {
-    id: "mandatory-13",
-    name: "ציוד בסיסי לחיות מחמד",
-    category: "pets",
-    importance: 5,
-    description: "מזון, מים, ותרופות לחיות המחמד. פריט חובה של פיקוד העורף.",
-    shelf_life: "בהתאם לפריט",
-    usage_instructions: "יש להתאים לסוג חיית המחמד ולצרכיה.",
-    recommended_quantity_per_person: "לפי מספר החיות",
-    is_mandatory: true,
-  },
-]
-
-// Helper functions for calculating quantities and units
-function calculateQuantity(itemName: string, profile: any): number {
-  if (!profile) return 1
-
-  const totalPeople = (profile.adults || 1) + (profile.children || 0) + (profile.babies || 0) + (profile.elderly || 0)
-  const days = Math.ceil((profile.duration_hours || 72) / 24)
-
-  if (itemName.includes("מים")) {
-    return 3 * totalPeople * days // 3 liters per person per day
-  } else if (itemName.includes("מזון")) {
-    return totalPeople * days // 1 unit per person per day
-  } else if (itemName.includes("חיות מחמד") && profile.pets) {
-    return profile.pets // 1 unit per pet
-  } else if (itemName.includes("משחקים") && profile.children) {
-    return profile.children // 1 unit per child
-  }
-
-  return 1
-}
-
-function getUnitForItem(itemName: string): string {
-  if (itemName.includes("מים")) return "ליטרים"
-  if (itemName.includes("מזון")) return "מנות"
-  return "יחידות"
-}
-
-// Base translations
 const baseTranslations = {
   he: {
     pageTitle: "ניהול ציוד חירום",
@@ -302,7 +128,7 @@ const baseTranslations = {
     durationHours: "משך זמן (שעות)",
     moreEssentialsMissing: "יש לרכוש {count} פריטים הכרחיים נוספים לשלמות הציוד",
     editList: "ערוך רשימה",
-    cancelEditing: "בטל עריכה",
+    cancelEditing: "צא מעריכה",
     addItem: "הוסף פריט",
     saveChanges: "שמור שינויים",
     addNewItem: "הוספת פריט חדש",
@@ -315,10 +141,9 @@ const baseTranslations = {
     itemShelfLife: "חיי מדף",
     itemUsageInstructions: "הוראות שימוש",
     itemRecommendedQuantity: "כמות מומלצת לאדם",
-    cancel: "ביטול",
     add: "הוסף",
     undoAction: "בטל פעולה אחרונה",
-    removeItem: "Remove Item",
+    removeItem: "הסר פריט",
     removeItemConfirm: "האם אתה בטוח שברצונך להסיר את הפריט?",
     removeItemDescription: "פעולה זו תסיר את הפריט מהרשימה ולא ניתן יהיה לשחזר אותו.",
     confirmRemove: "הסר",
@@ -336,6 +161,8 @@ const baseTranslations = {
     errorNoListToUpdate: "לא נבחרה רשימה לעדכון.",
     changesSavedSuccessfully: "השינויים נשמרו בהצלחה!",
     errorSavingChanges: "שגיאה בשמירת השינויים.",
+    itemAddedSuccessfully: "הפריט נוסף בהצלחה!",
+    errorAddingItem: "שגיאה בהוספת הפריט.",
     expiryDate: "תאריך תפוגה",
     setExpiryDate: "הגדר תאריך תפוגה",
     sendReminder: "שלח לי תזכורת",
@@ -344,168 +171,119 @@ const baseTranslations = {
     days: "ימים",
     unknownItem: "פריט לא ידוע",
     usageInstructionsPlaceholder: "הוראות שימוש והערות חשובות",
-    saveList: "שמור רשימה",
+    loading: "טוען...",
+    defaultValueUsed: "ערך ברירת מחדל",
+    extractingData: "מחלץ מידע מהתיאור שלך...",
+    generatingRecommendations: "יוצר רשימת ציוד מותאמת אישית...",
+    processingItems: "מעבד את הפריטים המומלצים...",
+    finalizingProcess: "מסיים את התהליך...",
+    processingGeneric: "מעבד...",
+    autoGeneratedListName: "שם הרשימה יווצר אוטומטית לפי המאפיינים שלך",
+    elderly: "קשישים",
+    tryAgain: "נסה שוב",
+    itemNameCannotBeEmpty: "שם הפריט אינו יכול להיות ריק.",
+    mandatoryItem: "פריט חובה",
+    mandatoryItemTooltip: "ציוד מומלץ על-פי פיקוד העורף",
+    personalizedItem: "פריט מותאם אישית",
+    personalizedItemTooltip: "פריט שהותאם במיוחד לצרכים שלך",
+    showMandatoryOnly: "הצג רק פריטי חובה",
+    showPersonalizedOnly: "הצג רק פריטים מותאמים אישית",
+    showAllItems: "הצג את כל הפריטים",
+    mandatoryItemsCount: "פריטי חובה",
+    personalizedItemsCount: "פריטים מותאמים אישית",
+    estimatedExpiryDate: "תאריך תפוגה משוער",
+    smsNotification: "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה.",
+    smsNotificationInfo: "ההודעה תישלח למספר הטלפון שהוזן בעת ההרשמה. ניתן לערוך את מספר הטלפון שלך בעמוד",
+    profilePage: "פרופיל",
   },
   en: {
     pageTitle: "Emergency Equipment Management",
     pageDescription: "Create, edit, and manage essential equipment lists for emergencies.",
-    createListAI: "Create List with AI",
-    createListManual: "Create List Manually",
-    myLists: "My Lists",
-    noListsYet: "You haven't created any equipment lists yet.",
-    noListsYetDescription: "Click 'Create List Manually' or 'Create List with AI' to get started.",
-    selectListPrompt: "Select a list to display or create a new one.",
-    createNewListButtonPrompt: "Create New List",
-    exportList: "Export List",
-    editListDetails: "Edit List Details",
-    itemQuantityUnit: "{quantity} {unit}",
-    categoryLabel: "Category:",
-    expiryLabel: "Expires:",
-    addItemToList: "Add Item to List",
-    reminders: "Reminders",
-    deleteItem: "Delete Item",
-    createListModalTitle: "Create New List",
-    listNameLabel: "List Name",
-    listDescriptionLabel: "Description (optional)",
-    cancel: "Cancel",
-    aiModalTitle: "Smart AI Equipment List Creation",
-    aiPromptDescription:
-      "Tell us about yourself and your household so we can customize the recommended equipment list for you.",
-    aiPromptPlaceholder:
-      "For example: I live in an apartment with my husband and a 5-year-old daughter. We have a cat. I have a mobility disability and use a walker. We live on the 2nd floor without an elevator.",
-    aiGenerateButton: "Generate AI Recommendations",
-    aiGenerating: "Generating personalized list...",
-    aiItemsTitle: "AI Recommended Items",
-    aiListNamePlaceholder: "e.g., Smart Family Emergency List",
-    aiSaveList: "Save Recommended List",
-    aiSavedSuccess: "List saved successfully!",
-    aiGoToList: "Go to List",
-    aiBack: "Back",
-    aiFamilyComposition: "Family Composition",
-    aiAdults: "Adults",
-    aiChildren: "Children",
-    aiBabies: "Babies",
-    aiPets: "Pets",
-    aiSpecialNeeds: "Special Needs",
-    aiNeedsAttention: "Needs Attention",
-    aiCategories: {
-      water_food: "Water & Food",
-      medical: "Medical Equipment",
-      hygiene: "Hygiene",
-      lighting_energy: "Lighting & Energy",
-      communication: "Communication",
-      documents_money: "Documents & Money",
-      children: "Children",
-      pets: "Pets",
-      elderly: "Elderly",
-      special_needs: "Special Needs",
-      other: "General Equipment",
-      essential: "Essential",
-      very_important: "Very Important",
-      important: "Important",
-      recommended: "Recommended",
-      optional: "Optional",
-      recommended_quantity_per_person_label: "Recommended Quantity per Person",
-      usage_instructions_label: "Usage Instructions",
-      shelf_life_label: "Shelf Life",
-      default_unit: "Units",
-    },
-    categories: [
-      "Food & Water",
-      "Medical & Hygiene",
-      "Lighting & Energy",
-      "Communication",
-      "Documents & Money",
-      "Clothing & Miscellaneous",
-    ],
-    summaryTitle: "Your Equipment Summary",
-    categoriesCount: "Categories",
-    totalReadiness: "Total Readiness",
-    missingEssentialItems: "Essential Missing",
-    itemsChecked: "Items Checked",
-    backToAI: "Back to AI Prompt",
-    missingEssentialItemsTitle: "Missing Essential Items",
-    andMoreMissing: "And {count} more essential items missing...",
-    allItemsTitle: "All Items in List",
-    searchItemPlaceholder: "Search item...",
-    categoryFilterPlaceholder: "Category",
-    allCategories: "All Categories",
-    importanceFilterPlaceholder: "Importance",
-    allLevels: "All Levels",
-    clearFiltersButton: "Clear",
-    noItemsFound: "No items found matching your search",
-    showAllItemsButton: "Show All Items",
-    description: "Description",
-    quantity: "Quantity",
-    important: "Important",
-    durationHours: "Duration (hours)",
-    moreEssentialsMissing: "You need to acquire {count} more essential items for complete preparedness",
-    editList: "Edit List",
-    cancelEditing: "Cancel Editing",
-    addItem: "Add Item",
-    saveChanges: "Save Changes",
-    addNewItem: "Add New Item",
-    itemName: "Item Name",
-    itemCategory: "Category",
-    itemQuantity: "Quantity",
-    itemUnit: "Unit",
-    itemImportance: "Importance",
-    itemDescription: "Description",
-    itemShelfLife: "Shelf Life",
-    itemUsageInstructions: "Usage Instructions",
-    itemRecommendedQuantity: "Recommended Quantity per Person",
-    cancel: "Cancel",
-    add: "Add",
-    undoAction: "Undo Last Action",
-    removeItem: "Remove Item",
-    removeItemConfirm: "Are you sure you want to remove this item?",
-    removeItemDescription: "This action will remove the item from the list and cannot be undone.",
-    confirmRemove: "Remove",
-    cancelRemove: "Cancel",
-    enterListNamePrompt: "Enter a name for the new list:",
-    defaultNewListName: "New List",
-    listNameCannotBeEmpty: "List name cannot be empty.",
-    notSpecified: "Not Specified",
-    errorProvideListNameOrProfile: "Please provide a list name or profile details to create a personalized list.",
-    equipmentListFor: "Equipment list for",
-    adults: "adults",
-    listUpdatedSuccessfully: "List updated successfully!",
-    listCreatedSuccessfully: "List created successfully!",
-    errorSavingList: "Error saving list. Please try again.",
-    errorNoListToUpdate: "No list selected for updating.",
-    changesSavedSuccessfully: "Changes saved successfully!",
-    errorSavingChanges: "Error saving changes.",
-    expiryDate: "Expiry Date",
-    setExpiryDate: "Set Expiry Date",
-    sendReminder: "Send me a reminder",
-    aiSuggestedExpiry: "AI Suggested Expiry: ",
-    noExpiryDate: "No expiry date",
-    days: "days",
-    unknownItem: "Unknown Item",
-    usageInstructionsPlaceholder: "Usage instructions and important notes",
-    saveList: "Save List",
   },
 }
 
 // Category icons and styles
-const categoryIcons = {
-  water_food: <Droplets className="h-5 w-5" />,
-  medical: <Pill className="h-5 w-5" />,
-  hygiene: <HeartHandshake className="h-5 w-5" />,
-  lighting_energy: <Lightbulb className="h-5 w-5" />,
-  communication: <FileText className="h-5 w-5" />,
-  documents_money: <FileText className="h-5 w-5" />,
-  children: <Baby className="h-5 w-5" />,
-  pets: <Cat className="h-5 w-5" />,
-  elderly: <UsersIcon className="h-5 w-5" />,
-  special_needs: <Activity className="h-5 w-5" />,
-  other: <ListChecks className="h-5 w-5" />,
-  emergency: <ShieldCheck className="h-5 w-5" />,
-  food: <Droplets className="h-5 w-5" />,
-  pet: <Cat className="h-5 w-5" />,
+const categoryColors = {
+  water_food: {
+    bg: "bg-blue-100",
+    text: "text-blue-800",
+    darkBg: "dark:bg-blue-900/30",
+    darkText: "dark:text-blue-400",
+    icon: <Droplets className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
+  medical: {
+    bg: "bg-red-100",
+    text: "text-red-800",
+    darkBg: "dark:bg-red-900/30",
+    darkText: "dark:text-red-400",
+    icon: <Pill className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
+  hygiene: {
+    bg: "bg-green-100",
+    text: "text-green-800",
+    darkBg: "dark:bg-green-900/30",
+    darkText: "dark:text-green-400",
+    icon: <HeartHandshake className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
+  lighting_energy: {
+    bg: "bg-yellow-100",
+    text: "text-yellow-800",
+    darkBg: "dark:bg-yellow-900/30",
+    darkText: "dark:text-yellow-400",
+    icon: <Lightbulb className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
+  communication: {
+    bg: "bg-purple-100",
+    text: "text-purple-800",
+    darkBg: "dark:bg-purple-900/30",
+    darkText: "dark:text-purple-400",
+    icon: <FileText className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
+  documents_money: {
+    bg: "bg-indigo-100",
+    text: "text-indigo-800",
+    darkBg: "dark:bg-indigo-900/30",
+    darkText: "dark:text-indigo-400",
+    icon: <FileText className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
+  children: {
+    bg: "bg-pink-100",
+    text: "text-pink-800",
+    darkBg: "dark:bg-pink-900/30",
+    darkText: "dark:text-pink-400",
+    icon: <Baby className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
+  pets: {
+    bg: "bg-amber-100",
+    text: "text-amber-800",
+    darkBg: "dark:bg-amber-900/30",
+    darkText: "dark:text-amber-400",
+    icon: <Cat className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
+  elderly: {
+    bg: "bg-teal-100",
+    text: "text-teal-800",
+    darkBg: "dark:bg-teal-900/30",
+    darkText: "dark:text-teal-400",
+    icon: <UsersIcon className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
+  special_needs: {
+    bg: "bg-cyan-100",
+    text: "text-cyan-800",
+    darkBg: "dark:bg-cyan-900/30",
+    darkText: "dark:text-cyan-400",
+    icon: <Activity className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
+  other: {
+    bg: "bg-gray-100",
+    text: "text-gray-800",
+    darkBg: "dark:bg-gray-700",
+    darkText: "dark:text-gray-400",
+    icon: <ListChecks className="h-4 w-4 sm:h-5 sm:w-5" />,
+  },
 }
 
-// רכיב חדש להצגת מצב הטעינה
+// Loading indicator component
 const LoadingIndicator = ({ state, t }) => {
   const getStepText = () => {
     switch (state.step) {
@@ -538,113 +316,10 @@ const LoadingIndicator = ({ state, t }) => {
   )
 }
 
-// Define category colors
-const categoryColors = {
-  water_food: {
-    bg: "bg-blue-50",
-    text: "text-blue-700",
-    darkBg: "dark:bg-blue-900/20",
-    darkText: "dark:text-blue-300",
-    icon: categoryIcons.water_food,
-  },
-  medical: {
-    bg: "bg-red-50",
-    text: "text-red-700",
-    darkBg: "dark:bg-red-900/20",
-    darkText: "dark:text-red-300",
-    icon: categoryIcons.medical,
-  },
-  hygiene: {
-    bg: "bg-green-50",
-    text: "text-green-700",
-    darkBg: "dark:bg-green-900/20",
-    darkText: "dark:text-green-300",
-    icon: categoryIcons.hygiene,
-  },
-  lighting_energy: {
-    bg: "bg-yellow-50",
-    text: "text-yellow-700",
-    darkBg: "dark:bg-yellow-900/20",
-    darkText: "dark:text-yellow-300",
-    icon: categoryIcons.lighting_energy,
-  },
-  communication: {
-    bg: "bg-purple-50",
-    text: "text-purple-700",
-    darkBg: "dark:bg-purple-900/20",
-    darkText: "dark:text-purple-300",
-    icon: categoryIcons.communication,
-  },
-  documents_money: {
-    bg: "bg-gray-50",
-    text: "text-gray-700",
-    darkBg: "dark:bg-gray-900/20",
-    darkText: "dark:text-gray-300",
-    icon: categoryIcons.documents_money,
-  },
-  children: {
-    bg: "bg-pink-50",
-    text: "text-pink-700",
-    darkBg: "dark:bg-pink-900/20",
-    darkText: "dark:text-pink-300",
-    icon: categoryIcons.children,
-  },
-  pets: {
-    bg: "bg-orange-50",
-    text: "text-orange-700",
-    darkBg: "dark:bg-orange-900/20",
-    darkText: "dark:text-orange-300",
-    icon: categoryIcons.pets,
-  },
-  elderly: {
-    bg: "bg-teal-50",
-    text: "text-teal-700",
-    darkBg: "dark:bg-teal-900/20",
-    darkText: "dark:text-teal-300",
-    icon: categoryIcons.elderly,
-  },
-  special_needs: {
-    bg: "bg-lime-50",
-    text: "text-lime-700",
-    darkBg: "dark:bg-lime-900/20",
-    darkText: "dark:text-lime-300",
-    icon: categoryIcons.special_needs,
-  },
-  other: {
-    bg: "bg-stone-50",
-    text: "text-stone-700",
-    darkBg: "dark:bg-stone-900/20",
-    darkText: "dark:text-stone-300",
-    icon: categoryIcons.other,
-  },
-  emergency: {
-    bg: "bg-red-100",
-    text: "text-red-800",
-    darkBg: "dark:bg-red-900/30",
-    darkText: "dark:text-red-400",
-    icon: categoryIcons.emergency,
-  },
-  food: {
-    bg: "bg-blue-100",
-    text: "text-blue-800",
-    darkBg: "dark:bg-blue-900/30",
-    darkText: "dark:text-blue-400",
-    icon: categoryIcons.food,
-  },
-  pet: {
-    bg: "bg-orange-100",
-    text: "text-orange-800",
-    darkBg: "dark:bg-orange-900/30",
-    darkText: "dark:text-orange-400",
-    icon: categoryIcons.pet,
-  },
-}
-
 export default function EquipmentPage({ initialList = null }: { initialList?: any }) {
   const router = useRouter()
   const [language, setLanguage] = useState("he")
   const [translations, setTranslations] = useState(baseTranslations.he)
-  const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [aiUserPrompt, setAIUserPrompt] = useState("")
   const [isAILoading, setIsAILoading] = useState(false)
@@ -654,21 +329,20 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedImportance, setSelectedImportance] = useState("all")
-  const [selectedItemType, setSelectedItemType] = useState("all") // "all", "mandatory", "personalized"
-  const [filteredItems, setFilteredItems] = useState([])
+  const [selectedItemType, setSelectedItemType] = useState("all")
   const [isEditing, setIsEditing] = useState(false)
   const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false)
-  // Fix: Initialize locale states with null and set them in useEffect
-  const [currentLocale, setCurrentLocale] = useState(null)
-  // חדש: מעקב אחרי שדות שבהם נעשה שימוש בערכי ברירת מחדל
   const [defaultFields, setDefaultFields] = useState([])
   const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(false)
+  const [currentLocale, setCurrentLocale] = useState(enUS)
+  const [filteredItems, setFilteredItems] = useState([])
+  const { aiCategories } = translations
 
-  // חדש: מצב טעינה מפורט
   const [loadingState, setLoadingState] = useState({
     isLoading: false,
-    step: "", // "extracting", "generating", "processing", "finalizing"
-    progress: 0, // 0-100
+    step: "",
+    progress: 0,
   })
 
   const t = translations
@@ -677,7 +351,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     name: "",
     category: "water_food",
     quantity: 1,
-    unit: "יחידות", // Default unit
+    unit: "יחידות",
     importance: 3,
     description: "",
     expiryDate: null,
@@ -692,7 +366,85 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const [isListContextLoading, setIsListContextLoading] = useState(false)
   const [lastSavedMessage, setLastSavedMessage] = useState("")
 
+  const [editingItem, setEditingItem] = useState(null)
+  const [isEditItemDialogOpen, setIsEditItemDialogOpen] = useState(false)
+
   const isRTL = language === "he" || language === "ar"
+
+  // נתקן את פונקציונלית השמירה
+  const handleSaveChanges = async () => {
+    if (!currentListName) {
+      toast({
+        title: "שגיאה",
+        description: t.listNameCannotBeEmpty || "שם הרשימה אינו יכול להיות ריק.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsAILoading(true)
+
+      // בדיקה אם זו רשימה קיימת או חדשה
+      const urlParams = new URLSearchParams(window.location.search)
+      const listId = urlParams.get("listId")
+
+      // הכנת הנתונים לשמירה
+      const listData = {
+        name: currentListName,
+        description: aiGeneratedProfile ? JSON.stringify(aiGeneratedProfile) : "",
+        items: aiGeneratedItems.map((item) => ({
+          id: item.id, // שמירה על ה-ID המקורי אם קיים
+          name: item.name,
+          category: item.category || "other",
+          quantity: item.quantity || 1,
+          unit: item.unit || "יחידות",
+          description: item.description || "",
+          importance: item.importance || 3,
+          obtained: item.obtained || false,
+          expiryDate: item.expiryDate || null,
+          sms_notification: item.sms_notification || false,
+          usage_instructions: item.usage_instructions || "",
+          shelf_life: item.shelf_life || "",
+          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+          personalized_note: item.personalized_note || "",
+          is_mandatory: item.is_mandatory || false,
+        })),
+      }
+
+      // שמירת או עדכון הרשימה
+      if (listId) {
+        // עדכון רשימה קיימת
+        await EquipmentService.updateList(listId, listData)
+        toast({
+          title: "הצלחה",
+          description: t.listUpdatedSuccessfully || "הרשימה עודכנה בהצלחה!",
+          variant: "default",
+        })
+      } else {
+        // יצירת רשימה חדשה
+        await EquipmentService.createList(listData)
+        toast({
+          title: "הצלחה",
+          description: t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!",
+          variant: "default",
+        })
+      }
+
+      // ניווט לדף רשימות הציוד
+      router.push("/equipment-lists")
+    } catch (error) {
+      console.error("Error saving list:", error)
+      toast({
+        title: "שגיאה",
+        description: t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsAILoading(false)
+      setIsEditing(false) // יציאה ממצב עריכה
+    }
+  }
 
   // Get category style
   const getCategoryStyle = (categoryKey) => {
@@ -756,189 +508,141 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     )
   }
 
-  // Save list and generate items
+  // Generate AI recommendations
   const handleSaveListAndGenerateItems = async () => {
     setIsAILoading(true)
     setError("")
-    setLastSavedMessage("")
+    setAIGeneratedProfile(null)
+    setAIGeneratedItems([])
+    setDefaultFields([])
 
-    if (!aiUserPrompt.trim()) {
-      setError("אנא הזן תיאור של משק הבית שלך")
+    if (!aiUserPrompt.trim() && !currentListName) {
+      setError(t.errorProvideListNameOrProfile || "אנא ספק שם לרשימה או פרטי פרופיל ליצירת רשימה מותאמת אישית.")
       setIsAILoading(false)
       return
     }
 
     try {
-      // Update loading state
       setLoadingState({
         isLoading: true,
         step: "extracting",
         progress: 10,
       })
 
-      // Extract data from user prompt
-      const extractResponse = await fetch("/api/extract-data", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ prompt: aiUserPrompt }),
-      })
+      const profile = await AIRecommendationService.extractProfileData(aiUserPrompt)
 
-      if (!extractResponse.ok) {
-        throw new Error("Failed to extract data from prompt")
+      // תיקון: אם יש קשישים, לא לספור אותם גם כמבוגרים
+      if (profile.elderly && profile.elderly > 0 && profile.adults && profile.adults > 0) {
+        profile.adults = Math.max(0, profile.adults - profile.elderly)
       }
 
-      const extractedData = await extractResponse.json()
-
-      // שמירת השדות שבהם נעשה שימוש בערכי ברירת מחדל
-      if (extractedData.using_defaults && Array.isArray(extractedData.using_defaults)) {
-        setDefaultFields(extractedData.using_defaults)
-      }
-
-      // Update loading state
-      setLoadingState({
-        isLoading: true,
+      setLoadingState((prevState) => ({
+        ...prevState,
         step: "generating",
         progress: 30,
-      })
+      }))
 
-      // Generate recommendations based on extracted data
-      const recommendations = await generateAIRecommendations(aiUserPrompt)
+      const recommendations = await AIRecommendationService.generateRecommendations(aiUserPrompt)
 
-      // Update loading state
-      setLoadingState({
-        isLoading: true,
+      setLoadingState((prevState) => ({
+        ...prevState,
         step: "processing",
-        progress: 70,
-      })
+        progress: 60,
+      }))
 
-      if (recommendations && recommendations.items) {
-        setAIGeneratedItems(recommendations.items)
-        setAIGeneratedProfile(recommendations.profile || extractedData)
+      // Create mandatory items with calculated quantities
+      const mandatoryItems = MANDATORY_ITEMS.map((item) => ({
+        ...item,
+        id: crypto.randomUUID(),
+        quantity: calculateQuantity(item.name, profile),
+        unit: getUnitForItem(item.name),
+        obtained: false,
+        expiryDate: null,
+        sms_notification: false,
+        personalized_note: "",
+        is_mandatory: true, // Ensure this is explicitly set to true
+      }))
 
-        // Generate list name based on profile if not provided
-        if (!currentListName && recommendations.profile) {
-          const profile = recommendations.profile
-          let generatedName = "רשימת ציוד חירום"
-
-          if (profile.adults > 0 || profile.children > 0 || profile.babies > 0) {
-            generatedName += " למשפחה עם "
-            const parts = []
-            if (profile.adults > 0) parts.push(`${profile.adults} מבוגרים`)
-            if (profile.children > 0) parts.push(`${profile.children} ילדים`)
-            if (profile.babies > 0) parts.push(`${profile.babies} תינוקות`)
-            generatedName += parts.join(", ")
-          }
-
-          if (profile.pets > 0) {
-            generatedName += ` ו-${profile.pets} חיות מחמד`
-          }
-
-          if (profile.special_needs && profile.special_needs !== "לא צוין") {
-            generatedName += ` (${profile.special_needs})`
-          }
-
-          setCurrentListName(generatedName)
-        }
-      } else {
-        setError("Failed to generate recommendations. Please try again.")
+      // Get personalized items from AI
+      let personalizedItems = []
+      if (recommendations && recommendations.items && Array.isArray(recommendations.items)) {
+        // תיקון: סינון פריטים מותאמים אישית כדי למנוע כפילות עם פריטי חובה
+        personalizedItems = recommendations.items
+          .filter((item) => {
+            // בדיקה אם הפריט כבר קיים ברשימת פריטי החובה
+            const isMandatoryItem = MANDATORY_ITEMS.some(
+              (mandatoryItem) =>
+                mandatoryItem.name === item.name ||
+                item.name.includes(mandatoryItem.name) ||
+                mandatoryItem.name.includes(item.name),
+            )
+            return !isMandatoryItem // שמור רק פריטים שאינם פריטי חובה
+          })
+          .map((item) => ({
+            id: crypto.randomUUID(),
+            name: item.name || t.unknownItem || "פריט לא ידוע",
+            category: item.category || "other",
+            quantity: item.quantity || 1,
+            unit: item.unit || "יחידות",
+            obtained: false,
+            importance: Math.min(item.importance || 3, 4), // Cap at 4 for personalized items
+            description: item.description || "",
+            expiryDate: item.expiryDate || null,
+            sms_notification: false,
+            usage_instructions: "",
+            shelf_life: "",
+            recommended_quantity_per_person: item.recommended_quantity_per_person || "",
+            personalized_note: "",
+            is_mandatory: false, // Personalized items are never mandatory
+          }))
       }
 
-      // Update loading state
-      setLoadingState({
-        isLoading: true,
+      // Combine mandatory and personalized items
+      const allItems = [...mandatoryItems, ...personalizedItems]
+
+      setLoadingState((prevState) => ({
+        ...prevState,
         step: "finalizing",
         progress: 90,
-      })
+      }))
 
-      // Simulate a short delay for the final step
-      setTimeout(() => {
-        setLoadingState({
-          isLoading: false,
-          step: "",
-          progress: 100,
-        })
-        setIsAILoading(false)
-      }, 500)
-    } catch (error) {
-      console.error("Error generating AI recommendations:", error)
-      setError("An error occurred while generating recommendations. Please try again.")
-      setIsAILoading(false)
+      setAIGeneratedItems(allItems)
+      setAIGeneratedProfile({ ...profile, loadedFromExisting: false })
+
+      if (!currentListName) {
+        let autoListName = t.equipmentListFor || "רשימת ציוד עבור"
+        if (profile.adults) autoListName += ` ${profile.adults} ${t.adults || "מבוגרים"}`
+        if (profile.elderly) autoListName += ` ו-${profile.elderly} קשישים`
+        setCurrentListName(autoListName)
+      }
+
+      const defaultFieldsUsed = []
+      if (!profile.adults) defaultFieldsUsed.push("adults")
+      if (!profile.children) defaultFieldsUsed.push("children")
+      if (!profile.babies) defaultFieldsUsed.push("babies")
+      if (!profile.pets) defaultFieldsUsed.push("pets")
+      if (!profile.elderly) defaultFieldsUsed.push("elderly")
+      if (!profile.duration_hours) defaultFieldsUsed.push("duration_hours")
+      setDefaultFields(defaultFieldsUsed)
+
       setLoadingState({
         isLoading: false,
         step: "",
-        progress: 0,
+        progress: 100,
       })
-    }
-  }
 
-  // Save AI generated list
-  const saveAIGeneratedList = async () => {
-    setIsAILoading(true)
-    setError("")
-
-    if (!currentListName) {
-      setError(t.listNameCannotBeEmpty || "שם הרשימה אינו יכול להיות ריק.")
-      setIsAILoading(false)
-      return
-    }
-
-    try {
-      // הכנת הנתונים לשמירה
-      const listToSave = {
-        name: currentListName,
-        items: aiGeneratedItems.map((item) => ({
-          name: item.name,
-          category: item.category || "other",
-          quantity: Number(item.quantity) || 1,
-          unit: item.unit || "יחידות",
-          obtained: item.obtained || false,
-          importance: item.importance || 3,
-          description: item.description || "",
-          expiryDate: item.expiryDate || null,
-          sms_notification: item.sms_notification || false,
-          usage_instructions: item.usage_instructions || "",
-          shelf_life: item.shelf_life || "",
-          recommended_quantity_per_person: item.recommended_quantity_per_person || "",
-          personalized_note: item.personalized_note || "",
-          is_mandatory: item.is_mandatory || false,
-        })),
-      }
-
-      console.log("💾 Saving list with name:", currentListName)
-      console.log("📋 List has", listToSave.items.length, "items")
-
-      let savedList
-      if (initialList && initialList.id) {
-        console.log("🔄 Updating existing list with ID:", initialList.id)
-        savedList = await EquipmentService.updateList(initialList.id, listToSave)
-        setLastSavedMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
-      } else {
-        console.log("➕ Creating new list")
-        savedList = await EquipmentService.createList(listToSave)
-        setLastSavedMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
-
-        // מעבר לדף הרשימה החדשה
-        if (savedList && savedList.id) {
-          console.log("✅ List created with ID:", savedList.id)
-          setTimeout(() => {
-            router.push(`/equipment/${savedList.id}`)
-          }, 1000)
-        } else {
-          console.error("❌ Created list has no ID:", savedList)
-          setError("הרשימה נוצרה אך חסר מזהה. נא לרענן את הדף.")
-        }
-      }
+      console.log(
+        `Generated ${mandatoryItems.length} mandatory items and ${personalizedItems.length} personalized items`,
+      )
     } catch (error) {
-      console.error("❌ Error saving list:", error)
-      setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.")
+      console.error("AI Generation Error:", error)
+      setError(t.errorSavingList || "שגיאה ביצירת רשימה. אנא נסה שוב.")
     } finally {
       setIsAILoading(false)
     }
   }
 
-  // Filter items based on search query, category, importance, and item type
+  // Filter items
   const filterItems = (items) => {
     if (!items) return []
 
@@ -966,7 +670,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   // Handle adding a new item
   const handleAddItem = () => {
     if (!newItem.name.trim()) {
-      setError(t.itemNameCannotBeEmpty || "שם הפריט אינו יכול להיות ריק.")
+      toast({
+        title: "שגיאה",
+        description: t.itemNameCannotBeEmpty || "שם הפריט אינו יכול להיות ריק.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -980,6 +688,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     setAIGeneratedItems((prevItems) => [...prevItems, itemToAdd])
     setItemHistory((prevHistory) => [...prevHistory, { action: "add", item: itemToAdd }])
     setIsAddItemDialogOpen(false)
+    toast({
+      title: "הצלחה",
+      description: t.itemAddedSuccessfully || "הפריט נוסף בהצלחה!",
+      variant: "default",
+    })
     setnewItem({
       name: "",
       category: "water_food",
@@ -1107,7 +820,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-          <strong className="font-bold">שגיאה: </strong>
+          <strong className="font-bold">שגיאה: </strong> 
           <span className="block sm:inline">{error}</span>
         </div>
         <button
@@ -1504,7 +1217,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     </SelectContent>
                   </Select>
 
-                  {/* New filter for item type */}
                   <Select value={selectedItemType} onValueChange={setSelectedItemType}>
                     <SelectTrigger className="w-full sm:w-40">
                       <SelectValue placeholder="סוג פריט" />
@@ -1643,20 +1355,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="h-6 w-6 text-blue-500 hover:text-blue-700 hover:bg-blue-100"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleEditItem(item)
-                                  }}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                              )}
-
-                              {isEditing && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
                                   className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
                                   onClick={(e) => {
                                     e.stopPropagation()
@@ -1683,365 +1381,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                   </p>
                                 </div>
                               )}
-
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                <div>
-                                  <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                    כמות ויחידה
-                                  </h4>
-                                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                    {item.quantity} {item.unit}
-                                  </p>
-                                </div>
-
-                                {item.shelf_life && (
-                                  <div>
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.shelf_life_label || "חיי מדף"}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.shelf_life}
-                                    </p>
-                                  </div>
-                                )}
-
                                 {item.recommended_quantity_per_person && (
                                   <div>
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.recommended_quantity_per_person_label || "כמות מומלצת לאדם"}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.recommended_quantity_per_person}
-                                    </p>
-                                  </div>
-                                )}
-
-                                {item.usage_instructions && (
-                                  <div>
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.aiCategories.usage_instructions_label || "הוראות שימוש"}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.usage_instructions}
-                                    </p>
-                                  </div>
-                                )}
-
-                                {item.expiryDate && (
-                                  <div>
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.expiryDate || "תאריך תפוגה"}
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.expiryDate}
-                                    </p>
-                                  </div>
-                                )}
-
-                                {item.personalized_note && (
-                                  <div className="sm:col-span-2">
-                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      הערה מותאמת אישית
-                                    </h4>
-                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.personalized_note}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    )
-                  })
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">{t.noItemsFound || "לא נמצאו פריטים"}</p>
-                  </div>
-                )}
-              </Accordion>
-
-              <div className="mt-6">
-                <div className="flex flex-col md:flex-row gap-2">
-                  {isEditing ? (
-                    <>
-                      <Button
-                        variant="outline"
-                        onClick={() => setIsAddItemDialogOpen(true)}
-                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2"
-                      >
-                        <Plus className="h-5 w-5" />
-                        {t.addNewItem || "הוספת פריט חדש"}
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        onClick={handleUndo}
-                        disabled={itemHistory.length === 0}
-                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2"
-                      >
-                        <RotateCcw className="h-5 w-5" />
-                        {t.undoAction || "בטל פעולה אחרונה"}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      onClick={() => setIsEditing(true)}
-                      className="w-full py-6 md:py-4 flex items-center justify-center gap-2"
-                    >
-                      <Pencil className="h-5 w-5" />
-                      {t.editList || "ערוך רשימה"}
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex flex-col md:flex-row gap-2 mt-2">
-                  {isEditing ? (
-                    <>
-                      <Button
-                        variant="ghost"
-                        onClick={() => setIsEditing(false)}
-                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2 text-white bg-red-600 hover:text-white hover:bg-red-700 dark:text-white dark:bg-red-600 dark:hover:bg-red-700"
-                      >
-                        <X className="h-5 w-5" />
-                        {t.cancelEditing || "צא מעריכה"}
-                      </Button>
-
-                      <Button
-                        className="w-full md:w-1/2 py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
-                        onClick={handleSaveChanges}
-                        disabled={isAILoading}
-                      >
-                        {isAILoading ? (
-                          <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
-                        ) : (
-                          <FileText className="h-5 w-5" />
-                        )}
-                        {t.saveChanges || "שמור שינויים"}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      className="w-full py-6 md:py-4 bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
-                      onClick={saveAIGeneratedList}
-                      disabled={isAILoading}
-                    >
-                      {isAILoading ? (
-                        <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
-                        ) : (
-                          <FileText className="h-5 w-5" />
-                          )}
-                          {t.saveList || "שמור רשימה"}
-                          </Button>
-                          )}
-                          </div>
-                          </div>
-                          </CardContent>
-                          </Card>
-        
-                          {/* Add Item Dialog */}
-                          {isAddItemDialogOpen && (
-                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-                            <div className="p-3 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
-                            <h3 className="text-lg font-medium">{t.addNewItem || "הוספת פריט חדש"}</h3>
-                            </div>
-                            <div className="p-3 space-y-3">
-                            <div>
-                            <label htmlFor="item-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {t.itemName || "שם הפריט"}
-                            </label>
-                            <Input
-                            type="text"
-                            value={newItem.name}
-                            onChange={(e) => setnewItem({ ...newItem, name: e.target.value })}
-                            className="mt-1"
-                            required
-                            />
-                            </div>
-                            <div>
-                            <label
-                            htmlFor="item-category"
-                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                            >
-                            {t.itemCategory || "קטגוריה"}
-                            </label>
-                            <Select value={newItem.category} onValueChange={(value) => setnewItem({ ...newItem, category: value })}>
-                            <SelectTrigger id="item-category" className="mt-1">
-                            <SelectValue placeholder={t.categoryFilterPlaceholder || "קטגוריה"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                            {[
-                            "water_food",
-                            "medical",
-                            "hygiene",
-                            "lighting_energy",
-                            "communication",
-                            "documents_money",
-                            "children",
-                            "pets",
-                            "elderly",
-                            "special_needs",
-                            "other",
-                            ].map((key) => (
-                            <SelectItem key={key} value={key}>
-                            {t.aiCategories[key] || key}
-                            </SelectItem>
-                            ))}
-                            </SelectContent>
-                            </Select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                            <div>
-                            <label
-                            htmlFor="item-quantity"
-                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                            >
-                            {t.itemQuantity || "כמות"}
-                            </label>
-                            <Input
-                            id="item-quantity"
-                            type="number"
-                            min="1"
-                            value={newItem.quantity}
-                            onChange={(e) => setnewItem({ ...newItem, quantity: Number.parseInt(e.target.value) || 1 })}
-                            className="mt-1"
-                            />
-                            </div>
-                            <div>
-                            <label htmlFor="item-unit" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {t.itemUnit || "יחידת מידה"}
-                            </label>
-                            <Input
-                            type="text"
-                            value={newItem.unit}
-                            onChange={(e) => setnewItem({ ...newItem, unit: e.target.value })}
-                            className="mt-1"
-                            />
-                            </div>
-                            </div>
-                            <div>
-                            <label
-                            htmlFor="item-importance"
-                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                            >
-                            {t.itemImportance || "חשיבות"}
-                            </label>
-                            <Select
-                            value={newItem.importance.toString()}
-                            onChange={(value) => setnewItem({ ...newItem, importance: Number.parseInt(value) })}
-                            >
-                            <SelectTrigger id="item-importance" className="mt-1">
-                            <SelectValue placeholder={t.importanceFilterPlaceholder || "חשיבות"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                            <SelectItem value="5">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
-                            <SelectItem value="4">{t.aiCategories.very_important || "חשוב מאוד"} (4)</SelectItem>
-                            <SelectItem value="3">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
-                            <SelectItem value="2">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
-                            <SelectItem value="1">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
-                            </SelectContent>
-                            </Select>
-                            </div>
-                            <div>
-                            <label
-                            htmlFor="item-description"
-                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                            >
-                            {t.itemDescription || "תיאור"}
-                            </label>
-                            <Textarea
-                            id="item-description"
-                            value={newItem.description}
-                            onChange={(e) => setnewItem({ ...newItem, description: e.target.value })}
-                            className="mt-1"
-                            rows="2"
-                            ></Textarea>
-                            </div>
-                            <div>
-                            <label
-                            htmlFor="item-expiry-date"
-                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                            >
-                            {t.estimatedExpiryDate || "תאריך תפוגה משוער"}
-                            </label>
-                            <Input
-                            id="item-expiry-date"
-                            type="date"
-                            value={newItem.expiryDate || ""}
-                            onChange={(e) => setnewItem({ ...newItem, expiryDate: e.target.value })}
-                            className="mt-1"
-                            />
-                            </div>
-                            <div className="flex items-center">
-                            <input
-                            type="checkbox"
-                            checked={newItem.sms_notification}
-                            onChange={(e) => setnewItem({ ...newItem, sms_notification: e.target.checked })}
-                            className="mr-2"
-                            />
-                            <label className="text-sm">{t.sendReminder}</label>
-                            </div>
-                            <div>
-                            <label
-                            htmlFor="item-usage-instructions"
-                            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                            >
-                            {t.itemUsageInstructions || "הוראות שימוש"}
-                            </label>
-                            <Textarea
-                            id="item-usage-instructions"
-                            value={newItem.usage_instructions}
-                            onChange={(e) => setnewItem({ ...newItem, usage_instructions: e.target.value })}
-                            className="mt-1"
-                            placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
-                            rows="2"
-                            ></Textarea>
-                            </div>
-                            </div>
-                            <div className="flex justify-end gap-2 mt-6">
-                            <Button variant="outline" onClick={() => setIsAddItemDialogOpen(false)}>
-                            {t.cancel || "ביטול"}
-                            </Button>
-                            <Button
-                            onClick={handleAddItem}
-                            className="bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black"
-                            disabled={!newItem.name.trim()}
-                            >
-                            {t.add || "הוסף"}
-                            </Button>
-                            </div>
-                            </div>
-                            </div>
-                            )}
-        
-                            {/* Confirm Remove Dialog */}
-                            {isConfirmDialogOpen && (
-                              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
-                              <h2 className="text-xl font-semibold mb-2">{t.removeItemConfirm}</h2>
-                              <p className="text-gray-600 dark:text-gray-400 mb-4">{t.removeItemDescription}</p>
-                              <div className="flex justify-end gap-2">
-                              <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
-                              {t.cancelRemove || "ביטול"}
-                              </Button>
-                              <Button variant="destructive" onClick={confirmRemoveItem}>
-                              {t.confirmRemove || "הסר"}
-                              </Button>
-                              </div>
-                              </div>
-                              </div>
-                              )}
-                              </div>
-                              </TooltipProvider>
-                              )
-}
-</div>
-                              </div>
-                              )}
-                              </div>
-                              </TooltipProvider>
-                              )
-                              }
+                                    <h4 className=\"text-xs sm:text-sm font
