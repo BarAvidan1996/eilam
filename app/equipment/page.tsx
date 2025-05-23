@@ -232,7 +232,7 @@ const categoryColors = {
     text: "text-yellow-800",
     darkBg: "dark:bg-yellow-900/30",
     darkText: "dark:text-yellow-400",
-    icon: <Lightbulb className="h-4 w-4 sm:h-5 w-5" />,
+    icon: <Lightbulb className="h-4 w-4 sm:h-5 sm:w-5" />,
   },
   communication: {
     bg: "bg-purple-100",
@@ -615,169 +615,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         step: "",
         progress: 100,
       })
-
-      // הוספת פריטי חובה של פיקוד העורף
-      const mandatoryItems = [
-        {
-          id: crypto.randomUUID(),
-          name: "מים (3 ליטר לאדם ליום)",
-          category: "water_food",
-          quantity: profile.adults * 3 + (profile.children || 0) * 2 + (profile.babies || 0) * 1,
-          unit: "ליטר",
-          obtained: false,
-          importance: 5,
-          description: "מים לשתייה ולשימוש יומיומי",
-          is_mandatory: true,
-          shelf_life: "שנה",
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "מזון משומר",
-          category: "water_food",
-          quantity: 1,
-          unit: "מלאי",
-          obtained: false,
-          importance: 5,
-          description: "מזון שאינו דורש קירור או בישול",
-          is_mandatory: true,
-          shelf_life: "שנה",
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "ערכת עזרה ראשונה",
-          category: "medical",
-          quantity: 1,
-          unit: "ערכה",
-          obtained: false,
-          importance: 5,
-          description: "ערכה בסיסית לטיפול בפציעות קלות",
-          is_mandatory: true,
-          shelf_life: "שנתיים",
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "תרופות מרשם",
-          category: "medical",
-          quantity: 1,
-          unit: "מלאי",
-          obtained: false,
-          importance: 5,
-          description: "תרופות מרשם לשימוש קבוע",
-          is_mandatory: true,
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "פנס ומטען",
-          category: "lighting_energy",
-          quantity: 1,
-          unit: "יחידות",
-          obtained: false,
-          importance: 5,
-          description: "פנס עם סוללות רזרביות או פנס נטען",
-          is_mandatory: true,
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "רדיו על סוללות",
-          category: "communication",
-          quantity: 1,
-          unit: "יחידות",
-          obtained: false,
-          importance: 5,
-          description: "רדיו המופעל על סוללות לקבלת עדכונים",
-          is_mandatory: true,
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "מטען נייד לטלפון",
-          category: "communication",
-          quantity: 1,
-          unit: "יחידות",
-          obtained: false,
-          importance: 5,
-          description: "סוללה ניידת לטעינת טלפונים ניידים",
-          is_mandatory: true,
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "מסמכים חשובים",
-          category: "documents_money",
-          quantity: 1,
-          unit: "סט",
-          obtained: false,
-          importance: 5,
-          description: "צילומי תעודות זהות, דרכונים, מסמכים רפואיים ופיננסיים",
-          is_mandatory: true,
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "מזומן",
-          category: "documents_money",
-          quantity: 1,
-          unit: "סכום",
-          obtained: false,
-          importance: 5,
-          description: "סכום כסף מזומן למקרה שלא ניתן להשתמש בכרטיסי אשראי",
-          is_mandatory: true,
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "ערכת היגיינה",
-          category: "hygiene",
-          quantity: 1,
-          unit: "ערכה",
-          obtained: false,
-          importance: 5,
-          description: "מוצרי היגיינה בסיסיים כמו סבון, משחת שיניים, מברשת שיניים",
-          is_mandatory: true,
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "שקיות אשפה",
-          category: "hygiene",
-          quantity: 1,
-          unit: "חבילה",
-          obtained: false,
-          importance: 5,
-          description: "שקיות לאיסוף אשפה ופסולת",
-          is_mandatory: true,
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "מטליות לחות",
-          category: "hygiene",
-          quantity: 1,
-          unit: "חבילה",
-          obtained: false,
-          importance: 5,
-          description: "מטליות לחות לניקוי במקרה שאין מים",
-          is_mandatory: true,
-        },
-        {
-          id: crypto.randomUUID(),
-          name: "ערכת כלי אוכל חד פעמיים",
-          category: "water_food",
-          quantity: 1,
-          unit: "ערכה",
-          obtained: false,
-          importance: 5,
-          description: 'צלחות, כוסות וסכו"ם חד פעמיים',
-          is_mandatory: true,
-        },
-      ]
-
-      // מיזוג פריטי החובה עם הפריטים המותאמים אישית
-      const combinedItems = [
-        ...mandatoryItems,
-        ...processedItems.filter(
-          (item) =>
-            !mandatoryItems.some(
-              (mandatoryItem) => mandatoryItem.name.includes(item.name) || item.name.includes(mandatoryItem.name),
-            ),
-        ),
-      ]
-
-      setAIGeneratedItems(combinedItems)
     } catch (error) {
       console.error("AI Generation Error:", error)
       setError(t.errorSavingList || "שגיאה ביצירת רשימה. אנא נסה שוב.")
@@ -895,17 +732,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
   const filteredItems = filterItems(aiGeneratedItems)
   const mandatoryItemsCount = aiGeneratedItems.filter((item) => item.is_mandatory).length
   const personalizedItemsCount = aiGeneratedItems.filter((item) => !item.is_mandatory).length
-
-  const handleUpdateItem = (itemId, updatedFields) => {
-    setItemHistory([...itemHistory, [...aiGeneratedItems]])
-    const updatedItems = aiGeneratedItems.map((item) => {
-      if (item.id === itemId) {
-        return { ...item, ...updatedFields }
-      }
-      return item
-    })
-    setAIGeneratedItems(updatedItems)
-  }
 
   return (
     <div className={`max-w-5xl mx-auto p-4 sm:p-6 ${isRTL ? "rtl" : "ltr"}`}>
@@ -1134,7 +960,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                             </TooltipTrigger>
                             <TooltipContent>
                               <p className="text-xs">{t.defaultValueUsed}</p>
-                            </TooltipContent>
+                            TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       )}
@@ -1443,231 +1269,60 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
                         <AccordionContent className="px-3 sm:px-4 pb-3 sm:pb-4">
                           <div className="pt-2 border-t dark:border-gray-700">
-                            {isEditing ? (
-                              <div className="grid gap-3 mt-2">
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                      {t.itemQuantity || "כמות"} <span className="text-red-500 ml-1">*</span>
-                                    </label>
-                                    <Input
-                                      type="number"
-                                      min="1"
-                                      value={item.quantity}
-                                      onChange={(e) =>
-                                        handleUpdateItem(item.id, { quantity: Number.parseInt(e.target.value) || 1 })
-                                      }
-                                      className="mt-1"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                      {t.itemUnit || "יחידת מידה"} <span className="text-red-500 ml-1">*</span>
-                                    </label>
-                                    <Input
-                                      value={item.unit}
-                                      onChange={(e) => handleUpdateItem(item.id, { unit: e.target.value })}
-                                      className="mt-1"
-                                    />
-                                  </div>
-                                </div>
+                            <div className="grid gap-3 sm:gap-4 mt-2">
+                              {item.description && (
                                 <div>
-                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {t.itemCategory || "קטגוריה"} <span className="text-red-500 ml-1">*</span>
-                                  </label>
-                                  <Select
-                                    value={item.category}
-                                    onValueChange={(value) => handleUpdateItem(item.id, { category: value })}
-                                  >
-                                    <SelectTrigger className="mt-1">
-                                      <SelectValue placeholder={t.categoryFilterPlaceholder || "קטגוריה"} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {[
-                                        "water_food",
-                                        "medical",
-                                        "hygiene",
-                                        "lighting_energy",
-                                        "communication",
-                                        "documents_money",
-                                        "children",
-                                        "pets",
-                                        "elderly",
-                                        "special_needs",
-                                        "other",
-                                      ].map((key) => (
-                                        <SelectItem key={key} value={key}>
-                                          {t.aiCategories[key] || key}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
+                                  <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                    {t.description || "תיאור"}
+                                  </h4>
+                                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                    {item.description}
+                                  </p>
                                 </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {t.itemImportance || "חשיבות"} <span className="text-red-500 ml-1">*</span>
-                                  </label>
-                                  <Select
-                                    value={item.importance.toString()}
-                                    onValueChange={(value) =>
-                                      handleUpdateItem(item.id, { importance: Number.parseInt(value) })
-                                    }
-                                  >
-                                    <SelectTrigger className="mt-1">
-                                      <SelectValue placeholder={t.importanceFilterPlaceholder || "חשיבות"} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="5">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
-                                      <SelectItem value="4">
-                                        {t.aiCategories.very_important || "חשוב מאוד"} (4)
-                                      </SelectItem>
-                                      <SelectItem value="3">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
-                                      <SelectItem value="2">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
-                                      <SelectItem value="1">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {t.itemDescription || "תיאור"}
-                                  </label>
-                                  <Textarea
-                                    value={item.description || ""}
-                                    onChange={(e) => handleUpdateItem(item.id, { description: e.target.value })}
-                                    className="mt-1"
-                                    rows={2}
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {t.expiryDate || "תאריך תפוגה"}
-                                  </label>
-                                  <Input
-                                    type="date"
-                                    value={item.expiryDate || ""}
-                                    onChange={(e) => handleUpdateItem(item.id, { expiryDate: e.target.value })}
-                                    className="mt-1"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {t.itemShelfLife || "חיי מדף"}
-                                  </label>
-                                  <Input
-                                    value={item.shelf_life || ""}
-                                    onChange={(e) => handleUpdateItem(item.id, { shelf_life: e.target.value })}
-                                    className="mt-1"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {t.itemUsageInstructions || "הוראות שימוש"}
-                                  </label>
-                                  <Textarea
-                                    value={item.usage_instructions || ""}
-                                    onChange={(e) => handleUpdateItem(item.id, { usage_instructions: e.target.value })}
-                                    className="mt-1"
-                                    placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
-                                    rows={2}
-                                  />
-                                </div>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Checkbox
-                                    id={`item-sms-notification-${item.id}`}
-                                    checked={item.sms_notification}
-                                    onCheckedChange={(checked) =>
-                                      handleUpdateItem(item.id, { sms_notification: !!checked })
-                                    }
-                                  />
-                                  <label
-                                    htmlFor={`item-sms-notification-${item.id}`}
-                                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                                  >
-                                    {t.smsNotification || "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה."}
-                                  </label>
-                                </div>
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Checkbox
-                                    id={`item-is-mandatory-${item.id}`}
-                                    checked={item.is_mandatory}
-                                    onCheckedChange={(checked) =>
-                                      handleUpdateItem(item.id, { is_mandatory: !!checked })
-                                    }
-                                  />
-                                  <label
-                                    htmlFor={`item-is-mandatory-${item.id}`}
-                                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                                  >
-                                    {t.mandatoryItem || "פריט חובה (מומלץ על-פי פיקוד העורף)"}
-                                  </label>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="grid gap-3 sm:gap-4 mt-2">
-                                {item.description && (
+                              )}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                {item.recommended_quantity_per_person && (
                                   <div>
                                     <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t.description || "תיאור"}
+                                      {t.aiCategories.recommended_quantity_per_person_label}
                                     </h4>
                                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                      {item.description}
+                                      {item.recommended_quantity_per_person}
                                     </p>
                                   </div>
                                 )}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                  {item.recommended_quantity_per_person && (
-                                    <div>
-                                      <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                        {t.aiCategories.recommended_quantity_per_person_label}
-                                      </h4>
-                                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                        {item.recommended_quantity_per_person}
-                                      </p>
-                                    </div>
-                                  )}
-                                  {item.usage_instructions && (
-                                    <div>
-                                      <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                        {t.aiCategories.usage_instructions_label}
-                                      </h4>
-                                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                        {item.usage_instructions}
-                                      </p>
-                                    </div>
-                                  )}
-                                  {item.shelf_life && (
-                                    <div>
-                                      <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                        {t.aiCategories.shelf_life_label}
-                                      </h4>
-                                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                        {item.shelf_life}
-                                      </p>
-                                    </div>
-                                  )}
-                                  {item.expiryDate && (
-                                    <div>
-                                      <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                        {t.expiryDate || "תאריך תפוגה"}
-                                      </h4>
-                                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                        {item.expiryDate}
-                                      </p>
-                                    </div>
-                                  )}
-                                  {item.sms_notification && (
-                                    <div>
-                                      <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                        {t.sendReminder || "תזכורת"}
-                                      </h4>
-                                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                                        {t.smsNotification || "יישלח SMS לפני פקיעת התוקף"}
-                                      </p>
-                                    </div>
-                                  )}
-                                </div>
+                                {item.usage_instructions && (
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.aiCategories.usage_instructions_label}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.usage_instructions}
+                                    </p>
+                                  </div>
+                                )}
+                                {item.shelf_life && (
+                                  <div className="block sm:hidden">
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.aiCategories.shelf_life_label}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.shelf_life}
+                                    </p>
+                                  </div>
+                                )}
+                                {item.expiryDate && (
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
+                                      {t.expiryDate || "תאריך תפוגה"}
+                                    </h4>
+                                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                                      {item.expiryDate}
+                                    </p>
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            </div>
                           </div>
                         </AccordionContent>
                       </AccordionItem>
@@ -1721,9 +1376,9 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                   {isEditing ? (
                     <>
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         onClick={() => setIsEditing(false)}
-                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700"
+                        className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2"
                       >
                         <X className="h-5 w-5" />
                         {t.cancelEditing || "צא מעריכה"}
