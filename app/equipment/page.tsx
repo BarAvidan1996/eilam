@@ -192,6 +192,7 @@ const baseTranslations = {
     showAllItems: "הצג את כל הפריטים",
     mandatoryItemsCount: "פריטי חובה",
     personalizedItemsCount: "פריטים מותאמים אישית",
+    estimatedExpiryDate: "תאריך תפוגה משוער",
   },
   en: {
     pageTitle: "Emergency Equipment Management",
@@ -390,7 +391,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     expiryDate: null,
     sendExpiryReminder: false,
     usage_instructions: "",
-    recommended_quantity_per_person: "",
     is_mandatory: false,
   })
   const [itemHistory, setItemHistory] = useState([])
@@ -691,7 +691,6 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       expiryDate: null,
       sendExpiryReminder: false,
       usage_instructions: "",
-      recommended_quantity_per_person: "",
       is_mandatory: false,
     })
   }
@@ -1505,12 +1504,12 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
           {/* Add Item Dialog */}
           {isAddItemDialogOpen && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md">
-                <div className="p-4 border-b dark:border-gray-700">
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
+                <div className="p-3 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
                   <h3 className="text-lg font-medium">{t.addNewItem || "הוספת פריט חדש"}</h3>
                 </div>
-                <div className="p-4 space-y-4">
+                <div className="p-3 space-y-3">
                   <div>
                     <label htmlFor="item-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                       {t.itemName || "שם הפריט"}
@@ -1557,7 +1556,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label
                         htmlFor="item-quantity"
@@ -1621,21 +1620,22 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       value={newItem.description}
                       onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
                       className="mt-1"
+                      rows={2}
                     />
                   </div>
                   <div>
                     <label
-                      htmlFor="item-shelf-life"
+                      htmlFor="item-expiry-date"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      {t.itemShelfLife || "חיי מדף"}
+                      {t.estimatedExpiryDate || "תאריך תפוגה משוער"}
                     </label>
                     <Input
-                      id="item-shelf-life"
-                      value={newItem.shelf_life}
-                      onChange={(e) => setNewItem({ ...newItem, shelf_life: e.target.value })}
+                      id="item-expiry-date"
+                      type="date"
+                      value={newItem.expiryDate || ""}
+                      onChange={(e) => setNewItem({ ...newItem, expiryDate: e.target.value })}
                       className="mt-1"
-                      placeholder="לדוגמה: שנה אחת"
                     />
                   </div>
                   <div>
@@ -1651,21 +1651,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       onChange={(e) => setNewItem({ ...newItem, usage_instructions: e.target.value })}
                       className="mt-1"
                       placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="item-recommended-quantity"
-                      className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                    >
-                      {t.itemRecommendedQuantity || "כמות מומלצת לאדם"}
-                    </label>
-                    <Input
-                      id="item-recommended-quantity"
-                      value={newItem.recommended_quantity_per_person}
-                      onChange={(e) => setNewItem({ ...newItem, recommended_quantity_per_person: e.target.value })}
-                      className="mt-1"
-                      placeholder="לדוגמה: 3 ליטר ליום לאדם"
+                      rows={2}
                     />
                   </div>
                   <div className="flex items-center">
@@ -1682,7 +1668,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     </label>
                   </div>
                 </div>
-                <div className="p-4 border-t dark:border-gray-700 flex justify-end gap-2">
+                <div className="p-3 border-t dark:border-gray-700 flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-gray-800 z-10">
                   <Button variant="outline" onClick={() => setIsAddItemDialogOpen(false)}>
                     {t.cancel || "ביטול"}
                   </Button>
