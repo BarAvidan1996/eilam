@@ -156,7 +156,10 @@ export default function ChatPage() {
             onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
             className="flex-1 dark:bg-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
           />
-          <Button onClick={handleSendMessage} className="bg-purple-600 hover:bg-purple-700 text-white">
+          <Button
+            onClick={handleSendMessage}
+            className="bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black"
+          >
             <Send className="w-5 h-5" />
           </Button>
         </div>

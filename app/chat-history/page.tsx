@@ -199,7 +199,7 @@ export default function ChatHistoryPage() {
             <History className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
             <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{translations.noChatHistory}</p>
             <Link href="/chat">
-              <Button className="mt-4 bg-purple-600 hover:bg-purple-700 text-white">
+              <Button className="mt-4 bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black">
                 <MessageSquare className={isRTL ? "ml-2 h-4 w-4" : "mr-2 h-4 w-4"} />
                 {translations.startNewChatButton}
               </Button>

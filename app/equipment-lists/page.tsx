@@ -367,7 +367,7 @@ ${
 
       <div className="mb-6">
         <Link href="/equipment">
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+          <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black">
             <PlusCircle className="mr-2 h-4 w-4" />
             {t.createNewList}
           </Button>
@@ -455,7 +455,7 @@ ${
             <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t.noLists}</p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t.noListsDescription}</p>
             <Link href="/equipment">
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black">
                 <PlusCircle className="mr-2 h-4 w-4" />
                 {t.createNewList}
               </Button>
