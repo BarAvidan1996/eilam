@@ -54,10 +54,10 @@ export async function GET(request: NextRequest) {
     // Process each item
     for (const item of items) {
       try {
-        // Get user data from auth.users table
+        // Get user data from private.users table
         const { data: userData, error: userError } = await supabase
           .from("users")
-          .select("raw_user_metadata")
+          .select("phone")
           .eq("id", item.equipment_lists.user_id)
           .single()
 
@@ -67,16 +67,8 @@ export async function GET(request: NextRequest) {
           continue
         }
 
-        // Parse phone number from metadata
-        let phone: string | null = null
-        try {
-          const metadata = userData.raw_user_metadata as any
-          phone = metadata?.phone
-        } catch (parseError) {
-          console.error(`❌ Error parsing metadata for item ${item.id}:`, parseError)
-          errorCount++
-          continue
-        }
+        // Get phone number directly from users table
+        const phone = userData.phone
 
         if (!phone) {
           console.log(`⚠️ No phone number found for item ${item.id}`)
