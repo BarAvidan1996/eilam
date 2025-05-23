@@ -739,7 +739,14 @@ export default function AppLayout({ children }) {
         /* Fix for "פעולה חדשה" button in dark mode */
         .dark button.bg-purple-600.w-full,
         .dark button.hover\\:bg-purple-700.w-full {
-          color: #fff !important; /* Keep this white as it's the main action button */
+          color: #000 !important; /* Make the "פעולה חדשה" button text black */
+        }
+
+        /* Fix for dropdown menu items to keep white text */
+        .dark .dropdown-menu-content a,
+        .dark .dropdown-menu-content button,
+        .dark .dropdown-menu-content span {
+          color: #e5e7eb !important; /* Keep dropdown menu items white */
         }
 
         /* Fix for profile page buttons */

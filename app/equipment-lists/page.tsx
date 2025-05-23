@@ -499,7 +499,11 @@ ${
             <Button variant="outline" onClick={() => setIsEditTitleDialogOpen(false)}>
               {t.cancel}
             </Button>
-            <Button onClick={handleEditTitle} disabled={!newTitle.trim()}>
+            <Button
+              onClick={handleEditTitle}
+              disabled={!newTitle.trim()}
+              className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black"
+            >
               {t.save}
             </Button>
           </DialogFooter>
