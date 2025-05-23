@@ -381,7 +381,7 @@ ${
               <CardContent className="p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0 mr-4">
-                    <h2 className="text-xl font-semibold text-purple-700 dark:text-gray-100 mb-2">{list.title}</h2>
+                    <h2 className="text-xl font-semibold text-[#005c72] dark:text-gray-100 mb-2">{list.title}</h2>
                     {list.description && (
                       <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
                         {extractFamilyInfo(list.description)}
@@ -404,7 +404,7 @@ ${
                       <Button
                         variant="outline"
                         size="sm"
-                        className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
+                        className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black border-none"
                       >
                         <span className="hidden sm:inline mr-2">{t.viewList}</span>
                         {isRTL ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
