@@ -736,10 +736,10 @@ export default function EquipmentPage() {
       icon: <ListChecks className="h-4 w-4 sm:h-5 sm:w-5" />,
     },
     emergency: {
-      bg: "bg-indigo-100",
-      text: "text-indigo-800",
-      darkBg: "dark:bg-indigo-900/30",
-      darkText: "dark:text-indigo-400",
+      bg: "bg-red-100",
+      text: "text-red-800",
+      darkBg: "dark:bg-red-900/30",
+      darkText: "dark:text-red-400",
       icon: <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />,
     },
     food: {
@@ -763,15 +763,18 @@ export default function EquipmentPage() {
       return categoryColors.other
     }
 
+    // Map alternative category names to our standard ones
     const categoryMapping = {
       food: "water_food",
       pet: "pets",
-      emergency: "other",
     }
 
     const mappedCategory = categoryMapping[categoryKey] || categoryKey
 
-    return categoryColors[mappedCategory] || categoryColors.other
+    // Make sure we return the complete object with icon
+    const style = categoryColors[mappedCategory] || categoryColors.other
+
+    return style
   }
 
   const getImportanceBadge = (importance, forCard = false) => {
