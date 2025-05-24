@@ -6,48 +6,62 @@ const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SE
 
 export async function POST(request: NextRequest) {
   try {
-    const { question, sessionId, userId } = await request.json()
+    const body = await request.json()
+    const { question, sessionId, userId } = body
 
     if (!question || typeof question !== "string") {
       return NextResponse.json({ error: "Question is required" }, { status: 400 })
     }
 
+    console.log("Processing question:", question)
+
     // יצירת תשובה באמצעות RAG
     const ragResponse = await answerQuestion(question)
+    console.log("RAG response:", ragResponse)
 
     let currentSessionId = sessionId
 
-    // יצירת סשן חדש אם לא קיים
+    // יצירת סשן חדש אם לא קיים ויש משתמש
     if (!currentSessionId && userId) {
-      const { data: newSession, error: sessionError } = await supabase
-        .from("chat_sessions")
-        .insert({
-          user_id: userId,
-          title: question.substring(0, 50) + (question.length > 50 ? "..." : ""),
-        })
-        .select("id")
-        .single()
+      try {
+        const { data: newSession, error: sessionError } = await supabase
+          .from("chat_sessions")
+          .insert({
+            user_id: userId,
+            title: question.substring(0, 50) + (question.length > 50 ? "..." : ""),
+          })
+          .select("id")
+          .single()
 
-      if (!sessionError && newSession) {
-        currentSessionId = newSession.id
+        if (!sessionError && newSession) {
+          currentSessionId = newSession.id
+        }
+      } catch (sessionErr) {
+        console.error("Error creating session:", sessionErr)
+        // ממשיכים גם אם יצירת הסשן נכשלה
       }
     }
 
     // שמירת ההודעות במסד הנתונים
     if (currentSessionId) {
-      // שמירת שאלת המשתמש
-      await supabase.from("chat_messages").insert({
-        session_id: currentSessionId,
-        role: "user",
-        content: question,
-      })
+      try {
+        // שמירת שאלת המשתמש
+        await supabase.from("chat_messages").insert({
+          session_id: currentSessionId,
+          role: "user",
+          content: question,
+        })
 
-      // שמירת תשובת הבוט
-      await supabase.from("chat_messages").insert({
-        session_id: currentSessionId,
-        role: "assistant",
-        content: ragResponse.answer,
-      })
+        // שמירת תשובת הבוט
+        await supabase.from("chat_messages").insert({
+          session_id: currentSessionId,
+          role: "assistant",
+          content: ragResponse.answer,
+        })
+      } catch (dbErr) {
+        console.error("Error saving messages:", dbErr)
+        // ממשיכים גם אם שמירת ההודעות נכשלה
+      }
     }
 
     return NextResponse.json({
@@ -58,6 +72,14 @@ export async function POST(request: NextRequest) {
     })
   } catch (error) {
     console.error("Error in chat API:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: "Internal server error",
+        answer: "מצטער, אירעה שגיאה בשרת. אנא נסה שוב.",
+        sources: [],
+        method: "error",
+      },
+      { status: 500 },
+    )
   }
 }

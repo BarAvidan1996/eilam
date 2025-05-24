@@ -28,7 +28,7 @@ async function createEmbedding(text: string): Promise<number[]> {
 }
 
 // חיפוש מסמכים רלוונטיים
-async function searchRelevantDocuments(query: string, language: string, limit = 5): Promise<any[]> {
+async function searchRelevantDocuments(query: string, language: string, limit = 3) {
   try {
     const embedding = await createEmbedding(query)
 
@@ -51,54 +51,38 @@ async function searchRelevantDocuments(query: string, language: string, limit = 
   }
 }
 
-// יצירת תשובה עם StepBack prompting
-async function generateAnswer(question: string, documents: any[], language: string): Promise<string> {
-  const context = documents.map((doc) => `${doc.title}\n${doc.plain_text}`).join("\n\n---\n\n")
+// יצירת תשובה באמצעות OpenAI
+async function generateAnswer(question: string, context: string, language: string): Promise<string> {
+  const systemPrompt =
+    language === "he"
+      ? `אתה עוזר חירום חכם של פיקוד העורף בישראל. תפקידך לספק תשובות מדויקות ואמינות לשאלות הקשורות למצבי חירום.
 
-  const isHebrew = language === "he"
-
-  const prompt = isHebrew
-    ? `
-אתה עוזר חכם של פיקוד העורף בישראל. תפקידך לספק תשובות מדויקות, אמינות ועדכניות לשאלות הקשורות למצבי חירום בישראל.
-
-השתמש רק במידע שמופיע למטה. אם המידע לא מכיל תשובה ברורה, אל תעשה השערות - ענה במפורש: "לא נמצאה תשובה מבוססת במידע הנתון."
+השתמש רק במידע שסופק להלן. אם המידע לא מכיל תשובה ברורה, אל תמציא - ענה במפורש: "לא נמצאה תשובה מבוססת במידע הנתון."
 
 הוראות:
-- התשובה שלך חייבת להיות בעברית ברורה, נכונה ושוטפת, המתאימה לציבור הרחב
+- התשובה חייבת להיות בעברית ברורה, נכונה ושוטפת, המתאימה לציבור הרחב
 - אם ההקשר כולל הוראות בטיחות, הצג אותן בצורה ברורה ושלבית
-- אל תסתמך על ידע כללי ואל תכלול תוכן שלא קיים בהקשר שסופק
-
-מידע רלוונטי:
-${context}
-
-שאלה:
-${question}
-
-תשובה:`
-    : `
-You are a smart assistant for the Home Front Command in Israel. Your role is to provide accurate, reliable, and up-to-date answers to questions related to emergency situations in Israel.
+- אל תסתמך על ידע כללי או תכלול תוכן שלא קיים בהקשר הנתון`
+      : `You are a smart emergency assistant for the Home Front Command in Israel. Your role is to provide accurate and reliable answers to emergency-related questions.
 
 Use only the information provided below. If the information does not contain a clear answer, do not make assumptions – explicitly respond: "No answer found in the provided information."
 
 Instructions:
-- Your answer must be clear and suitable for the general public
+- Your answer must be in clear, correct, and fluent English, suitable for the general public
 - If the context includes safety instructions, present them in a clear step-by-step manner
-- Do not rely on general knowledge or include any content not present in the provided context
+- Do not rely on general knowledge or include any content not present in the provided context`
 
-Relevant information:
-${context}
-
-Question:
-${question}
-
-Answer:`
+  const userPrompt = `Context:\n${context}\n\nQuestion: ${question}\n\nAnswer:`
 
   try {
     const response = await openai.chat.completions.create({
       model: "gpt-4",
-      messages: [{ role: "user", content: prompt }],
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
       max_tokens: 500,
-      temperature: 0.0,
+      temperature: 0.1,
     })
 
     return response.choices[0]?.message?.content || "מצטער, לא הצלחתי לייצר תשובה."
@@ -108,7 +92,7 @@ Answer:`
   }
 }
 
-// הפונקציה הראשית של RAG
+// הפונקציה הראשית לענות על שאלות
 export async function answerQuestion(question: string): Promise<{
   answer: string
   sources: string[]
@@ -122,25 +106,26 @@ export async function answerQuestion(question: string): Promise<{
       return {
         answer:
           language === "he"
-            ? "מצטער, לא נמצאו מסמכים רלוונטיים לשאלה שלך. אנא נסה לנסח את השאלה בצורה אחרת."
+            ? "מצטער, לא נמצאו מסמכים רלוונטיים לשאלתך. אנא נסה לנסח את השאלה בצורה אחרת."
             : "Sorry, no relevant documents found for your question. Please try rephrasing your question.",
         sources: [],
         method: "no_documents",
       }
     }
 
-    const answer = await generateAnswer(question, documents, language)
-    const sources = documents.map((doc) => doc.title || doc.file_name || "מסמך לא ידוע")
+    const context = documents.map((doc) => `${doc.title}\n${doc.plain_text}`).join("\n\n")
+
+    const answer = await generateAnswer(question, context, language)
 
     return {
       answer,
-      sources,
-      method: "stepback",
+      sources: documents.map((doc) => doc.title || "Unknown"),
+      method: "rag",
     }
   } catch (error) {
     console.error("Error in answerQuestion:", error)
     return {
-      answer: "מצטער, אירעה שגיאה בעיבוד השאלה שלך. אנא נסה שוב.",
+      answer: "מצטער, אירעה שגיאה בעיבוד השאלה. אנא נסה שוב.",
       sources: [],
       method: "error",
     }

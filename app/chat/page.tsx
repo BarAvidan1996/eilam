@@ -105,9 +105,13 @@ export default function Chat() {
         }),
       })
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
 
-      if (data.error) {
+      if (data.error && !data.answer) {
         throw new Error(data.error)
       }
 
@@ -118,7 +122,7 @@ export default function Chat() {
 
       const botMessage = {
         id: (Date.now() + 1).toString(),
-        text: data.answer,
+        text: data.answer || "מצטער, לא הצלחתי לייצר תשובה.",
         sender: "bot",
       }
       setMessages((prev) => [...prev, botMessage])
