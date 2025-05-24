@@ -5,8 +5,8 @@ export async function POST() {
   try {
     console.log("🆕 API Session - יוצר session חדש")
 
-    // יצירת session עם user ID גנרי (או ללא user)
-    const sessionId = await createChatSession("anonymous")
+    // יצירת session ללא user_id
+    const sessionId = await createChatSession()
 
     console.log("✅ Session נוצר בהצלחה:", sessionId)
 

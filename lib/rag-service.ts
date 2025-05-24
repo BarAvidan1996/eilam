@@ -244,22 +244,28 @@ export async function processRAGQuery(question: string): Promise<{
   }
 }
 
-// ניהול שיחות
-export async function createChatSession(userId: string): Promise<string> {
+// ניהול שיחות - יצירת session חדש ללא user_id
+export async function createChatSession(): Promise<string> {
   try {
+    console.log("🆕 יוצר chat session חדש...")
+
     const { data, error } = await supabase
       .from("chat_sessions")
       .insert({
-        user_id: userId,
         created_at: new Date().toISOString(),
       })
       .select("id")
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error("❌ שגיאה ביצירת session:", error)
+      throw error
+    }
+
+    console.log("✅ Session נוצר בהצלחה:", data.id)
     return data.id
   } catch (error) {
-    console.error("שגיאה ביצירת סשן:", error)
+    console.error("❌ שגיאה ביצירת סשן:", error)
     throw error
   }
 }
@@ -271,6 +277,8 @@ export async function saveChatMessage(
   sources?: Array<{ title: string; file_name: string; similarity: number }>,
 ): Promise<void> {
   try {
+    console.log(`💾 שומר הודעה: ${isUser ? "משתמש" : "בוט"} - ${message.substring(0, 50)}...`)
+
     const { error } = await supabase.from("chat_messages").insert({
       session_id: sessionId,
       message,
@@ -279,9 +287,14 @@ export async function saveChatMessage(
       created_at: new Date().toISOString(),
     })
 
-    if (error) throw error
+    if (error) {
+      console.error("❌ שגיאה בשמירת הודעה:", error)
+      throw error
+    }
+
+    console.log("✅ הודעה נשמרה בהצלחה")
   } catch (error) {
-    console.error("שגיאה בשמירת הודעה:", error)
+    console.error("❌ שגיאה בשמירת הודעה:", error)
     throw error
   }
 }
@@ -296,16 +309,23 @@ export async function getChatHistory(sessionId: string): Promise<
   }>
 > {
   try {
+    console.log("📚 טוען היסטוריית צ'אט עבור session:", sessionId)
+
     const { data, error } = await supabase
       .from("chat_messages")
       .select("*")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true })
 
-    if (error) throw error
+    if (error) {
+      console.error("❌ שגיאה בטעינת היסטוריה:", error)
+      throw error
+    }
+
+    console.log(`✅ נטענו ${data?.length || 0} הודעות`)
     return data || []
   } catch (error) {
-    console.error("שגיאה בטעינת היסטוריה:", error)
+    console.error("❌ שגיאה בטעינת היסטוריה:", error)
     return []
   }
 }
