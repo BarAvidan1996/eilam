@@ -56,6 +56,25 @@ export async function POST(request: Request) {
       })
     }
 
+    // 3. Create an empty equipment list for the new user
+    try {
+      const { error: equipmentListError } = await supabase.from("equipment_list").insert({
+        title: "רשימת ציוד לחירום",
+        description: "רשימת ציוד חיונית למצבי חירום",
+        user_id: authData.user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+
+      if (equipmentListError) {
+        console.error("Error creating empty equipment list:", equipmentListError)
+        // We don't want to fail the registration if this fails
+      }
+    } catch (equipmentError) {
+      console.error("Error creating empty equipment list:", equipmentError)
+      // We don't want to fail the registration if this fails
+    }
+
     return NextResponse.json({ user: authData.user })
   } catch (error) {
     console.error("Error in register route:", error)

@@ -8,12 +8,12 @@ const openai = new OpenAI({
 })
 
 // זיהוי שפה פשוט
-function detectLanguage(text: string): string {
+function detectLanguage(text: string): "he" | "en" {
   const hebrewPattern = /[\u0590-\u05FF]/
   return hebrewPattern.test(text) ? "he" : "en"
 }
 
-// יצירת embedding לטקסט
+// יצירת embedding לשאלה
 async function createEmbedding(text: string): Promise<number[]> {
   try {
     const response = await openai.embeddings.create({
@@ -27,17 +27,13 @@ async function createEmbedding(text: string): Promise<number[]> {
   }
 }
 
-// חיפוש מסמכים רלוונטיים באמצעות similarity search
-async function searchRelevantDocuments(query: string, language: string, limit = 5) {
+// חיפוש מסמכים דומים
+async function searchSimilarDocuments(embedding: number[], language: string, matchThreshold = 0.7, matchCount = 5) {
   try {
-    console.log("Creating embedding for query:", query)
-    const embedding = await createEmbedding(query)
-
-    console.log("Searching for similar documents...")
     const { data, error } = await supabase.rpc("match_documents", {
       query_embedding: embedding,
-      match_threshold: 0.7,
-      match_count: limit,
+      match_threshold: matchThreshold,
+      match_count: matchCount,
       filter_language: language,
     })
 
@@ -46,106 +42,202 @@ async function searchRelevantDocuments(query: string, language: string, limit = 
       return []
     }
 
-    console.log(`Found ${data?.length || 0} relevant documents`)
     return data || []
   } catch (error) {
-    console.error("Error in searchRelevantDocuments:", error)
+    console.error("Error in searchSimilarDocuments:", error)
     return []
   }
 }
 
-// יצירת תשובה באמצעות OpenAI עם הקשר מהמסמכים
-async function generateAnswer(question: string, documents: any[], language: string): Promise<string> {
-  if (documents.length === 0) {
-    return language === "he"
-      ? "מצטער, לא נמצאו מסמכים רלוונטיים לשאלתך במאגר המידע של פיקוד העורף."
-      : "Sorry, no relevant documents found for your question in the Home Front Command database."
-  }
+// Step-back prompting template
+const STEPBACK_PROMPT = `
+אתה עוזר חכם של פיקוד העורף בישראל. תפקידך לספק תשובות מדויקות, אמינות ועדכניות לשאלות הקשורות למצבי חירום בישראל.
 
-  // יצירת הקשר מהמסמכים
-  const context = documents
-    .map((doc) => {
-      return `כותרת: ${doc.title}\nתוכן: ${doc.plain_text}\n---`
-    })
-    .join("\n")
+לפני מתן התשובה, קח צעד אחורה וחשב מה המידע המרכזי הנדרש כדי לענות על השאלה בצורה מדויקת ובטוחה.
 
-  const systemPrompt =
-    language === "he"
-      ? `אתה עוזר חירום חכם של פיקוד העורף בישראל. תפקידך לספק תשובות מדויקות ואמינות לשאלות הקשורות למצבי חירום.
+חשיבה מופשטת:
+- על מה השאלה הזו עוסקת ביסודה?
+- איזה סוג תשובה צריך לתת (פרוצדורלית, עובדתית, מבוססת בטיחות)?
 
-השתמש רק במידע שסופק להלן ממסמכי פיקוד העורף. אם המידע לא מכיל תשובה ברורה, אל תמציא - ענה במפורש: "לא נמצאה תשובה מבוססת במידע הנתון."
+השתמש רק במידע הבא כדי לענות בעברית ברורה וידידותית לציבור:
 
-הוראות:
-- התשובה חייבת להיות בעברית ברורה, נכונה ושוטפת, המתאימה לציבור הרחב
-- אם ההקשר כולל הוראות בטיחות, הצג אותן בצורה ברורה ושלבית
-- אל תסתמך על ידע כללי או תכלול תוכן שלא קיים בהקשר הנתון
-- ציין מקורות רלוונטיים אם יש כאלה`
-      : `You are a smart emergency assistant for the Home Front Command in Israel. Your role is to provide accurate and reliable answers to emergency-related questions.
+הקשר רלוונטי:
+{context}
 
-Use only the information provided below from Home Front Command documents. If the information does not contain a clear answer, do not make assumptions – explicitly respond: "No answer found in the provided information."
+שאלה:
+{question}
 
-Instructions:
-- Your answer must be in clear, correct, and fluent English, suitable for the general public
-- If the context includes safety instructions, present them in a clear step-by-step manner
-- Do not rely on general knowledge or include any content not present in the provided context
-- Cite relevant sources if available`
+תשובה:
+`
 
-  const userPrompt = `מידע רלוונטי ממסמכי פיקוד העורף:
-${context}
+// Fallback prompt
+const FALLBACK_PROMPT = `
+אתה עוזר חכם של פיקוד העורף. ענה על השאלה הבאה בהתבסס על הידע הכללי שלך:
 
-שאלה: ${question}
+שאלה: {question}
 
-תשובה:`
+תשובה:
+`
 
+// יצירת תשובה עם Step-back prompting
+async function generateAnswer(question: string, documents: any[], useStepback = true): Promise<string> {
   try {
-    console.log("Generating answer with OpenAI...")
+    if (documents.length === 0) {
+      // Fallback - תשובה כללית
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "user",
+            content: FALLBACK_PROMPT.replace("{question}", question),
+          },
+        ],
+        temperature: 0.1,
+        max_tokens: 500,
+      })
+
+      const answer = response.choices[0]?.message?.content || "מצטער, לא הצלחתי לייצר תשובה."
+      return answer + "\n\n(הערה: תשובה זו ניתנה באופן כללי לפי הבנת המערכת, ללא הסתמכות על מסמך מאומת.)"
+    }
+
+    // יצירת הקשר מהמסמכים
+    const context = documents.map((doc, index) => `מסמך ${index + 1}:\n${doc.plain_text}`).join("\n\n---\n\n")
+
+    const prompt = useStepback ? STEPBACK_PROMPT : STEPBACK_PROMPT
+    const finalPrompt = prompt.replace("{context}", context).replace("{question}", question)
+
     const response = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
+        {
+          role: "user",
+          content: finalPrompt,
+        },
       ],
-      max_tokens: 800,
       temperature: 0.1,
+      max_tokens: 500,
     })
 
-    const answer = response.choices[0]?.message?.content || "מצטער, לא הצלחתי לייצר תשובה."
-    console.log("Generated answer:", answer.substring(0, 100) + "...")
-    return answer
+    return response.choices[0]?.message?.content || "מצטער, לא הצלחתי לייצר תשובה."
   } catch (error) {
     console.error("Error generating answer:", error)
     throw new Error("Failed to generate answer")
   }
 }
 
-// הפונקציה הראשית לענות על שאלות באמצעות RAG
-export async function answerQuestion(question: string): Promise<{
-  answer: string
-  sources: string[]
-  method: string
-}> {
+// הפונקציה הראשית של RAG
+export async function processRAGQuery(question: string) {
   try {
-    console.log("Starting RAG process for question:", question)
+    console.log("Processing RAG query:", question)
 
+    // שלב 1: זיהוי שפה
     const language = detectLanguage(question)
     console.log("Detected language:", language)
 
-    const documents = await searchRelevantDocuments(question, language)
+    // שלב 2: יצירת embedding
+    const embedding = await createEmbedding(question)
+    console.log("Created embedding, length:", embedding.length)
 
-    const answer = await generateAnswer(question, documents, language)
-    const sources = documents.map((doc) => doc.title || doc.file_name || "מסמך לא ידוע")
+    // שלב 3: חיפוש מסמכים דומים
+    const documents = await searchSimilarDocuments(embedding, language)
+    console.log("Found documents:", documents.length)
+
+    // שלב 4: יצירת תשובה
+    const answer = await generateAnswer(question, documents, true)
 
     return {
       answer,
-      sources,
-      method: "rag",
+      sources: documents.map((doc) => ({
+        title: doc.title,
+        file_name: doc.file_name,
+        similarity: doc.similarity,
+      })),
+      language,
+      documentsFound: documents.length,
     }
   } catch (error) {
-    console.error("Error in answerQuestion:", error)
+    console.error("Error in processRAGQuery:", error)
     return {
-      answer: "מצטער, אירעה שגיאה בעיבוד השאלה. אנא נסה שוב.",
+      answer: "מצטער, אירעה שגיאה בעיבוד השאלה שלך. אנא נסה שוב.",
       sources: [],
-      method: "error",
+      language: "he",
+      documentsFound: 0,
+      error: error instanceof Error ? error.message : "Unknown error",
     }
+  }
+}
+
+// ניהול סשנים
+export async function createChatSession(userId: string, title?: string) {
+  try {
+    const { data, error } = await supabase
+      .from("chat_sessions")
+      .insert({
+        user_id: userId,
+        title: title || "שיחה חדשה",
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error("Error creating chat session:", error)
+    throw error
+  }
+}
+
+// שמירת הודעה
+export async function saveChatMessage(sessionId: string, role: "user" | "assistant", content: string) {
+  try {
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .insert({
+        session_id: sessionId,
+        role,
+        content,
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error("Error saving chat message:", error)
+    throw error
+  }
+}
+
+// טעינת היסטוריית שיחה
+export async function getChatHistory(sessionId: string) {
+  try {
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error("Error getting chat history:", error)
+    return []
+  }
+}
+
+// טעינת סשנים של משתמש
+export async function getUserChatSessions(userId: string) {
+  try {
+    const { data, error } = await supabase
+      .from("chat_sessions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error("Error getting user chat sessions:", error)
+    return []
   }
 }
