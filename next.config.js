@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  // Disable static generation completely to avoid issues with ThemeProvider
   experimental: {
     appDir: true,
   },
@@ -14,11 +13,16 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    domains: [],
   },
-  // Disable static generation completely
-  staticPageGenerationTimeout: 1000,
-  // Disable static generation for all pages
-  exportPathMap: null,
+  // Remove problematic configurations
+  staticPageGenerationTimeout: 60,
+  // Enable proper static generation
+  trailingSlash: false,
+  // Add proper environment variable handling
+  env: {
+    CUSTOM_KEY: process.env.CUSTOM_KEY,
+  },
 }
 
 module.exports = nextConfig
