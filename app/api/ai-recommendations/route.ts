@@ -160,13 +160,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    console.log("Starting AI recommendations generation...")
+    console.log("=== Starting AI recommendations generation ===")
     console.log("Extracted data:", extractedData)
+    console.log(`Total MANDATORY_ITEMS defined: ${MANDATORY_ITEMS.length}`)
 
-    // Create ALL 13 mandatory items - NO EXCEPTIONS
-    const mandatoryItems = MANDATORY_ITEMS.map((item, index) => {
+    // Create ALL 13 mandatory items - FORCE CREATION
+    const mandatoryItems = []
+
+    for (let i = 0; i < MANDATORY_ITEMS.length; i++) {
+      const item = MANDATORY_ITEMS[i]
       const mandatoryItem = {
-        id: `mandatory-${index + 1}`,
+        id: `mandatory-${i + 1}`,
         name: item.name,
         category: item.category,
         quantity: calculateQuantity(item.name, extractedData),
@@ -183,17 +187,18 @@ export async function POST(request: NextRequest) {
         personalized_note: "",
         is_mandatory: true,
       }
-      console.log(`Created mandatory item ${index + 1}: ${mandatoryItem.name}`)
-      return mandatoryItem
-    })
+      mandatoryItems.push(mandatoryItem)
+      console.log(`✅ Created mandatory item ${i + 1}/13: ${mandatoryItem.name}`)
+    }
 
-    // VERIFY we have exactly 13 mandatory items
+    // CRITICAL VERIFICATION
     if (mandatoryItems.length !== 13) {
-      console.error(`CRITICAL ERROR: Expected 13 mandatory items, got ${mandatoryItems.length}`)
+      console.error(`❌ CRITICAL ERROR: Expected 13 mandatory items, got ${mandatoryItems.length}`)
+      console.error("MANDATORY_ITEMS array:", MANDATORY_ITEMS)
       throw new Error(`Failed to create all mandatory items. Expected 13, got ${mandatoryItems.length}`)
     }
 
-    console.log(`✅ Successfully created ${mandatoryItems.length} mandatory items`)
+    console.log(`✅ SUCCESS: Created all ${mandatoryItems.length} mandatory items`)
 
     // Get personalized items from AI
     let personalizedItems: any[] = []
@@ -207,25 +212,30 @@ export async function POST(request: NextRequest) {
     }
 
     // ENSURE we have exactly 10 personalized items
-    while (personalizedItems.length < 10) {
+    const targetPersonalizedCount = 10
+    while (personalizedItems.length < targetPersonalizedCount) {
       const newItem = generateGenericPersonalizedItem(personalizedItems.length, extractedData)
       personalizedItems.push(newItem)
       console.log(`Added fallback personalized item ${personalizedItems.length}: ${newItem.name}`)
     }
 
     // Trim if we have more than 10
-    if (personalizedItems.length > 10) {
-      personalizedItems = personalizedItems.slice(0, 10)
-      console.log(`Trimmed personalized items to 10`)
+    if (personalizedItems.length > targetPersonalizedCount) {
+      personalizedItems = personalizedItems.slice(0, targetPersonalizedCount)
+      console.log(`Trimmed personalized items to ${targetPersonalizedCount}`)
     }
 
     // VERIFY we have exactly 10 personalized items
-    if (personalizedItems.length !== 10) {
-      console.error(`CRITICAL ERROR: Expected 10 personalized items, got ${personalizedItems.length}`)
-      throw new Error(`Failed to create enough personalized items. Expected 10, got ${personalizedItems.length}`)
+    if (personalizedItems.length !== targetPersonalizedCount) {
+      console.error(
+        `❌ CRITICAL ERROR: Expected ${targetPersonalizedCount} personalized items, got ${personalizedItems.length}`,
+      )
+      throw new Error(
+        `Failed to create enough personalized items. Expected ${targetPersonalizedCount}, got ${personalizedItems.length}`,
+      )
     }
 
-    console.log(`✅ Successfully created ${personalizedItems.length} personalized items`)
+    console.log(`✅ SUCCESS: Created all ${personalizedItems.length} personalized items`)
 
     // Ensure all personalized items are marked correctly
     personalizedItems.forEach((item, index) => {
@@ -239,7 +249,7 @@ export async function POST(request: NextRequest) {
     // Combine mandatory and personalized items
     const allItems = [...mandatoryItems, ...personalizedItems]
 
-    console.log(`Final verification:`)
+    console.log(`=== FINAL VERIFICATION ===`)
     console.log(`- Mandatory items: ${mandatoryItems.length}`)
     console.log(`- Personalized items: ${personalizedItems.length}`)
     console.log(`- Total items: ${allItems.length}`)
@@ -249,12 +259,16 @@ export async function POST(request: NextRequest) {
     const personalizedCount = allItems.filter((item) => item.is_mandatory === false).length
 
     if (mandatoryCount !== 13) {
-      console.error(`FINAL CHECK FAILED: Expected 13 mandatory items, got ${mandatoryCount}`)
+      console.error(`❌ FINAL CHECK FAILED: Expected 13 mandatory items, got ${mandatoryCount}`)
+      console.error(
+        "Mandatory items in final array:",
+        allItems.filter((item) => item.is_mandatory === true),
+      )
       throw new Error(`Final verification failed for mandatory items`)
     }
 
     if (personalizedCount !== 10) {
-      console.error(`FINAL CHECK FAILED: Expected 10 personalized items, got ${personalizedCount}`)
+      console.error(`❌ FINAL CHECK FAILED: Expected 10 personalized items, got ${personalizedCount}`)
       throw new Error(`Final verification failed for personalized items`)
     }
 
@@ -268,12 +282,15 @@ export async function POST(request: NextRequest) {
       items: allItems,
     }
 
+    console.log("=== RESPONSE READY ===")
+    console.log(`Sending response with ${finalResponse.items.length} items`)
+
     return NextResponse.json(finalResponse)
   } catch (error) {
-    console.error("Error generating AI recommendations:", error)
+    console.error("❌ Error generating AI recommendations:", error)
 
     // Even in case of error, return the mandatory items + fallback personalized items
-    console.log("Generating fallback response with all mandatory items...")
+    console.log("🔄 Generating fallback response with all mandatory items...")
 
     const fallbackMandatoryItems = MANDATORY_ITEMS.map((item, index) => ({
       id: `mandatory-${index + 1}`,
@@ -304,7 +321,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(
-      `Fallback response created with ${fallbackMandatoryItems.length} mandatory + ${fallbackPersonalizedItems.length} personalized items`,
+      `✅ Fallback response created with ${fallbackMandatoryItems.length} mandatory + ${fallbackPersonalizedItems.length} personalized items`,
     )
 
     return NextResponse.json(fallbackResponse)
@@ -359,37 +376,10 @@ ${
 הפרומפט המקורי של המשתמש:
 ${prompt}
 
-צור רשימת ציוד חירום מותאמת אישית למשפחה זו, עם דגש מיוחד על הצרכים הייחודיים שלהם.
-אל תכלול פריטים בסיסיים שכבר קיימים ברשימת פיקוד העורף (מים, מזון יבש, פנס, רדיו, ערכת עזרה ראשונה וכו').
-התמקד בפריטים מיוחדים ומותאמים אישית לצרכים הספציפיים של המשפחה.
-
-שים לב:
-עליך **להחזיר בדיוק את 12 הפריטים של פיקוד העורף** הבאים (אין להשמיט אף אחד מהם), ולאחר מכן **לפחות 10 פריטים מותאמים אישית** בהתבסס על המאפיינים הספציפיים של המשפחה.
-
-### רשימת החובה (פיקוד העורף):
-1. מים (3 ליטר לאדם ליום)
-2. מזון יבש/משומר
-3. פנס
-4. ערכת עזרה ראשונה
-5. רדיו המופעל באמצעות סוללות
-6. מטען נייד
-7. עותקי מסמכים חיוניים
-8. מטף כיבוי אש
-9. סוללות רזרביות
-10. חצי מיכל דלק לפחות במכונית
-11. כסף מזומן
-12. תרופות אישיות
-
-הנה כיצד להתאים את הרשימה באופן מושלם:
-- תינוקות → פריטים כמו טיטולים, פורמולה, מגבונים רכים
-- ילדים בגילאים שצוינו → פריטים שמרגיעים, תעסוקה, ציוד מתאים לגיל
-- קשישים → תרופות, ציוד ניידות, משקפיים רזרביים
-- בעלי חיים → אוכל מתאים, ציוד היגיינה לחיה, תרופות אם יש
-- צרכים רפואיים → תרופות ייחודיות, מכשור תומך (לדוגמה: מד לחץ דם, סוכר)
-- שומרי שבת → פתרונות שאינם חשמליים, מוצרים עם תו שבת
-- מגורים ללא מקלט → ציוד נייד לשהייה במקלט ציבורי או פתרון חלופי
 המשימה שלך היא ליצור לפחות 10 פריטים מותאמים אישית בהתבסס על המאפיינים הספציפיים של המשפחה.
 אל תכלול פריטים שכבר נמצאים ברשימת החובה של פיקוד העורף (מים, מזון, ערכת עזרה ראשונה, תרופות, רדיו, פנסים, מטענים, מטף, מסמכים, דלק, משחקים לילדים, ציוד לחיות מחמד).
+
+הנה כיצד להתאים את הרשימה באופן מושלם:
 
 1. התייחס לכל מאפיין ייחודי בפרומפט המקורי:
    - אם מוזכר היריון - הוסף פריטים ספציפיים להיריון (כריות תמיכה, ויטמינים, בגדים נוחים)
@@ -459,7 +449,7 @@ ${prompt}
       "obtained": false,
       "expiryDate": null,
       "aiSuggestedExpiryDate": "YYYY-MM-DD",
-      "sendExpiryReminder": false,
+      "sendExpiryReminder: false,
       "personalized_note": "הערה מותאמת אישית המסבירה את החשיבות הספציפית של פריט זה למשפחה זו",
       "is_mandatory": false
     }
@@ -485,7 +475,7 @@ ${prompt}
         },
       ],
       temperature: 0.7,
-      max_tokens: 4500,
+      max_tokens: 3500,
     })
 
     const content = response.choices[0].message.content
@@ -507,19 +497,24 @@ ${prompt}
       })
 
       // If we don't have exactly 10 personalized items, try again or generate missing ones
-      if (data.items.length < 10) {
-        const missingCount = 10 - data.items.length
-        console.log(`Generating ${missingCount} missing personalized items`)
+      if (data.items.length !== 10) {
+        console.warn(`Warning: Got ${data.items.length} personalized items instead of 10.`)
 
-        // Generate generic personalized items based on family profile
-        for (let i = 0; i < missingCount; i++) {
-          data.items.push(generateGenericPersonalizedItem(data.items.length + i, extractedData))
+        // If we have more than 10, trim the list
+        if (data.items.length > 10) {
+          data.items = data.items.slice(0, 10)
         }
-      }
 
-      // If we have more than 10, trim the list
-      if (data.items.length > 10) {
-        data.items = data.items.slice(0, 10)
+        // If we have less than 10, generate the missing ones
+        if (data.items.length < 10) {
+          const missingCount = 10 - data.items.length
+          console.log(`Generating ${missingCount} missing personalized items`)
+
+          // Generate generic personalized items based on family profile
+          for (let i = 0; i < missingCount; i++) {
+            data.items.push(generateGenericPersonalizedItem(i, extractedData))
+          }
+        }
       }
 
       return data.items
@@ -541,114 +536,364 @@ ${prompt}
 
 // Helper function to generate a generic personalized item based on profile
 function generateGenericPersonalizedItem(index: number, profile: any): any {
-  // רשימה קבועה של 10 פריטים מותאמים אישית
-  const fallbackItems = [
-    {
-      name: "סוללות נטענות ומטען סולארי",
-      category: "lighting_energy",
-      description: "סוללות נטענות ומטען סולארי לטעינה ללא חשמל במהלך הפסקות חשמל ממושכות.",
-      personalized_note: "שימושי לטעינת מכשירים קטנים במהלך הפסקות חשמל.",
-      importance: 3,
-      shelf_life: "5 שנים",
-      usage_instructions: "יש לאחסן במקום יבש וקריר.",
-    },
-    {
-      name: "שקיות אשפה וכפפות חד-פעמיות",
-      category: "hygiene",
-      description: "שקיות לאשפה וכפפות חד-פעמיות לשמירה על היגיינה וניקיון במהלך החירום.",
-      personalized_note: "חשוב לשמירה על ניקיון וסניטציה במקלט.",
-      importance: 2,
-      shelf_life: "3 שנים",
-      usage_instructions: "יש להשתמש לפי הצורך ולהחליף כפפות בין שימושים.",
-    },
-    {
-      name: "נרות ומקלות גפרורים",
-      category: "lighting_energy",
-      description: "נרות לתאורה ולחימום במקרה של הפסקת חשמל ממושכת.",
-      personalized_note: "גיבוי לפנסים ולתאורה ממושכת במקלט.",
-      importance: 2,
-      shelf_life: "לא רלוונטי",
-      usage_instructions: "יש להשתמש בזהירות ובאוורור טוב.",
-    },
-    {
-      name: "מגבות נייר ומגבונים לחים",
-      category: "hygiene",
-      description: "מגבות נייר ומגבונים לחים לניקוי ללא מים זורמים.",
-      personalized_note: "שימושי כאשר אין גישה למים זורמים במקלט.",
-      importance: 2,
-      shelf_life: "2 שנים",
-      usage_instructions: "יש לשמור במקום יבש ולהשתמש לפי הצורך.",
-    },
-    {
-      name: "ערכת תיקונים בסיסית",
-      category: "other",
-      description: "ערכה קטנה הכוללת כלי עבודה בסיסיים, סלוטייפ, חוט ברזל ומברגים קטנים.",
-      personalized_note: "שימושית לתיקונים קטנים וחיוניים בזמן חירום.",
-      importance: 2,
-      shelf_life: "10 שנים",
-      usage_instructions: "יש לבדוק תקינות הכלים מעת לעת.",
-    },
-    {
-      name: "מטהר מים נייד",
-      category: "water_food",
-      description: "מטהר מים נייד או טבליות לטיהור מים במקרה שאין גישה למים נקיים.",
-      personalized_note: "חשוב במקרה של פגיעה במערכת המים או זיהום.",
-      importance: 3,
-      shelf_life: "5 שנים",
-      usage_instructions: "יש לפעול לפי הוראות היצרן בדיוק.",
-    },
-    {
-      name: "שמיכה תרמית חירום",
-      category: "other",
-      description: "שמיכה תרמית קלה וקומפקטית לשמירה על חום הגוף.",
-      personalized_note: "שימושית במקלטים קרים או בלילות קרים.",
-      importance: 2,
-      shelf_life: "לא רלוונטי",
-      usage_instructions: "יש לפרוש על הגוף או להתכסות בה.",
-    },
-    {
-      name: "כירת גז נייד קטן",
-      category: "water_food",
-      description: "כירת גז קטנה וניידת לחימום מזון ומים במקרה של הפסקת חשמל.",
-      personalized_note: "שימושי לחימום מזון במקרה של הפסקת חשמל ממושכת.",
-      importance: 2,
-      shelf_life: "10 שנים",
-      usage_instructions: "יש להשתמש רק באוורור טוב ולבדוק דליפות גז.",
-    },
-    {
-      name: "מזון מוכן לאכילה (קופסאות שימורים)",
-      category: "water_food",
-      description: "מזון מוכן לאכילה שאינו דורש בישול או חימום - קופסאות שימורים, חטיפי אנרגיה.",
-      personalized_note: "חשוב במקרה שאין אפשרות לבשל או לחמם מזון.",
-      importance: 3,
-      shelf_life: "2 שנים",
-      usage_instructions: "יש לבדוק תאריכי תפוגה ולהחליף בהתאם.",
-    },
-    {
-      name: "ערכת היגיינה אישית מורחבת",
-      category: "hygiene",
-      description: "ערכת היגיינה הכוללת מברשת שיניים, משחת שיניים, סבון, שמפו יבש ומוצרי היגיינה נוספים.",
-      personalized_note: "חשובה לשמירה על היגיינה אישית במהלך שהייה ממושכת במקלט.",
-      importance: 3,
-      shelf_life: "2 שנים",
-      usage_instructions: "יש להשתמש במינון חסכוני ולשמור על ניקיון.",
-    },
-  ]
+  // מערך של פריטים מותאמים אישית לפי קטגוריות שונות
+  const itemsByCategory = {
+    // פריטים לתינוקות
+    babies: [
+      {
+        name: "חיתולים וחיתולי בד",
+        category: "children",
+        description: "חיתולים חד-פעמיים וחיתולי בד רב-פעמיים לתינוקות.",
+        personalized_note: `מותאם ל-${profile?.babies || 1} תינוקות במשפחה.`,
+        importance: 4,
+      },
+      {
+        name: "מזון לתינוקות ובקבוקים",
+        category: "children",
+        description: "מזון מוכן לתינוקות ובקבוקים נוספים.",
+        personalized_note: `חיוני עבור ${profile?.babies || 1} תינוקות במשפחה.`,
+        importance: 4,
+      },
+      {
+        name: "מוצצים נוספים",
+        category: "children",
+        description: "מוצצים נוספים למקרה של אובדן.",
+        personalized_note: "חשוב להרגעת תינוקות במצבי לחץ.",
+        importance: 3,
+      },
+    ],
 
-  // בחר פריט לפי האינדקס (עם מודולו כדי למנוע חריגה מהמערך)
-  const selectedItem = fallbackItems[index % fallbackItems.length]
+    // פריטים לילדים
+    children: [
+      {
+        name: "ספרי צביעה ועפרונות צבעוניים",
+        category: "children",
+        description: "פעילות יצירתית להעסקת הילדים ולהפגת מתח במהלך החירום.",
+        personalized_note: `מותאם ל-${profile?.children || 1} ילדים במשפחה.`,
+        importance: 3,
+      },
+      {
+        name: "חטיפים בריאים לילדים",
+        category: "water_food",
+        description: "חטיפים מזינים ומוכרים לילדים למקרה שהמזון הרגיל לא זמין.",
+        personalized_note: `כמות מחושבת עבור ${profile?.children || 1} ילדים למשך ${Math.ceil((profile?.duration_hours || 72) / 24)} ימים.`,
+        importance: 3,
+      },
+      {
+        name: "משחקי קלפים ומשחקים קומפקטיים",
+        category: "children",
+        description: "משחקים קטנים שאינם דורשים מקום רב להעסקת הילדים.",
+        personalized_note: "חשוב להפגת מתח ושעמום בזמן שהייה ממושכת.",
+        importance: 2,
+      },
+    ],
 
-  // החזר את הפריט המלא עם כל השדות הנדרשים
+    // פריטים לקשישים
+    elderly: [
+      {
+        name: "משקפיים רזרביות",
+        category: "elderly",
+        description: "משקפיים נוספות למקרה של שבירה או אובדן.",
+        personalized_note: `חשוב עבור ${profile?.elderly || 1} קשישים במשפחה.`,
+        importance: 3,
+      },
+      {
+        name: "כרית אורתופדית ניידת",
+        category: "elderly",
+        description: "כרית תמיכה לגב ולצוואר לקשישים.",
+        personalized_note: `מותאם לנוחות ${profile?.elderly || 1} קשישים במשפחה.`,
+        importance: 3,
+      },
+      {
+        name: "מקל הליכה מתקפל",
+        category: "elderly",
+        description: "מקל הליכה קל ומתקפל לסיוע בניידות.",
+        personalized_note: "חיוני לקשישים בעת פינוי או הליכה למקלט.",
+        importance: 4,
+      },
+    ],
+
+    // פריטים לחיות מחמד
+    pets: [
+      {
+        name: "מזון נוסף לחיות מחמד",
+        category: "pets",
+        description: "מזון יבש נוסף לחיות המחמד למשך תקופת החירום.",
+        personalized_note: `מחושב עבור ${profile?.pets || 1} חיות מחמד למשך ${Math.ceil((profile?.duration_hours || 72) / 24)} ימים.`,
+        importance: 4,
+      },
+      {
+        name: "רצועה וקולר עם פרטי זיהוי",
+        category: "pets",
+        description: "ציוד זיהוי וביטחון לחיות המחמד במקרה של פינוי.",
+        personalized_note: `נדרש עבור ${profile?.pets || 1} חיות מחמד במשפחה.`,
+        importance: 3,
+      },
+      {
+        name: "שמיכה מוכרת לחיית המחמד",
+        category: "pets",
+        description: "שמיכה או בד מוכר לחיית המחמד להרגעה במצבי לחץ.",
+        personalized_note: "חשוב להפחתת חרדה אצל חיות מחמד במצבי חירום.",
+        importance: 2,
+      },
+    ],
+
+    // פריטים לצרכים מיוחדים
+    special_needs: [
+      {
+        name: "תרופות נוספות לצרכים מיוחדים",
+        category: "special_needs",
+        description: "תרופות נוספות למצבים רפואיים מיוחדים.",
+        personalized_note: `מותאם לצרכים המיוחדים: ${profile?.special_needs || "צרכים רפואיים"}.`,
+        importance: 4,
+      },
+      {
+        name: "ציוד רפואי מיוחד",
+        category: "special_needs",
+        description: "ציוד רפואי מיוחד בהתאם לצרכים האישיים.",
+        personalized_note: "חיוני לטיפול במצבים רפואיים מיוחדים בזמן חירום.",
+        importance: 4,
+      },
+      {
+        name: "מסכת חמצן ניידת",
+        category: "special_needs",
+        description: "מסכת חמצן ניידת לבעלי בעיות נשימה.",
+        personalized_note: "חיונית לבעלי בעיות נשימה בזמן חירום.",
+        importance: 4,
+      },
+    ],
+
+    // פריטים להיריון
+    pregnancy: [
+      {
+        name: "כרית תמיכה להיריון",
+        category: "special_needs",
+        description: "כרית תמיכה מיוחדת לנשים בהיריון לישיבה ושכיבה נוחה.",
+        personalized_note: "חיונית לנוחות ותמיכה בגב ובבטן בזמן שהייה ממושכת.",
+        importance: 3,
+      },
+      {
+        name: "ויטמינים וכדורי ברזל להיריון",
+        category: "medical",
+        description: "תוספי תזונה חיוניים לנשים בהיריון.",
+        personalized_note: "חשוב לשמירה על בריאות האם והעובר בזמן חירום.",
+        importance: 4,
+      },
+      {
+        name: "בגדים נוחים להיריון",
+        category: "other",
+        description: "בגדים נוחים ומתאימים להיריון לשהייה ממושכת.",
+        personalized_note: "חשוב לנוחות ולמניעת לחץ על הבטן בזמן שהייה ממושכת.",
+        importance: 2,
+      },
+    ],
+
+    // פריטים לאלרגיות
+    allergies: [
+      {
+        name: "תרופות אנטי-היסטמיניות",
+        category: "medical",
+        description: "תרופות נגד אלרגיה למקרה של התקף אלרגי.",
+        personalized_note: "חיוני לבעלי אלרגיות בזמן חירום, במיוחד כשהסביבה משתנה.",
+        importance: 4,
+      },
+      {
+        name: "מסכות N95 לסינון אבק ואלרגנים",
+        category: "medical",
+        description: "מסכות מיוחדות לסינון אבק, אבקנים ואלרגנים אחרים.",
+        personalized_note: "חיוני לבעלי אלרגיות נשימתיות, במיוחד במקלטים.",
+        importance: 4,
+      },
+      {
+        name: "מסנן אוויר נייד",
+        category: "special_needs",
+        description: "מסנן אוויר קטן המופעל על סוללות לסינון אלרגנים.",
+        personalized_note: "חשוב לבעלי אלרגיות חמורות בזמן שהייה במקלטים.",
+        importance: 3,
+      },
+    ],
+
+    // פריטים למגורים בקומות גבוהות
+    high_floor: [
+      {
+        name: "תיק גב קל לפינוי מהיר",
+        category: "other",
+        description: "תיק גב קל המכיל את הציוד החיוני ביותר לפינוי מהיר.",
+        personalized_note: "חיוני למי שגר בקומות גבוהות וצריך לרדת במדרגות בזמן אזעקה.",
+        importance: 4,
+      },
+      {
+        name: "נעליים יציבות וקלות",
+        category: "other",
+        description: "נעליים יציבות וקלות שניתן לנעול במהירות בזמן אזעקה.",
+        personalized_note: "חשוב למי שצריך לרדת במדרגות במהירות בזמן אזעקה.",
+        importance: 3,
+      },
+      {
+        name: "פנס ראש",
+        category: "lighting_energy",
+        description: "פנס ראש המשאיר את הידיים חופשיות בזמן ירידה במדרגות.",
+        personalized_note: "חיוני למי שגר בקומות גבוהות, במיוחד בלילה או בהפסקת חשמל.",
+        importance: 3,
+      },
+    ],
+
+    // פריטים כלליים
+    general: [
+      {
+        name: "סוללות נטענות ומטען סולארי",
+        category: "lighting_energy",
+        description: "סוללות נטענות ומטען סולארי לטעינה ללא חשמל.",
+        personalized_note: "שימושי לטעינת מכשירים קטנים במהלך הפסקות חשמל.",
+        importance: 3,
+      },
+      {
+        name: "שקיות אשפה וכפפות חד-פעמיות",
+        category: "hygiene",
+        description: "שקיות לאשפה וכפפות לשמירה על היגיינה.",
+        personalized_note: "חשוב לשמירה על ניקיון וסניטציה.",
+        importance: 2,
+      },
+      {
+        name: "נרות",
+        category: "lighting_energy",
+        description: "נרות לתאורה ולחימום במקרה של הפסקת חשמל ממושכת.",
+        personalized_note: "גיבוי לפנסים ולתאורה ממושכת.",
+        importance: 2,
+      },
+      {
+        name: "מגבות נייר ומגבונים",
+        category: "hygiene",
+        description: "מגבות נייר ומגבונים לחים לניקוי ללא מים.",
+        personalized_note: "שימושי כאשר אין גישה למים זורמים.",
+        importance: 2,
+      },
+      {
+        name: "ערכת תיקונים קטנה",
+        category: "other",
+        description: "ערכה קטנה הכוללת כלי עבודה בסיסיים, סלוטייפ, חוט ברזל וכו'.",
+        personalized_note: "שימושית לתיקונים קטנים בזמן חירום.",
+        importance: 2,
+      },
+      {
+        name: "מטהר מים נייד",
+        category: "water_food",
+        description: "מטהר מים נייד לטיהור מים במקרה שאין גישה למים נקיים.",
+        personalized_note: "חשוב במקרה של פגיעה במערכת המים.",
+        importance: 3,
+      },
+      {
+        name: "שמיכה תרמית",
+        category: "other",
+        description: "שמיכה תרמית קלה לשמירה על חום הגוף.",
+        personalized_note: "שימושית במקלטים קרים או בלילות קרים.",
+        importance: 2,
+      },
+      {
+        name: "אמצעי בישול חלופי",
+        category: "water_food",
+        description: "כירת גז קטנה או כירה על בסיס אלכוהול לחימום מזון.",
+        personalized_note: "שימושי לחימום מזון במקרה של הפסקת חשמל ממושכת.",
+        importance: 2,
+      },
+      {
+        name: "מזון מוכן לאכילה",
+        category: "water_food",
+        description: "מזון שאינו דורש בישול או חימום.",
+        personalized_note: "חשוב במקרה שאין אפשרות לבשל או לחמם מזון.",
+        importance: 3,
+      },
+      {
+        name: "ערכת עזרה ראשונה מורחבת",
+        category: "medical",
+        description: "ערכת עזרה ראשונה מורחבת הכוללת פריטים נוספים מעבר לערכה הבסיסית.",
+        personalized_note: "חשובה לטיפול במגוון רחב יותר של פציעות ומצבים רפואיים.",
+        importance: 3,
+      },
+    ],
+  }
+
+  // בחירת קטגוריות רלוונטיות בהתאם לפרופיל
+  const relevantCategories = []
+
+  if (profile?.babies > 0) relevantCategories.push("babies")
+  if (profile?.children > 0) relevantCategories.push("children")
+  if (profile?.elderly > 0) relevantCategories.push("elderly")
+  if (profile?.pets > 0) relevantCategories.push("pets")
+  if (profile?.special_needs) relevantCategories.push("special_needs")
+
+  // בדיקת מאפיינים נוספים מהפרומפט
+  const promptLower = JSON.stringify(profile).toLowerCase()
+  if (promptLower.includes("היריון") || promptLower.includes("בהריון") || promptLower.includes("pregnant")) {
+    relevantCategories.push("pregnancy")
+  }
+  if (promptLower.includes("אלרגי") || promptLower.includes("אלרגיה") || promptLower.includes("allerg")) {
+    relevantCategories.push("allergies")
+  }
+  if (
+    promptLower.includes("קומה") ||
+    promptLower.includes("מדרגות") ||
+    promptLower.includes("floor") ||
+    promptLower.includes("stairs") ||
+    (profile?.housing_details &&
+      (profile.housing_details.includes("קומה") || profile.housing_details.includes("מדרגות")))
+  ) {
+    relevantCategories.push("high_floor")
+  }
+
+  // תמיד להוסיף פריטים כלליים
+  relevantCategories.push("general")
+
+  // יצירת רשימת פריטים מכל הקטגוריות הרלוונטיות
+  let allRelevantItems = []
+  relevantCategories.forEach((category) => {
+    if (itemsByCategory[category]) {
+      allRelevantItems = [...allRelevantItems, ...itemsByCategory[category]]
+    }
+  })
+
+  // אם אין מספיק פריטים רלוונטיים, הוסף פריטים כלליים
+  if (allRelevantItems.length < 10) {
+    const generalItemsNeeded = 10 - allRelevantItems.length
+    allRelevantItems = [...allRelevantItems, ...itemsByCategory.general.slice(0, generalItemsNeeded)]
+  }
+
+  // בחירת פריט לפי האינדקס
+  const selectedItem = allRelevantItems[index % allRelevantItems.length]
+
+  if (!selectedItem) {
+    // פריט ברירת מחדל אם אין פריט מתאים
+    return {
+      id: `generic-${index + 1}`,
+      name: "פריט כללי מותאם אישית",
+      category: "other",
+      quantity: 1,
+      unit: "יחידות",
+      importance: 2,
+      description: "פריט כללי המותאם לצרכי המשפחה.",
+      shelf_life: "שנה",
+      usage_instructions: "יש להשתמש לפי הצורך.",
+      recommended_quantity_per_person: "1 יחידה",
+      obtained: false,
+      expiryDate: null,
+      aiSuggestedExpiryDate: null,
+      sendExpiryReminder: false,
+      personalized_note: "פריט מותאם אישית לצרכי המשפחה.",
+      is_mandatory: false,
+    }
+  }
+
+  // החזרת הפריט המלא עם כל השדות הנדרשים
   return {
-    id: `personalized-${index + 1}`,
+    id: `generic-${index + 1}`,
     name: selectedItem.name,
     category: selectedItem.category,
     quantity: calculateQuantityForItem(selectedItem.name, profile),
     unit: getUnitForItem(selectedItem.name),
     importance: selectedItem.importance,
     description: selectedItem.description,
-    shelf_life: selectedItem.shelf_life,
-    usage_instructions: selectedItem.usage_instructions,
+    shelf_life: getShelfLifeForItem(selectedItem.name),
+    usage_instructions: getUsageInstructionsForItem(selectedItem.name),
     recommended_quantity_per_person: getRecommendedQuantityForItem(selectedItem.name),
     obtained: false,
     expiryDate: null,
