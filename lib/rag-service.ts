@@ -1,6 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
-import { v4 as uuidv4 } from "uuid"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -244,19 +243,14 @@ export async function processRAGQuery(question: string): Promise<{
   }
 }
 
-// ניהול שיחות - יצירת session חדש עם UUID ידני
+// ניהול שיחות - יצירת session חדש (עכשיו עם UUID אוטומטי)
 export async function createChatSession(): Promise<string> {
   try {
     console.log("🆕 יוצר chat session חדש...")
 
-    // יצירת UUID ידני
-    const sessionId = uuidv4()
-    console.log("🔑 UUID נוצר:", sessionId)
-
     const { data, error } = await supabase
       .from("chat_sessions")
       .insert({
-        id: sessionId,
         created_at: new Date().toISOString(),
       })
       .select("id")
@@ -286,9 +280,8 @@ export async function saveChatMessage(
 
     const { error } = await supabase.from("chat_messages").insert({
       session_id: sessionId,
-      message,
-      is_user: isUser,
-      sources: sources || [],
+      content: message,
+      role: isUser ? "user" : "assistant",
       created_at: new Date().toISOString(),
     })
 
@@ -307,9 +300,8 @@ export async function saveChatMessage(
 export async function getChatHistory(sessionId: string): Promise<
   Array<{
     id: string
-    message: string
-    is_user: boolean
-    sources: Array<{ title: string; file_name: string; similarity: number }>
+    content: string
+    role: string
     created_at: string
   }>
 > {
