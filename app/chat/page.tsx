@@ -100,7 +100,15 @@ export default function ChatPage() {
   }
 
   const handleSendMessage = async () => {
-    if (inputValue.trim() === "" || isTyping) return
+    console.log("🎯 handleSendMessage - התחלה")
+    console.log("  - inputValue:", `"${inputValue}"`)
+    console.log("  - inputValue.trim():", `"${inputValue.trim()}"`)
+    console.log("  - isTyping:", isTyping)
+
+    if (inputValue.trim() === "" || isTyping) {
+      console.log("❌ יציאה מוקדמת - input ריק או typing")
+      return
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -110,33 +118,57 @@ export default function ChatPage() {
     }
 
     setMessages((prev) => [...prev, userMessage])
-    const currentQuestion = inputValue
+    const currentQuestion = inputValue.trim()
+    console.log("📝 currentQuestion:", `"${currentQuestion}"`)
+
     setInputValue("")
     setIsTyping(true)
 
     try {
-      console.log("Sending message:", currentQuestion)
+      // הכנת הגוף לשליחה
+      const requestBody = {
+        message: currentQuestion,
+        sessionId: sessionId,
+      }
+
+      console.log("📦 מכין בקשה:")
+      console.log("  - URL: /api/chat")
+      console.log("  - Method: POST")
+      console.log("  - Body:", JSON.stringify(requestBody, null, 2))
 
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          message: currentQuestion,
-          sessionId: sessionId,
-        }),
+        body: JSON.stringify(requestBody),
       })
 
+      console.log("📡 תגובת שרת:")
+      console.log("  - Status:", response.status)
+      console.log("  - StatusText:", response.statusText)
+      console.log("  - OK:", response.ok)
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        // ננסה לקרוא את תוכן השגיאה
+        let errorText = ""
+        try {
+          const errorData = await response.json()
+          console.log("❌ פרטי שגיאה מהשרת:", errorData)
+          errorText = errorData.error || `HTTP ${response.status}`
+        } catch (e) {
+          console.log("❌ לא הצלחתי לפרסר את שגיאת השרת")
+          errorText = `HTTP error! status: ${response.status}`
+        }
+        throw new Error(errorText)
       }
 
       const data = await response.json()
-      console.log("Response data:", data)
+      console.log("✅ נתונים שהתקבלו מהשרת:", data)
 
       // עדכון session ID אם זה סשן חדש
       if (data.sessionId && !sessionId) {
+        console.log("🆔 מעדכן session ID:", data.sessionId)
         setSessionId(data.sessionId)
         // עדכון URL עם session ID
         const url = new URL(window.location.href)
@@ -152,17 +184,27 @@ export default function ChatPage() {
         sources: data.sources,
       }
 
+      console.log("🤖 הוספת הודעת בוט:", {
+        textPreview: botMessage.text.substring(0, 100) + "...",
+        sourcesCount: botMessage.sources?.length || 0,
+      })
+
       setMessages((prev) => [...prev, botMessage])
     } catch (error) {
-      console.error("Error sending message:", error)
+      console.error("💥 שגיאה בשליחת הודעה:")
+      console.error("  - Error type:", error?.constructor?.name)
+      console.error("  - Error message:", error instanceof Error ? error.message : String(error))
+      console.error("  - Error object:", error)
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "מצטער, אירעה שגיאה. אנא נסה שוב.",
+        text: `מצטער, אירעה שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
         sender: "bot",
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {
+      console.log("🏁 סיום handleSendMessage")
       setIsTyping(false)
     }
   }
