@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
+import { v4 as uuidv4 } from "uuid"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -48,7 +49,6 @@ export async function searchSimilarDocuments(
     console.log(`🔍 מחפש מסמכים בשפה: ${language}, limit: ${limit}`)
     console.log("📊 Embedding length:", embedding.length)
 
-    // בדיקה אם הפונקציה קיימת
     const { data: functions, error: functionsError } = await supabase.rpc("match_documents", {
       query_embedding: embedding,
       match_threshold: 0.1,
@@ -244,14 +244,19 @@ export async function processRAGQuery(question: string): Promise<{
   }
 }
 
-// ניהול שיחות - יצירת session חדש ללא user_id
+// ניהול שיחות - יצירת session חדש עם UUID ידני
 export async function createChatSession(): Promise<string> {
   try {
     console.log("🆕 יוצר chat session חדש...")
 
+    // יצירת UUID ידני
+    const sessionId = uuidv4()
+    console.log("🔑 UUID נוצר:", sessionId)
+
     const { data, error } = await supabase
       .from("chat_sessions")
       .insert({
+        id: sessionId,
         created_at: new Date().toISOString(),
       })
       .select("id")
