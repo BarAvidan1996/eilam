@@ -126,9 +126,13 @@ export default function ChatPage() {
 
     try {
       // הכנת הגוף לשליחה
-      const requestBody = {
+      const requestBody: Record<string, any> = {
         message: currentQuestion,
-        sessionId: sessionId,
+      }
+
+      // רק אם יש sessionId, נוסיף אותו
+      if (sessionId) {
+        requestBody.sessionId = sessionId
       }
 
       console.log("📦 מכין בקשה:")
