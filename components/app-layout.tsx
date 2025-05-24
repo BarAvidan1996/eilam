@@ -1,7 +1,5 @@
 "use client"
 
-import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -30,6 +28,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
@@ -419,7 +418,7 @@ export default function AppLayout({ children }) {
             <Button
               variant="default"
               className={cn(
-                "w-full justify-center bg-[#005c72] hover:bg-[#004a5e] dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] text-white dark:text-black",
+                "w-full justify-center bg-purple-600 hover:bg-purple-700 text-white",
                 isSidebarExpanded ? "gap-2" : "",
               )}
             >
@@ -432,19 +431,16 @@ export default function AppLayout({ children }) {
             align={isSidebarExpanded && isRTL ? "start" : "end"}
             sideOffset={5}
           >
-            {newActionItems.map((item, index) => (
+            {newActionItems.map((item) => (
               <DropdownMenuItem
                 key={item.name}
                 asChild
                 disabled={item.disabled}
-                className={cn(
-                  "cursor-pointer",
-                  index === 3 ? "dark:text-purple-400" : theme === "dark" ? "text-white" : "text-gray-800",
-                )}
+                className="cursor-pointer dark:text-gray-200 dark:hover:bg-gray-700"
               >
                 <Link
                   href={!item.disabled ? item.path : "#"}
-                  className={cn("flex items-center gap-2 w-full", index === 3 ? item.className : "")}
+                  className={cn("flex items-center gap-2 w-full", item.className)}
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{item.name}</span>
@@ -688,55 +684,6 @@ export default function AppLayout({ children }) {
         }
         .dark .hover\\:text-purple-400:hover {
           color: #e5e5e5 !important;
-        }
-
-        /* Fix for dark mode buttons with light background - make text black */
-        .dark .bg-\\[\\#d3e3fd\\], 
-        .dark .dark\\:bg-\\[\\#d3e3fd\\],
-        .dark button.bg-\\[\\#d3e3fd\\],
-        .dark a.bg-\\[\\#d3e3fd\\],
-        .dark .bg-blue-100,
-        .dark .bg-blue-200 {
-          color: #000 !important;
-        }
-
-        .dark .dark\\:bg-\\[\\#d3e3fd\\]:hover,
-        .dark .dark\\:hover\\:bg-\\[\\#b4cef9\\]:hover,
-        .dark .hover\\:bg-\\[\\#b4cef9\\]:hover,
-        .dark .hover\\:bg-blue-200:hover {
-          color: #000 !important;
-        }
-
-        /* Fix for active nav items in dark mode */
-        .dark nav a[data-state="active"],
-        .dark nav a[aria-current="page"],
-        .dark nav a.active,
-        .dark nav a.bg-\\[\\#d3e3fd\\],
-        .dark nav a.bg-purple-600,
-        .dark nav a.text-white {
-          color: #000 !important;
-        }
-
-        /* Fix for profile page buttons */
-        .dark .bg-purple-600:not(.w-full),
-        .dark .hover\\:bg-purple-700:not(.w-full) {
-          color: #000 !important;
-        }
-
-        /* Direct fix for sidebar active links */
-        .dark aside a[href="${pathname}"] {
-          color: #000 !important;
-        }
-
-        /* Fix for equipment-lists save button */
-        .dark button.bg-\\[\\#005c72\\] {
-          background-color: #d3e3fd !important;
-          color: #000 !important;
-        }
-        
-        button.bg-\\[\\#005c72\\] {
-          background-color: #005c72 !important;
-          color: #fff !important;
         }
       `}</style>
     </div>
