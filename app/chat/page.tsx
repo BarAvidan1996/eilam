@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Send, User, Bot } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { useSearchParams } from "next/navigation"
 
 // Prevent static rendering during build
 export const dynamic = "force-dynamic"
@@ -37,7 +39,7 @@ const baseTranslations = {
   },
   ru: {
     pageTitle: "Экстренный чат",
-    pageDescription: "Задайте любой вопрос о готовности и чрезвычайных ситуациях",
+    pageDescription: "Задайте любой вопрос о готовности и чрезвычайным ситуациям",
     initialBotMessage: "Привет! Я ЭЙЛАМ, ваш личный помощник по чрезвычайным ситуациям. Чем я могу помочь сегодня?",
     botResponsePrefix: "Обрабатываю ваш вопрос...",
     inputPlaceholder: "Введите свой вопрос здесь...",
@@ -46,16 +48,19 @@ const baseTranslations = {
 }
 
 export default function ChatPage() {
-  // Use default language (Hebrew) initially
   const [currentLanguage, setCurrentLanguage] = useState("he")
   const [translations, setTranslations] = useState(baseTranslations.he)
   const [isLoading, setIsLoading] = useState(true)
-
-  const [messages, setMessages] = useState([])
+  const [messages, setMessages] = useState<Array<{ id: string; text: string; sender: string }>>([])
   const [inputValue, setInputValue] = useState("")
+  const [isTyping, setIsTyping] = useState(false)
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [user, setUser] = useState<any>(null)
+
+  const supabase = createClientComponentClient()
+  const searchParams = useSearchParams()
 
   useEffect(() => {
-    // Only access document in the browser
     if (typeof window !== "undefined") {
       const lang = document.documentElement.lang || "he"
       setCurrentLanguage(lang)
@@ -67,31 +72,109 @@ export default function ChatPage() {
       setIsLoading(true)
       if (baseTranslations[currentLanguage]) {
         setTranslations(baseTranslations[currentLanguage])
-        setMessages([{ id: 1, text: baseTranslations[currentLanguage].initialBotMessage, sender: "bot" }])
+        setMessages([{ id: "1", text: baseTranslations[currentLanguage].initialBotMessage, sender: "bot" }])
       } else {
-        try {
-          // In a real implementation, we would use the translateObject function
-          const translated = baseTranslations.en // Fallback to English for now
-          setTranslations(translated)
-          setMessages([{ id: 1, text: translated.initialBotMessage, sender: "bot" }])
-        } catch (error) {
-          console.error("Translation error in ChatPage:", error)
-          setTranslations(baseTranslations.en) // Fallback to English
-          setMessages([{ id: 1, text: baseTranslations.en.initialBotMessage, sender: "bot" }])
-        }
+        const translated = baseTranslations.en
+        setTranslations(translated)
+        setMessages([{ id: "1", text: translated.initialBotMessage, sender: "bot" }])
       }
       setIsLoading(false)
     }
     loadTranslations()
   }, [currentLanguage])
 
-  const handleSendMessage = () => {
-    if (inputValue.trim() === "") return
-    const newMessage = { id: messages.length + 1, text: inputValue, sender: "user" }
-    // Simulate bot response (RAG logic will be added later)
-    const botResponse = { id: messages.length + 2, text: translations.botResponsePrefix, sender: "bot" }
-    setMessages([...messages, newMessage, botResponse])
+  // טעינת משתמש וסשן
+  useEffect(() => {
+    const loadUserAndSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session?.user) {
+        setUser(session.user)
+
+        // בדיקה אם יש session ID בפרמטרים
+        const sessionParam = searchParams.get("session")
+        if (sessionParam) {
+          setSessionId(sessionParam)
+          await loadChatHistory(sessionParam)
+        }
+      }
+    }
+    loadUserAndSession()
+  }, [searchParams])
+
+  // טעינת היסטוריית צ'אט
+  const loadChatHistory = async (sessionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true })
+
+      if (!error && data) {
+        const chatMessages = data.map((msg, index) => ({
+          id: msg.id || index.toString(),
+          text: msg.content,
+          sender: msg.role === "user" ? "user" : "bot",
+        }))
+        setMessages(chatMessages)
+      }
+    } catch (error) {
+      console.error("Error loading chat history:", error)
+    }
+  }
+
+  const handleSendMessage = async () => {
+    if (inputValue.trim() === "" || isTyping) return
+
+    const userMessage = { id: Date.now().toString(), text: inputValue, sender: "user" }
+    setMessages((prev) => [...prev, userMessage])
     setInputValue("")
+    setIsTyping(true)
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question: inputValue,
+          sessionId: sessionId,
+          userId: user?.id,
+          method: "stepback",
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.error) {
+        throw new Error(data.error)
+      }
+
+      // עדכון session ID אם זה סשן חדש
+      if (data.sessionId && !sessionId) {
+        setSessionId(data.sessionId)
+      }
+
+      const botMessage = {
+        id: (Date.now() + 1).toString(),
+        text: data.answer,
+        sender: "bot",
+      }
+      setMessages((prev) => [...prev, botMessage])
+    } catch (error) {
+      console.error("Error sending message:", error)
+      const errorMessage = {
+        id: (Date.now() + 1).toString(),
+        text: "מצטער, אירעה שגיאה. אנא נסה שוב.",
+        sender: "bot",
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsTyping(false)
+    }
   }
 
   if (isLoading) {
@@ -156,7 +239,10 @@ export default function ChatPage() {
             onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
             className="flex-1 dark:bg-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
           />
-          <Button onClick={handleSendMessage} className="bg-purple-600 hover:bg-purple-700 text-white">
+          <Button
+            onClick={handleSendMessage}
+            className="bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black"
+          >
             <Send className="w-5 h-5" />
           </Button>
         </div>

@@ -1,13 +1,26 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { ListChecks, ChevronLeft, ChevronRight, PlusCircle, Edit3, Trash2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  ListChecks,
+  PlusCircle,
+  Trash2,
+  Edit,
+  Droplets,
+  Pill,
+  HeartHandshake,
+  Lightbulb,
+  Baby,
+  Cat,
+  Activity,
+  UsersIcon,
+  ShieldCheck,
+  Eye,
+  FileText,
+} from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,276 +31,246 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
-import { Spinner } from "@/components/ui/spinner"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { EquipmentService } from "@/lib/services/equipment-service"
+import { format } from "date-fns"
+import { he } from "date-fns/locale"
 
-// Force dynamic rendering to prevent document access during SSR
-export const dynamic = "force-dynamic"
+// נוסיף פונקציה שתחזיר את האייקון המתאים לקטגוריה
+const getCategoryIcon = (category) => {
+  const icons = {
+    water_food: <Droplets className="h-5 w-5 text-blue-500" />,
+    medical: <Pill className="h-5 w-5 text-red-500" />,
+    hygiene: <HeartHandshake className="h-5 w-5 text-green-500" />,
+    lighting_energy: <Lightbulb className="h-5 w-5 text-yellow-500" />,
+    communication: <FileText className="h-5 w-5 text-purple-500" />,
+    documents_money: <FileText className="h-5 w-5 text-indigo-500" />,
+    children: <Baby className="h-5 w-5 text-pink-500" />,
+    pets: <Cat className="h-5 w-5 text-amber-500" />,
+    elderly: <UsersIcon className="h-5 w-5 text-teal-500" />,
+    special_needs: <Activity className="h-5 w-5 text-cyan-500" />,
+    other: <ListChecks className="h-5 w-5 text-gray-500" />,
+    emergency: <ShieldCheck className="h-5 w-5 text-red-600" />,
+    food: <Droplets className="h-5 w-5 text-blue-500" />,
+    pet: <Cat className="h-5 w-5 text-amber-500" />,
+  }
 
-// Translations for this page
-const pageSpecificTexts = {
+  // מיפוי קטגוריות נוספות לקטגוריות קיימות
+  const categoryMapping = {
+    food: "water_food",
+    pet: "pets",
+    emergency: "other",
+  }
+
+  // אם יש מיפוי לקטגוריה, נשתמש בו
+  const mappedCategory = categoryMapping[category] || category
+
+  return icons[mappedCategory] || icons.other
+}
+
+// Translations
+const translations = {
   he: {
-    title: "כל רשימות הציוד",
-    description: "נהל את כל רשימות הציוד שלך במקום אחד.",
-    itemsSuffix: "פריטים",
-    noListsTitle: "עדיין לא יצרת רשימות ציוד.",
-    noListsDescription: "ניתן ליצור רשימות חדשות מעמוד ניהול הציוד.",
-    createListButton: "צור רשימה חדשה",
-    editListButton: "ערוך שם",
-    deleteListButton: "מחק רשימה",
-    confirmDeleteTitle: "אישור מחיקה",
-    confirmDeleteDescription: 'האם אתה בטוח שברצונך למחוק את הרשימה "{listName}"? לא ניתן לשחזר פעולה זו.',
+    pageTitle: "רשימות ציוד",
+    pageDescription: "נהל את רשימות הציוד שלך למצבי חירום",
+    createNewList: "צור רשימה חדשה",
+    createWithAI: "צור רשימה עם AI",
+    viewList: "צפה ברשימה",
+    editList: "ערוך רשימה",
+    deleteList: "מחק רשימה",
+    editTitle: "ערוך כותרת",
+    moreActions: "פעולות נוספות",
+    noLists: "עדיין לא יצרת רשימות ציוד",
+    noListsDescription: "צור את הרשימה הראשונה שלך כדי להתחיל",
+    loading: "טוען רשימות ציוד...",
+    items: "פריטים",
+    confirmDelete: "האם אתה בטוח שברצונך למחוק רשימה זו?",
+    confirmDeleteDescription: "פעולה זו תמחק את הרשימה ואת כל הפריטים שבה. לא ניתן לבטל פעולה זו.",
     cancel: "ביטול",
     delete: "מחק",
-    editListNameTitle: "ערוך שם רשימה",
-    newListNameLabel: "שם רשימה חדש",
     save: "שמור",
-    loadingLists: "טוען רשימות...",
-    errorLoadingLists: "שגיאה בטעינת רשימות.",
-    errorDeletingList: "שגיאה במחיקת הרשימה.",
-    retryButton: "נסה שוב",
-    viewListTooltip: "הצג רשימה",
-    editNameTooltip: "ערוך שם הרשימה",
-    deleteListTooltip: "מחק רשימה",
-    refreshList: "רענן רשימות",
+    errorLoading: "שגיאה בטעינת רשימות הציוד",
+    errorDeleting: "שגיאה במחיקת הרשימה",
+    errorUpdating: "שגיאה בעדכון הרשימה",
+    createdAt: "נוצר ב:",
+    editTitleDialog: "ערוך כותרת רשימה",
+    newTitle: "כותרת חדשה",
+    titleUpdated: "הכותרת עודכנה בהצלחה",
   },
   en: {
-    title: "All Equipment Lists",
-    description: "Manage all your equipment lists in one place.",
-    itemsSuffix: "items",
-    noListsTitle: "You haven't created any equipment lists yet.",
-    noListsDescription: "You can create new lists from the equipment management page.",
-    createListButton: "Create New List",
-    editListButton: "Edit Name",
-    deleteListButton: "Delete List",
-    confirmDeleteTitle: "Confirm Deletion",
-    confirmDeleteDescription: 'Are you sure you want to delete the list "{listName}"? This action cannot be undone.',
+    pageTitle: "Equipment Lists",
+    pageDescription: "Manage your emergency equipment lists",
+    createNewList: "Create New List",
+    createWithAI: "Create with AI",
+    viewList: "View List",
+    editList: "Edit List",
+    deleteList: "Delete List",
+    editTitle: "Edit Title",
+    moreActions: "More Actions",
+    noLists: "You haven't created any equipment lists yet",
+    noListsDescription: "Create your first list to get started",
+    loading: "Loading equipment lists...",
+    items: "items",
+    confirmDelete: "Are you sure you want to delete this list?",
+    confirmDeleteDescription: "This action will delete the list and all its items. This action cannot be undone.",
     cancel: "Cancel",
     delete: "Delete",
-    editListNameTitle: "Edit List Name",
-    newListNameLabel: "New List Name",
     save: "Save",
-    loadingLists: "Loading lists...",
-    errorLoadingLists: "Error loading lists.",
-    errorDeletingList: "Error deleting list.",
-    retryButton: "Try Again",
-    viewListTooltip: "View List",
-    editNameTooltip: "Edit List Name",
-    deleteListTooltip: "Delete List",
-    refreshList: "Refresh Lists",
-  },
-  ar: {
-    title: "جميع قوائم المعدات",
-    description: "إدارة جميع قوائم المعدات الخاصة بك في مكان واحد.",
-    itemsSuffix: "عناصر",
-    noListsTitle: "لم تقم بإنشاء أي قوائم معدات حتى الآن.",
-    noListsDescription: "يمكنك إنشاء قوائم جديدة من صفحة إدارة المعدات.",
-    createListButton: "إنشاء قائمة جديدة",
-    editListButton: "تعديل الاسم",
-    deleteListButton: "حذف القائمة",
-    confirmDeleteTitle: "تأكيد الحذف",
-    confirmDeleteDescription: 'هل أنت متأكد أنك تريد حذف القائمة "{listName}"? لا يمكن التراجع عن هذا الإجراء.',
-    cancel: "إلغاء",
-    delete: "حذف",
-    editListNameTitle: "تعديل اسم القائمة",
-    newListNameLabel: "اسم القائمة الجديد",
-    save: "حفظ",
-    loadingLists: "جارٍ تحميل القوائم...",
-    errorLoadingLists: "خطأ في تحميل القوائم.",
-    errorDeletingList: "خطأ في حذف القائمة.",
-    retryButton: "حاول مرة أخرى",
-    viewListTooltip: "عرض القائمة",
-    editNameTooltip: "تعديل اسم القائمة",
-    deleteListTooltip: "حذف القائمة",
-    refreshList: "تحديث القوائم",
-  },
-  ru: {
-    title: "Все списки оборудования",
-    description: "Управляйте всеми своими списками оборудования в одном месте.",
-    itemsSuffix: "элементов",
-    noListsTitle: "Вы еще не создали ни одного списка оборудования.",
-    noListsDescription: "Вы можете создавать новые списки на странице управления оборудованием.",
-    createListButton: "Создать новый список",
-    editListButton: "Изменить название",
-    deleteListButton: "Удалить список",
-    confirmDeleteTitle: "Подтверждение удаления",
-    confirmDeleteDescription: 'Вы уверены, что хотите удалить список "{listName}"? Это действие нельзя отменить.',
-    cancel: "Отмена",
-    delete: "Удалить",
-    editListNameTitle: "Изменить название списка",
-    newListNameLabel: "Новое название списка",
-    save: "Сохранить",
-    loadingLists: "Загрузка списков...",
-    errorLoadingLists: "Ошибка при загрузке списков.",
-    errorDeletingList: "Ошибка при удалении списка.",
-    retryButton: "Повторить попытку",
-    viewListTooltip: "Просмотр списка",
-    editNameTooltip: "Изменить название списка",
-    deleteListTooltip: "Удалить список",
-    refreshList: "Обновить списки",
+    errorLoading: "Error loading equipment lists",
+    errorDeleting: "Error deleting the list",
+    errorUpdating: "Error updating the list",
+    createdAt: "Created at:",
+    editTitleDialog: "Edit List Title",
+    newTitle: "New Title",
+    titleUpdated: "Title updated successfully",
   },
 }
 
-export default function AllEquipmentListsPage() {
-  const [language, setLanguage] = useState("he")
-  const [isRTL, setIsRTL] = useState(true)
+export default function EquipmentListsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [equipmentLists, setEquipmentLists] = useState([])
-  const [error, setError] = useState(null)
-
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [editingList, setEditingList] = useState(null)
-  const [newListName, setNewListName] = useState("")
-
-  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false)
+  const [isRTL, setIsRTL] = useState(true)
+  const [error, setError] = useState("")
   const [listToDelete, setListToDelete] = useState(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isEditTitleDialogOpen, setIsEditTitleDialogOpen] = useState(false)
+  const [listToEdit, setListToEdit] = useState(null)
+  const [newTitle, setNewTitle] = useState("")
+  const [language, setLanguage] = useState("he")
+  const [t, setT] = useState(translations.he)
 
-  const searchParams = useSearchParams()
-  const supabase = createClientComponentClient()
-
-  // Get language from document only on client-side
+  // Get language and direction
   useEffect(() => {
     if (typeof window !== "undefined") {
       const docLang = document.documentElement.lang || "he"
       setLanguage(docLang)
+      setT(translations[docLang] || translations.he)
       setIsRTL(docLang === "he" || docLang === "ar")
     }
   }, [])
 
-  const t = pageSpecificTexts[language] || pageSpecificTexts.he
+  // Fetch equipment lists
+  useEffect(() => {
+    const fetchLists = async () => {
+      setIsLoading(true)
+      setError("")
 
-  const fetchLists = async () => {
-    setIsLoading(true)
-    setError(null)
+      try {
+        const data = await EquipmentService.getEquipmentLists()
+        setEquipmentLists(data || [])
+      } catch (error) {
+        console.error("Error fetching equipment lists:", error)
+        setError(t.errorLoading)
+        setEquipmentLists([])
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchLists()
+  }, [t])
+
+  // Handle delete list
+  const handleDeleteList = async () => {
+    if (!listToDelete) return
 
     try {
-      // Get the current user's ID
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
+      await EquipmentService.deleteList(listToDelete.id)
+      setEquipmentLists(equipmentLists.filter((list) => list.id !== listToDelete.id))
+    } catch (error) {
+      console.error("Error deleting list:", error)
+      setError(t.errorDeleting)
+    } finally {
+      setListToDelete(null)
+      setIsDeleteDialogOpen(false)
+    }
+  }
 
-      if (!session) {
-        throw new Error("User not authenticated")
+  // Handle edit title
+  const handleEditTitle = async () => {
+    if (!listToEdit || !newTitle.trim()) return
+
+    try {
+      await EquipmentService.updateList(listToEdit.id, {
+        name: newTitle.trim(),
+        description: listToEdit.description,
+        items: [], // We're only updating the title, so we don't need to pass items
+      })
+
+      // Update the local state
+      setEquipmentLists(
+        equipmentLists.map((list) => (list.id === listToEdit.id ? { ...list, title: newTitle.trim() } : list)),
+      )
+
+      setIsEditTitleDialogOpen(false)
+      setListToEdit(null)
+      setNewTitle("")
+    } catch (error) {
+      console.error("Error updating title:", error)
+      setError(t.errorUpdating)
+    }
+  }
+
+  // Open delete dialog
+  const openDeleteDialog = (list) => {
+    setListToDelete(list)
+    setIsDeleteDialogOpen(true)
+  }
+
+  // Open edit title dialog
+  const openEditTitleDialog = (list) => {
+    setListToEdit(list)
+    setNewTitle(list.title)
+    setIsEditTitleDialogOpen(true)
+  }
+
+  // Format date
+  const formatDate = (dateString) => {
+    try {
+      return format(new Date(dateString), "dd/MM/yyyy HH:mm", { locale: language === "he" ? he : undefined })
+    } catch (e) {
+      return dateString
+    }
+  }
+
+  // Extract family info from description (if it's JSON)
+  const extractFamilyInfo = (description) => {
+    try {
+      const data = JSON.parse(description)
+      const parts = []
+
+      if (data.adults > 0) parts.push(`${data.adults} מבוגרים`)
+      if (data.children > 0) parts.push(`${data.children} ילדים`)
+      if (data.babies > 0) parts.push(`${data.babies} תינוקות`)
+      if (data.elderly > 0) parts.push(`${data.elderly} קשישים`)
+      if (data.pets > 0) parts.push(`${data.pets} חיות מחמד`)
+
+      let result = parts.join(", ")
+      if (data.special_needs && data.special_needs !== "לא צוין") {
+        result += ` (${data.special_needs})`
       }
 
-      // Fetch equipment lists
-      const { data: lists, error: listsError } = await supabase
-        .from("equipment_list")
-        .select("id, title, description, created_at, updated_at")
-        .eq("user_id", session.user.id)
-        .order("updated_at", { ascending: false })
-
-      if (listsError) throw listsError
-
-      // For each list, fetch the count of items
-      const listsWithItemCounts = await Promise.all(
-        lists.map(async (list) => {
-          const { count, error: countError } = await supabase
-            .from("equipment_items")
-            .select("id", { count: "exact", head: true })
-            .eq("list_id", list.id)
-
-          if (countError) throw countError
-
-          return {
-            ...list,
-            itemCount: count || 0,
-          }
-        }),
-      )
-
-      setEquipmentLists(listsWithItemCounts)
-    } catch (err) {
-      console.error("AllEquipmentListsPage: Error fetching equipment lists:", err)
-      setError(t.errorLoadingLists)
-    } finally {
-      setIsLoading(false)
+      return result
+    } catch (e) {
+      return description
     }
   }
 
-  // Check for refresh parameter when searchParams changes
-  useEffect(() => {
-    fetchLists()
-  }, [searchParams])
-
-  const handleEditList = (list) => {
-    setEditingList(list)
-    setNewListName(list.title)
-    setIsEditModalOpen(true)
-  }
-
-  const handleSaveListName = async () => {
-    if (!editingList || !newListName.trim()) return
-
-    try {
-      const { error } = await supabase
-        .from("equipment_list")
-        .update({
-          title: newListName.trim(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", editingList.id)
-
-      if (error) throw error
-
-      // Update locally
-      setEquipmentLists(
-        equipmentLists.map((list) =>
-          list.id === editingList.id
-            ? {
-                ...list,
-                title: newListName.trim(),
-                updated_at: new Date().toISOString(),
-              }
-            : list,
-        ),
-      )
-
-      setIsEditModalOpen(false)
-      setEditingList(null)
-    } catch (err) {
-      console.error("Error updating list name:", err)
-    }
-  }
-
-  const handleDeleteList = (list) => {
-    setListToDelete(list)
-    setIsDeleteAlertOpen(true)
-  }
-
-  const confirmDelete = async () => {
-    if (!listToDelete) return
-    setError(null)
-
-    try {
-      // First delete all items in the list
-      const { error: itemsError } = await supabase.from("equipment_items").delete().eq("list_id", listToDelete.id)
-
-      if (itemsError) throw itemsError
-
-      // Then delete the list itself
-      const { error: listError } = await supabase.from("equipment_list").delete().eq("id", listToDelete.id)
-
-      if (listError) throw listError
-
-      // Update locally
-      setEquipmentLists(equipmentLists.filter((list) => list.id !== listToDelete.id))
-    } catch (err) {
-      console.error("Error deleting list:", err)
-      setError(t.errorDeletingList)
-    } finally {
-      setIsDeleteAlertOpen(false)
-      setListToDelete(null)
-    }
-  }
-
-  if (isLoading && equipmentLists.length === 0) {
+  if (isLoading) {
     return (
-      <div className="min-h-full flex items-center justify-center">
+      <div className="min-h-full flex items-center justify-center p-4">
         <div className="text-center">
-          <Spinner size="large" className="mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-300">{t.loadingLists}</p>
+          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">{t.loading}</p>
         </div>
       </div>
     )
@@ -295,108 +278,79 @@ export default function AllEquipmentListsPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-            <ListChecks className="text-purple-600" /> {t.title}
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">{t.description}</p>
-        </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={fetchLists} disabled={isLoading} className="flex-shrink-0">
-                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent className="dark:bg-gray-800 dark:text-gray-200">
-              {t.refreshList || "רענן רשימות"}
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+          <ListChecks className="text-purple-600" /> {t.pageTitle}
+        </h1>
+        <p className="text-gray-600 dark:text-gray-300">{t.pageDescription}</p>
       </header>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">
-          <p>{error}</p>
-          <Button onClick={fetchLists} className="mt-4">
-            {t.retryButton}
-          </Button>
-        </div>
+        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">{error}</div>
       )}
+
+      <div className="mb-6">
+        <Link href="/equipment">
+          <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            {t.createNewList}
+          </Button>
+        </Link>
+      </div>
 
       {equipmentLists.length > 0 ? (
         <div className="space-y-4">
           {equipmentLists.map((list) => (
             <Card key={list.id} className="shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800">
               <CardContent className="p-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex-1 min-w-0 mr-4">
-                    <h2 className="text-xl font-semibold text-purple-700 dark:text-gray-100 break-words">
-                      {list.title}
-                    </h2>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 break-words">
-                      {list.description || ""}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {list.itemCount} {t.itemsSuffix}
-                    </p>
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl font-semibold text-[#005c72] dark:text-gray-100 mb-2">{list.title}</h2>
+                    {list.description && (
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                        {extractFamilyInfo(list.description)}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {list.itemCount} {t.items}
+                      </p>
+                      <span className="text-gray-400">•</span>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {t.createdAt} {formatDate(list.created_at)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center flex-shrink-0">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditList(list)}
-                            className="text-gray-500 hover:text-purple-600 dark:text-gray-400 dark:hover:text-purple-400"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="dark:bg-gray-800 dark:text-gray-200">
-                          {t.editNameTooltip}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
 
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteList(list)}
-                            className="text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent className="dark:bg-gray-800 dark:text-gray-200">
-                          {t.deleteListTooltip}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                  <div className="flex flex-col gap-2 w-full sm:w-auto mt-3 sm:mt-0">
+                    {/* View List Button */}
+                    <Link href={`/equipment/${list.id}`} className="w-full">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        <span>{t.viewList}</span>
+                      </Button>
+                    </Link>
 
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link href={`/equipment?listId=${list.id}&view=dashboard`} className="flex-shrink-0">
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              className="dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-                            >
-                              {isRTL ? <ChevronLeft /> : <ChevronRight />}
-                            </Button>
-                          </Link>
-                        </TooltipTrigger>
-                        <TooltipContent className="dark:bg-gray-800 dark:text-gray-200">
-                          {t.viewListTooltip}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
+                    {/* Edit Title Button */}
+                    <Button variant="outline" size="sm" onClick={() => openEditTitleDialog(list)} className="w-full">
+                      <Edit className="mr-2 h-4 w-4" />
+                      <span>{t.editTitle}</span>
+                    </Button>
+
+                    {/* Delete Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openDeleteDialog(list)}
+                      className="w-full bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 dark:bg-red-600 dark:hover:bg-red-700 dark:text-white dark:border-red-600 dark:hover:border-red-700"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      <span>{t.deleteList}</span>
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -404,81 +358,66 @@ export default function AllEquipmentListsPage() {
           ))}
         </div>
       ) : (
-        !isLoading && (
-          <Card className="shadow-md dark:bg-gray-800">
-            <CardContent className="p-6 text-center">
-              <ListChecks className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-              <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t.noListsTitle}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t.noListsDescription}</p>
-              <Link href="/equipment">
-                <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                  <PlusCircle className={isRTL ? "ml-2 h-4 w-4" : "mr-2 h-4 w-4"} />
-                  {t.createListButton}
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        )
+        <Card className="shadow-md dark:bg-gray-800">
+          <CardContent className="p-6 text-center">
+            <ListChecks className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t.noLists}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t.noListsDescription}</p>
+            <Link href="/equipment">
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                {t.createNewList}
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       )}
 
-      <style jsx global>{`
-        .dark .card h2, 
-        .dark h2.text-purple-700 {
-          color: #f9fafb !important;
-        }
-      `}</style>
-
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[425px] dark:bg-gray-850">
-          <DialogHeader>
-            <DialogTitle className="dark:text-white">{t.editListNameTitle}</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="new-list-name" className={`${isRTL ? "text-right" : "text-left"} dark:text-gray-300`}>
-                {t.newListNameLabel}
-              </label>
-              <Input
-                id="new-list-name"
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                className="col-span-3 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditModalOpen(false)}
-              className="dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-            >
-              {t.cancel}
-            </Button>
-            <Button onClick={handleSaveListName} className="bg-purple-600 hover:bg-purple-700 text-white">
-              {t.save}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent className="dark:bg-gray-850">
+      {/* Delete Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="dark:text-white">{t.confirmDeleteTitle}</AlertDialogTitle>
-            <AlertDialogDescription className="dark:text-gray-300">
-              {t.confirmDeleteDescription.replace("{listName}", listToDelete?.title || "")}
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t.confirmDelete}</AlertDialogTitle>
+            <AlertDialogDescription>{t.confirmDeleteDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700">
-              {t.cancel}
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700 text-white">
+            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteList} className="bg-red-600 hover:bg-red-700">
               {t.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Title Dialog */}
+      <Dialog open={isEditTitleDialogOpen} onOpenChange={setIsEditTitleDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t.editTitleDialog}</DialogTitle>
+            <DialogDescription>שנה את כותרת הרשימה לכותרת חדשה</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">
+                {t.newTitle}
+              </Label>
+              <Input id="title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="col-span-3" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditTitleDialogOpen(false)}>
+              {t.cancel}
+            </Button>
+            <Button
+              onClick={handleEditTitle}
+              disabled={!newTitle.trim()}
+              className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black"
+            >
+              {t.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

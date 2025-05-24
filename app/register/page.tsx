@@ -48,7 +48,11 @@ const translations = {
     passwordLabel: "סיסמה *",
     passwordPlaceholder: "הזן סיסמה",
     passwordRequired: "סיסמה היא שדה חובה",
-    passwordMinLength: "הסיסמה חייבת להכיל לפחות 6 תווים",
+    passwordMinLength: "הסיסמה חייבת להכיל לפחות 8 תווים",
+    passwordUppercase: "הסיסמה חייבת להכיל לפחות אות גדולה אחת",
+    passwordLowercase: "הסיסמה חייבת להכיל לפחות אות קטנה אחת",
+    passwordNumber: "הסיסמה חייבת להכיל לפחות ספרה אחת",
+    passwordSpecial: "הסיסמה חייבת להכיל לפחות תו מיוחד אחד (%@!#)",
     confirmPasswordLabel: "אימות סיסמה *",
     confirmPasswordPlaceholder: "הזן שוב את הסיסמה",
     confirmPasswordRequired: "אימות סיסמה הוא שדה חובה",
@@ -90,7 +94,11 @@ const translations = {
     passwordLabel: "Password *",
     passwordPlaceholder: "Enter password",
     passwordRequired: "Password is required",
-    passwordMinLength: "Password must be at least 6 characters",
+    passwordMinLength: "Password must be at least 8 characters",
+    passwordUppercase: "Password must contain at least one uppercase letter",
+    passwordLowercase: "Password must contain at least one lowercase letter",
+    passwordNumber: "Password must contain at least one number",
+    passwordSpecial: "Password must contain at least one special character (%@!#)",
     confirmPasswordLabel: "Confirm Password *",
     confirmPasswordPlaceholder: "Re-enter password",
     confirmPasswordRequired: "Password confirmation is required",
@@ -132,7 +140,11 @@ const translations = {
     passwordLabel: "كلمة المرور *",
     passwordPlaceholder: "أدخل كلمة المرور",
     passwordRequired: "كلمة المرور مطلوبة",
-    passwordMinLength: "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل",
+    passwordMinLength: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
+    passwordUppercase: "يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل",
+    passwordLowercase: "يجب أن تحتوي كلمة المرور على حرف صغير واحد على الأقل",
+    passwordNumber: "يجب أن تحتوي كلمة المرور على رقم واحد على الأقل",
+    passwordSpecial: "يجب أن تحتوي كلمة المرور على حرف خاص واحد على الأقل (%@!#)",
     confirmPasswordLabel: "تأكيد كلمة المرور *",
     confirmPasswordPlaceholder: "أعد إدخال كلمة المرور",
     confirmPasswordRequired: "تأكيد كلمة المرور مطلوب",
@@ -174,7 +186,11 @@ const translations = {
     passwordLabel: "Пароль *",
     passwordPlaceholder: "Введите пароль",
     passwordRequired: "Пароль обязателен",
-    passwordMinLength: "Пароль должен содержать не менее 6 символов",
+    passwordMinLength: "Пароль должен содержать не менее 8 символов",
+    passwordUppercase: "Пароль должен содержать хотя бы одну заглавную букву",
+    passwordLowercase: "Пароль должен содержать хотя бы одну строчную букву",
+    passwordNumber: "Пароль должен содержать хотя бы одну цифру",
+    passwordSpecial: "Пароль должен содержать хотя бы один специальный символ (%@!#)",
     confirmPasswordLabel: "Подтверждение пароля *",
     passwordPlaceholder: "Повторно введите пароль",
     passwordRequired: "Подтверждение пароля обязательно",
@@ -296,13 +312,34 @@ export default function RegisterPage() {
       isValid = false
     }
 
-    // Password validation
+    // Password validation - enhanced
     if (!password) {
       newErrors.password = t.passwordRequired
       isValid = false
-    } else if (password.length < 6) {
+    } else if (password.length < 8) {
       newErrors.password = t.passwordMinLength
       isValid = false
+    } else {
+      // Check for uppercase letter
+      if (!/[A-Z]/.test(password)) {
+        newErrors.password = t.passwordUppercase
+        isValid = false
+      }
+      // Check for lowercase letter
+      else if (!/[a-z]/.test(password)) {
+        newErrors.password = t.passwordLowercase
+        isValid = false
+      }
+      // Check for number
+      else if (!/[0-9]/.test(password)) {
+        newErrors.password = t.passwordNumber
+        isValid = false
+      }
+      // Check for special character
+      else if (!/[%@!#]/.test(password)) {
+        newErrors.password = t.passwordSpecial
+        isValid = false
+      }
     }
 
     // Confirm password validation
@@ -515,199 +552,205 @@ export default function RegisterPage() {
           )}
           <form onSubmit={handleRegister} className="space-y-6">
             {/* Personal Details Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <User className="h-5 w-5 text-[#005c72] dark:text-[#d3e3fd]" />
-                <h3 className="text-lg font-medium text-[#005c72] dark:text-[#d3e3fd]">{t.personalDetails}</h3>
-              </div>
+            <Card className="dark:bg-gray-800/50 border dark:border-gray-700">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-[#005c72] dark:text-[#d3e3fd]" />
+                  <h3 className="text-lg font-medium text-[#005c72] dark:text-[#d3e3fd]">{t.personalDetails}</h3>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1">
+                      <User className="h-4 w-4 text-gray-500" />
+                      <Label htmlFor="firstName" className="text-gray-700 dark:text-gray-300">
+                        {t.firstNameLabel}
+                      </Label>
+                    </div>
+                    <Input
+                      id="firstName"
+                      placeholder={t.firstNamePlaceholder}
+                      value={firstName}
+                      onChange={(e) => {
+                        setFirstName(e.target.value)
+                        if (errors.firstName) {
+                          setErrors({ ...errors, firstName: "" })
+                        }
+                        if (registerError) {
+                          setRegisterError("")
+                        }
+                      }}
+                      className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
+                        errors.firstName ? "border-red-500 dark:border-red-500" : ""
+                      }`}
+                    />
+                    {errors.firstName && <p className="text-sm text-red-500 mt-1">{errors.firstName}</p>}
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1">
+                      <User className="h-4 w-4 text-gray-500" />
+                      <Label htmlFor="lastName" className="text-gray-700 dark:text-gray-300">
+                        {t.lastNameLabel}
+                      </Label>
+                    </div>
+                    <Input
+                      id="lastName"
+                      placeholder={t.lastNamePlaceholder}
+                      value={lastName}
+                      onChange={(e) => {
+                        setLastName(e.target.value)
+                        if (errors.lastName) {
+                          setErrors({ ...errors, lastName: "" })
+                        }
+                        if (registerError) {
+                          setRegisterError("")
+                        }
+                      }}
+                      className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
+                        errors.lastName ? "border-red-500 dark:border-red-500" : ""
+                      }`}
+                    />
+                    {errors.lastName && <p className="text-sm text-red-500 mt-1">{errors.lastName}</p>}
+                  </div>
+                </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-1">
-                    <User className="h-4 w-4 text-gray-500" />
-                    <Label htmlFor="firstName" className="text-gray-700 dark:text-gray-300">
-                      {t.firstNameLabel}
+                    <Mail className="h-4 w-4 text-gray-500" />
+                    <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">
+                      {t.emailLabel}
                     </Label>
                   </div>
                   <Input
-                    id="firstName"
-                    placeholder={t.firstNamePlaceholder}
-                    value={firstName}
+                    id="email"
+                    type="email"
+                    placeholder={t.emailPlaceholder}
+                    value={email}
                     onChange={(e) => {
-                      setFirstName(e.target.value)
-                      if (errors.firstName) {
-                        setErrors({ ...errors, firstName: "" })
+                      setEmail(e.target.value)
+                      if (errors.email) {
+                        setErrors({ ...errors, email: "" })
                       }
                       if (registerError) {
                         setRegisterError("")
                       }
                     }}
                     className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                      errors.firstName ? "border-red-500 dark:border-red-500" : ""
+                      errors.email ? "border-red-500 dark:border-red-500" : ""
                     }`}
+                    dir="ltr"
                   />
-                  {errors.firstName && <p className="text-sm text-red-500 mt-1">{errors.firstName}</p>}
+                  {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
                 </div>
+
                 <div className="space-y-2">
                   <div className="flex items-center gap-1">
-                    <User className="h-4 w-4 text-gray-500" />
-                    <Label htmlFor="lastName" className="text-gray-700 dark:text-gray-300">
-                      {t.lastNameLabel}
+                    <Phone className="h-4 w-4 text-gray-500" />
+                    <Label htmlFor="phone" className="text-gray-700 dark:text-gray-300">
+                      {t.phoneLabel}
                     </Label>
                   </div>
                   <Input
-                    id="lastName"
-                    placeholder={t.lastNamePlaceholder}
-                    value={lastName}
+                    id="phone"
+                    type="tel"
+                    placeholder={t.phonePlaceholder}
+                    value={phone}
                     onChange={(e) => {
-                      setLastName(e.target.value)
-                      if (errors.lastName) {
-                        setErrors({ ...errors, lastName: "" })
+                      setPhone(e.target.value)
+                      if (errors.phone) {
+                        setErrors({ ...errors, phone: "" })
                       }
                       if (registerError) {
                         setRegisterError("")
                       }
                     }}
                     className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                      errors.lastName ? "border-red-500 dark:border-red-500" : ""
+                      errors.phone ? "border-red-500 dark:border-red-500" : ""
                     }`}
+                    dir="ltr"
                   />
-                  {errors.lastName && <p className="text-sm text-red-500 mt-1">{errors.lastName}</p>}
+                  {errors.phone && <p className="text-sm text-red-500 mt-1">{errors.phone}</p>}
+                  {!errors.phone && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">הטלפון ישמש לקבלת התראות SMS</p>
+                  )}
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-1">
-                  <Mail className="h-4 w-4 text-gray-500" />
-                  <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">
-                    {t.emailLabel}
-                  </Label>
-                </div>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder={t.emailPlaceholder}
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value)
-                    if (errors.email) {
-                      setErrors({ ...errors, email: "" })
-                    }
-                    if (registerError) {
-                      setRegisterError("")
-                    }
-                  }}
-                  className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                    errors.email ? "border-red-500 dark:border-red-500" : ""
-                  }`}
-                  dir="ltr"
-                />
-                {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-1">
-                  <Phone className="h-4 w-4 text-gray-500" />
-                  <Label htmlFor="phone" className="text-gray-700 dark:text-gray-300">
-                    {t.phoneLabel}
-                  </Label>
-                </div>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder={t.phonePlaceholder}
-                  value={phone}
-                  onChange={(e) => {
-                    setPhone(e.target.value)
-                    if (errors.phone) {
-                      setErrors({ ...errors, phone: "" })
-                    }
-                    if (registerError) {
-                      setRegisterError("")
-                    }
-                  }}
-                  className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                    errors.phone ? "border-red-500 dark:border-red-500" : ""
-                  }`}
-                  dir="ltr"
-                />
-                {errors.phone && <p className="text-sm text-red-500 mt-1">{errors.phone}</p>}
-                {!errors.phone && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">הטלפון ישמש לקבלת התראות SMS</p>
-                )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* Account Security Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Shield className="h-5 w-5 text-[#005c72] dark:text-[#d3e3fd]" />
-                <h3 className="text-lg font-medium text-[#005c72] dark:text-[#d3e3fd]">{t.accountSecurity}</h3>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-1">
-                  <Lock className="h-4 w-4 text-gray-500" />
-                  <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
-                    {t.passwordLabel}
-                  </Label>
+            <Card className="dark:bg-gray-800/50 border dark:border-gray-700">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-[#005c72] dark:text-[#d3e3fd]" />
+                  <h3 className="text-lg font-medium text-[#005c72] dark:text-[#d3e3fd]">{t.accountSecurity}</h3>
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder={t.passwordPlaceholder}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value)
-                    if (errors.password) {
-                      setErrors({ ...errors, password: "" })
-                    }
-                    if (registerError) {
-                      setRegisterError("")
-                    }
-                  }}
-                  className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                    errors.password ? "border-red-500 dark:border-red-500" : ""
-                  }`}
-                  dir="ltr"
-                />
-                {errors.password && <p className="text-sm text-red-500 mt-1">{errors.password}</p>}
-                {!errors.password && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    הסיסמה צריכה לכלול לפחות 8 תווים, אות גדולה, אות קטנה, מספר ותו מיוחד (%@!#).
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-1">
-                  <Lock className="h-4 w-4 text-gray-500" />
-                  <Label htmlFor="confirmPassword" className="text-gray-700 dark:text-gray-300">
-                    {t.confirmPasswordLabel}
-                  </Label>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Lock className="h-4 w-4 text-gray-500" />
+                    <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
+                      {t.passwordLabel}
+                    </Label>
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder={t.passwordPlaceholder}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      if (errors.password) {
+                        setErrors({ ...errors, password: "" })
+                      }
+                      if (registerError) {
+                        setRegisterError("")
+                      }
+                    }}
+                    className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
+                      errors.password ? "border-red-500 dark:border-red-500" : ""
+                    }`}
+                    dir="ltr"
+                  />
+                  {errors.password && <p className="text-sm text-red-500 mt-1">{errors.password}</p>}
+                  {!errors.password && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      הסיסמה צריכה לכלול לפחות 8 תווים, אות גדולה, אות קטנה, מספר ותו מיוחד (%@!#).
+                    </p>
+                  )}
                 </div>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder={t.confirmPasswordPlaceholder}
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value)
-                    if (errors.confirmPassword) {
-                      setErrors({ ...errors, confirmPassword: "" })
-                    }
-                    if (registerError) {
-                      setRegisterError("")
-                    }
-                  }}
-                  className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                    errors.confirmPassword ? "border-red-500 dark:border-red-500" : ""
-                  }`}
-                  dir="ltr"
-                />
-                {errors.confirmPassword && <p className="text-sm text-red-500 mt-1">{errors.confirmPassword}</p>}
-              </div>
-            </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Lock className="h-4 w-4 text-gray-500" />
+                    <Label htmlFor="confirmPassword" className="text-gray-700 dark:text-gray-300">
+                      {t.confirmPasswordLabel}
+                    </Label>
+                  </div>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder={t.confirmPasswordPlaceholder}
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value)
+                      if (errors.confirmPassword) {
+                        setErrors({ ...errors, confirmPassword: "" })
+                      }
+                      if (registerError) {
+                        setRegisterError("")
+                      }
+                    }}
+                    className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
+                      errors.confirmPassword ? "border-red-500 dark:border-red-500" : ""
+                    }`}
+                    dir="ltr"
+                  />
+                  {errors.confirmPassword && <p className="text-sm text-red-500 mt-1">{errors.confirmPassword}</p>}
+                </div>
+              </CardContent>
+            </Card>
 
             <Button
               type="submit"
