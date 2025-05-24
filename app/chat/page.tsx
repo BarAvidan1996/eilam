@@ -36,6 +36,7 @@ export default function ChatPage() {
   const [isTyping, setIsTyping] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
+  const [isInitializing, setIsInitializing] = useState(true)
 
   const supabase = createClientComponentClient()
   const searchParams = useSearchParams()
@@ -50,63 +51,126 @@ export default function ChatPage() {
     scrollToBottom()
   }, [messages])
 
+  // יצירת session ID חדש
+  const createNewSession = async (): Promise<string> => {
+    try {
+      console.log("🆕 יוצר session חדש...")
+
+      const response = await fetch("/api/chat/session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to create session: ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log("✅ Session נוצר:", data.sessionId)
+
+      return data.sessionId
+    } catch (error) {
+      console.error("❌ שגיאה ביצירת session:", error)
+      // fallback - יצירת UUID פשוט
+      return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    }
+  }
+
   // טעינת משתמש וסשן
   useEffect(() => {
     const loadUserAndSession = async () => {
       try {
+        console.log("🚀 מתחיל טעינת משתמש וסשן...")
+
         const {
           data: { session },
         } = await supabase.auth.getSession()
 
         if (session?.user) {
           setUser(session.user)
-          console.log("User loaded:", session.user.id)
+          console.log("👤 User loaded:", session.user.id)
+        }
 
-          // בדיקה אם יש session ID בפרמטרים
-          const sessionParam = searchParams.get("session")
-          if (sessionParam) {
-            setSessionId(sessionParam)
-            await loadChatHistory(sessionParam)
-          }
+        // בדיקה אם יש session ID בפרמטרים
+        const sessionParam = searchParams.get("session")
+        if (sessionParam) {
+          console.log("🔗 נמצא session בURL:", sessionParam)
+          setSessionId(sessionParam)
+          await loadChatHistory(sessionParam)
+        } else {
+          // אין session בURL - ניצור חדש
+          console.log("🆕 אין session בURL, יוצר חדש...")
+          const newSessionId = await createNewSession()
+          setSessionId(newSessionId)
+
+          // עדכון URL עם session ID החדש
+          const url = new URL(window.location.href)
+          url.searchParams.set("session", newSessionId)
+          window.history.replaceState({}, "", url.toString())
+          console.log("🔗 URL עודכן עם session חדש")
         }
       } catch (error) {
-        console.error("Error loading user:", error)
+        console.error("❌ שגיאה בטעינת משתמש/סשן:", error)
+        // fallback - יצירת session פשוט
+        const fallbackSessionId = `fallback_${Date.now()}`
+        setSessionId(fallbackSessionId)
+      } finally {
+        setIsInitializing(false)
+        console.log("✅ אתחול הושלם")
       }
     }
+
     loadUserAndSession()
   }, [searchParams])
 
   // טעינת היסטוריית צ'אט
   const loadChatHistory = async (sessionId: string) => {
     try {
+      console.log("📚 טוען היסטוריה עבור session:", sessionId)
+
       const { data, error } = await supabase
         .from("chat_messages")
         .select("*")
         .eq("session_id", sessionId)
         .order("created_at", { ascending: true })
 
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
+        console.log(`📜 נמצאו ${data.length} הודעות בהיסטוריה`)
+
         const chatMessages: Message[] = data.map((msg) => ({
           id: msg.id,
-          text: msg.content,
-          sender: msg.role === "user" ? "user" : "bot",
+          text: msg.message,
+          sender: msg.is_user ? "user" : "bot",
           timestamp: new Date(msg.created_at),
+          sources: msg.sources || [],
         }))
+
+        // החלפת ההודעות הראשוניות בהיסטוריה
         setMessages(chatMessages)
+      } else {
+        console.log("📭 אין הודעות בהיסטוריה, משאיר הודעות ראשוניות")
       }
     } catch (error) {
-      console.error("Error loading chat history:", error)
+      console.error("❌ שגיאה בטעינת היסטוריה:", error)
     }
   }
 
   const handleSendMessage = async () => {
     console.log("🎯 handleSendMessage - התחלה")
     console.log("  - inputValue:", `"${inputValue}"`)
-    console.log("  - inputValue.trim():", `"${inputValue.trim()}"`)
-    console.log("  - isTyping:", isTyping)
+    console.log("  - sessionId:", sessionId)
+    console.log("  - isInitializing:", isInitializing)
 
-    if (inputValue.trim() === "" || isTyping) {
-      console.log("❌ יציאה מוקדמת - input ריק או typing")
+    if (inputValue.trim() === "" || isTyping || isInitializing || !sessionId) {
+      console.log("❌ יציאה מוקדמת:", {
+        emptyInput: inputValue.trim() === "",
+        isTyping,
+        isInitializing,
+        noSessionId: !sessionId,
+      })
       return
     }
 
@@ -126,13 +190,9 @@ export default function ChatPage() {
 
     try {
       // הכנת הגוף לשליחה
-      const requestBody: Record<string, any> = {
+      const requestBody = {
         message: currentQuestion,
-      }
-
-      // רק אם יש sessionId, נוסיף אותו
-      if (sessionId) {
-        requestBody.sessionId = sessionId
+        sessionId: sessionId,
       }
 
       console.log("📦 מכין בקשה:")
@@ -170,16 +230,6 @@ export default function ChatPage() {
       const data = await response.json()
       console.log("✅ נתונים שהתקבלו מהשרת:", data)
 
-      // עדכון session ID אם זה סשן חדש
-      if (data.sessionId && !sessionId) {
-        console.log("🆔 מעדכן session ID:", data.sessionId)
-        setSessionId(data.sessionId)
-        // עדכון URL עם session ID
-        const url = new URL(window.location.href)
-        url.searchParams.set("session", data.sessionId)
-        window.history.replaceState({}, "", url.toString())
-      }
-
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: data.answer || "מצטער, לא הצלחתי לייצר תשובה.",
@@ -213,12 +263,31 @@ export default function ChatPage() {
     }
   }
 
+  // הצגת מסך טעינה בזמן אתחול
+  if (isInitializing) {
+    return (
+      <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
+        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4">
+          <h1 className="text-xl font-semibold">צ'אט חירום - עיל"ם</h1>
+          <p className="text-sm opacity-90">עוזר החירום האישי שלך מבוסס על מידע פיקוד העורף</p>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">מכין את הצ'אט...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4">
         <h1 className="text-xl font-semibold">צ'אט חירום - עיל"ם</h1>
         <p className="text-sm opacity-90">עוזר החירום האישי שלך מבוסס על מידע פיקוד העורף</p>
+        {sessionId && <p className="text-xs opacity-70 mt-1">Session: {sessionId.substring(0, 8)}...</p>}
       </div>
 
       {/* Messages */}
@@ -329,12 +398,12 @@ export default function ChatPage() {
                 handleSendMessage()
               }
             }}
-            disabled={isTyping}
+            disabled={isTyping || isInitializing}
             className="flex-1"
           />
           <Button
             onClick={handleSendMessage}
-            disabled={isTyping || inputValue.trim() === ""}
+            disabled={isTyping || inputValue.trim() === "" || isInitializing || !sessionId}
             className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
           >
             <Send className="w-5 h-5" />
