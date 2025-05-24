@@ -13,6 +13,30 @@ export function detectLanguage(text: string): "he" | "en" {
   return hebrewPattern.test(text) ? "he" : "en"
 }
 
+// פונקציה לחיתוך טקסט חכם
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+
+  // חיתוך במשפט שלם אם אפשר
+  const truncated = text.substring(0, maxLength)
+  const lastSentence = truncated.lastIndexOf(".")
+  const lastQuestion = truncated.lastIndexOf("?")
+  const lastExclamation = truncated.lastIndexOf("!")
+
+  const lastPunctuation = Math.max(lastSentence, lastQuestion, lastExclamation)
+
+  if (lastPunctuation > maxLength * 0.7) {
+    return truncated.substring(0, lastPunctuation + 1)
+  }
+
+  return truncated + "..."
+}
+
+// חישוב מספר טוקנים משוער (4 תווים = 1 טוקן בממוצע)
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4)
+}
+
 // יצירת embedding
 export async function createEmbedding(text: string): Promise<number[]> {
   try {
@@ -35,7 +59,7 @@ export async function createEmbedding(text: string): Promise<number[]> {
 export async function searchSimilarDocuments(
   embedding: number[],
   language: "he" | "en",
-  limit = 5,
+  limit = 3, // הקטנתי מ-5 ל-3 כדי לחסוך טוקנים
 ): Promise<
   Array<{
     plain_text: string
@@ -50,7 +74,7 @@ export async function searchSimilarDocuments(
 
     const { data: functions, error: functionsError } = await supabase.rpc("match_documents", {
       query_embedding: embedding,
-      match_threshold: 0.1,
+      match_threshold: 0.2, // העליתי את הסף לקבל מסמכים רלוונטיים יותר
       match_count: limit,
       filter_language: language,
     })
@@ -77,7 +101,7 @@ export async function searchSimilarDocuments(
   }
 }
 
-// יצירת תשובה עם step-back prompting
+// יצירת תשובה עם step-back prompting וניהול טוקנים חכם
 export async function generateAnswer(
   question: string,
   documents: Array<{
@@ -97,43 +121,68 @@ export async function generateAnswer(
       return await generateFallbackAnswer(question, language)
     }
 
-    // Step-back prompting
-    const stepBackPrompt =
-      language === "he"
-        ? `מה העקרונות הכלליים הקשורים לשאלה: "${question}"?`
-        : `What are the general principles related to the question: "${question}"?`
+    // הכנת הקשר עם ניהול טוקנים חכם
+    const maxContextLength = 2000 // מקסימום תווים להקשר
+    let context = ""
+    let currentLength = 0
 
-    const context = documents.map((doc) => `מקור: ${doc.title}\nתוכן: ${doc.plain_text}`).join("\n\n")
+    for (const doc of documents) {
+      const docText = `מקור: ${doc.title}\nתוכן: ${doc.plain_text}\n\n`
+
+      if (currentLength + docText.length > maxContextLength) {
+        // אם המסמך גדול מדי, חותכים אותו
+        const remainingSpace = maxContextLength - currentLength
+        if (remainingSpace > 200) {
+          // רק אם יש מספיק מקום למשהו משמעותי
+          const truncatedText = truncateText(doc.plain_text, remainingSpace - doc.title.length - 20)
+          context += `מקור: ${doc.title}\nתוכן: ${truncatedText}\n\n`
+        }
+        break
+      }
+
+      context += docText
+      currentLength += docText.length
+    }
+
+    console.log(`📊 אורך הקשר סופי: ${context.length} תווים (${estimateTokens(context)} טוקנים משוערים)`)
+
+    // Step-back prompting מקוצר
+    const stepBackPrompt =
+      language === "he" ? `עקרונות כלליים לשאלה: "${question}"` : `General principles for: "${question}"`
 
     const systemPrompt =
       language === "he"
-        ? `אתה עוזר AI המתמחה במידע של פיקוד העורף הישראלי. 
-        השתמש רק במידע המסופק ותן תשובות מדויקות ומועילות.
-        אם המידע לא מספיק, אמר זאת בבירור.
-        תמיד ציין את המקורות בסוף התשובה.`
-        : `You are an AI assistant specializing in Israeli Home Front Command information.
-        Use only the provided information and give accurate, helpful answers.
-        If the information is insufficient, state this clearly.
-        Always cite sources at the end of your answer.`
+        ? `אתה עוזר AI של פיקוד העורף. השתמש במידע המסופק ותן תשובה קצרה ומדויקת. ציין מקורות.`
+        : `You are an Israeli Home Front Command AI assistant. Use the provided information for a concise, accurate answer. Cite sources.`
 
     const userPrompt =
       language === "he"
-        ? `שאלה כללית: ${stepBackPrompt}
-        
-        שאלה ספציפית: ${question}
-        
-        מידע רלוונטי:
-        ${context}
-        
-        אנא תן תשובה מקיפה ומדויקת בעברית.`
-        : `General question: ${stepBackPrompt}
-        
-        Specific question: ${question}
-        
-        Relevant information:
-        ${context}
-        
-        Please provide a comprehensive and accurate answer in English.`
+        ? `רקע: ${stepBackPrompt}
+
+שאלה: ${question}
+
+מידע:
+${context}
+
+תן תשובה קצרה ומדויקת בעברית.`
+        : `Background: ${stepBackPrompt}
+
+Question: ${question}
+
+Information:
+${context}
+
+Provide a concise, accurate answer in English.`
+
+    // חישוב טוקנים משוער
+    const totalTokens = estimateTokens(systemPrompt + userPrompt)
+    console.log(`📊 טוקנים משוערים לבקשה: ${totalTokens}`)
+
+    if (totalTokens > 3500) {
+      // השארתי מרווח בטיחות
+      console.log("⚠️ יותר מדי טוקנים, עובר ל-fallback")
+      return await generateFallbackAnswer(question, language)
+    }
 
     console.log("🔄 שולח בקשה ל-OpenAI...")
 
@@ -144,7 +193,7 @@ export async function generateAnswer(
         { role: "user", content: userPrompt },
       ],
       temperature: 0.3,
-      max_tokens: 1000,
+      max_tokens: 800, // הקטנתי מ-1000 ל-800
     })
 
     const answer = completion.choices[0]?.message?.content || ""
@@ -153,11 +202,19 @@ export async function generateAnswer(
     return { answer, usedFallback: false }
   } catch (error) {
     console.error("❌ שגיאה ביצירת תשובה:", error)
+
+    // אם זו שגיאת טוקנים, ננסה עם פחות מסמכים
+    if (error instanceof Error && error.message.includes("maximum context")) {
+      console.log("🔄 ניסיון חוזר עם פחות מסמכים...")
+      const reducedDocuments = documents.slice(0, 1) // רק המסמך הכי רלוונטי
+      return await generateAnswer(question, reducedDocuments, language)
+    }
+
     throw new Error(`שגיאה ביצירת תשובה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`)
   }
 }
 
-// תשובת fallback
+// תשובת fallback מקוצרת
 async function generateFallbackAnswer(
   question: string,
   language: "he" | "en",
@@ -167,8 +224,8 @@ async function generateFallbackAnswer(
 
     const systemPrompt =
       language === "he"
-        ? `אתה עוזר AI כללי. תן תשובה מועילה ובטוחה לשאלה, אבל ציין שהמידע אינו מבוסס על מסמכים רשמיים של פיקוד העורף.`
-        : `You are a general AI assistant. Provide a helpful and safe answer, but mention that the information is not based on official Home Front Command documents.`
+        ? `תן תשובה קצרה ומועילה. ציין שהמידע אינו מבוסס על מסמכים רשמיים של פיקוד העורף.`
+        : `Provide a brief, helpful answer. Mention that information is not based on official Home Front Command documents.`
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
@@ -177,7 +234,7 @@ async function generateFallbackAnswer(
         { role: "user", content: question },
       ],
       temperature: 0.5,
-      max_tokens: 500,
+      max_tokens: 300, // הקטנתי מ-500 ל-300
     })
 
     const answer = completion.choices[0]?.message?.content || ""
