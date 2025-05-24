@@ -123,9 +123,8 @@ export default function ChatPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          question: currentQuestion,
+          message: currentQuestion,
           sessionId: sessionId,
-          userId: user?.id,
         }),
       })
 
