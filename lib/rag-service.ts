@@ -277,11 +277,13 @@ export async function saveChatMessage(
 ): Promise<void> {
   try {
     console.log(`💾 שומר הודעה: ${isUser ? "משתמש" : "בוט"} - ${message.substring(0, 50)}...`)
+    console.log(`📊 מקורות לשמירה:`, sources?.length || 0)
 
     const { error } = await supabase.from("chat_messages").insert({
       session_id: sessionId,
       content: message,
       role: isUser ? "user" : "assistant",
+      sources: sources || [],
       created_at: new Date().toISOString(),
     })
 
@@ -302,6 +304,7 @@ export async function getChatHistory(sessionId: string): Promise<
     id: string
     content: string
     role: string
+    sources: Array<{ title: string; file_name: string; similarity: number }>
     created_at: string
   }>
 > {
