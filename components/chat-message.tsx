@@ -1,6 +1,5 @@
-import { cn } from "@/lib/utils"
-import { Bot, User } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { User, Bot } from "lucide-react"
 
 export interface ChatMessageProps {
   id: string
@@ -9,14 +8,11 @@ export interface ChatMessageProps {
 }
 
 export function ChatMessage({ text, sender }: ChatMessageProps) {
-  const isUser = sender === "user"
-
   return (
-    <div className={cn("flex w-full mb-4", isUser ? "justify-end" : "justify-start")}>
-      <div className={cn("flex max-w-[80%] gap-3", isUser ? "flex-row-reverse" : "flex-row")}>
-        {/* Avatar */}
-        {!isUser && (
-          <Avatar className="h-8 w-8">
+    <div className={`flex items-start gap-3 mb-4 ${sender === "user" ? "flex-row-reverse" : ""}`}>
+      <Avatar className="h-8 w-8 flex-shrink-0">
+        {sender === "bot" ? (
+          <>
             <AvatarImage
               src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/fcae81_support-agent.png"
               alt="Bot Avatar"
@@ -24,29 +20,22 @@ export function ChatMessage({ text, sender }: ChatMessageProps) {
             <AvatarFallback>
               <Bot className="h-4 w-4" />
             </AvatarFallback>
-          </Avatar>
+          </>
+        ) : (
+          <AvatarFallback>
+            <User className="h-4 w-4" />
+          </AvatarFallback>
         )}
+      </Avatar>
 
-        {/* Message Content */}
-        <div
-          className={cn(
-            "rounded-lg px-3 py-2 text-sm max-w-[70%]",
-            isUser
-              ? "bg-purple-600 text-white rounded-br-none"
-              : "bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-white rounded-bl-none",
-          )}
-        >
-          <div className="whitespace-pre-wrap break-words">{text}</div>
-        </div>
-
-        {/* User Avatar */}
-        {isUser && (
-          <Avatar className="h-8 w-8">
-            <AvatarFallback>
-              <User className="h-4 w-4" />
-            </AvatarFallback>
-          </Avatar>
-        )}
+      <div
+        className={`max-w-[70%] p-3 rounded-lg ${
+          sender === "user"
+            ? "bg-purple-600 text-white"
+            : "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+        }`}
+      >
+        <p className="text-sm whitespace-pre-wrap break-words">{text}</p>
       </div>
     </div>
   )
