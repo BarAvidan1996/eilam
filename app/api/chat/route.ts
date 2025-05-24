@@ -1,65 +1,52 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { processRAGQuery, createChatSession, saveChatMessage } from "@/lib/services/rag-service"
+import { processRAGQuery, saveChatMessage } from "@/lib/rag-service"
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { question, sessionId, userId } = body
+    console.log("📨 התקבלה בקשת צ'אט")
 
-    console.log("Chat API called with:", { question, sessionId, userId })
+    const { message, sessionId } = await request.json()
 
-    if (!question || typeof question !== "string") {
-      return NextResponse.json({ error: "Question is required" }, { status: 400 })
+    if (!message || !sessionId) {
+      console.log("❌ חסרים פרמטרים: message או sessionId")
+      return NextResponse.json({ error: "חסרים פרמטרים נדרשים" }, { status: 400 })
     }
 
-    let currentSessionId = sessionId
+    console.log(`💬 מעבד הודעה: "${message}" עבור סשן: ${sessionId}`)
 
-    // יצירת סשן חדש אם לא קיים
-    if (!currentSessionId && userId) {
-      try {
-        const session = await createChatSession(userId, `שיחה - ${new Date().toLocaleDateString("he-IL")}`)
-        currentSessionId = session.id
-        console.log("Created new session:", currentSessionId)
-      } catch (error) {
-        console.error("Error creating session:", error)
-        // ממשיך בלי סשן אם יש בעיה
-      }
-    }
+    // שמירת הודעת המשתמש
+    await saveChatMessage(sessionId, message, true)
+    console.log("✅ הודעת משתמש נשמרה")
 
-    // שמירת שאלת המשתמש
-    if (currentSessionId) {
-      try {
-        await saveChatMessage(currentSessionId, "user", question)
-      } catch (error) {
-        console.error("Error saving user message:", error)
-      }
-    }
-
-    // עיבוד השאלה עם RAG
-    const ragResult = await processRAGQuery(question)
+    // עיבוד השאלה
+    const result = await processRAGQuery(message)
+    console.log("📊 תוצאת עיבוד:", {
+      answerLength: result.answer.length,
+      sourcesCount: result.sources.length,
+      usedFallback: result.usedFallback,
+      hasError: !!result.error,
+    })
 
     // שמירת תשובת הבוט
-    if (currentSessionId) {
-      try {
-        await saveChatMessage(currentSessionId, "assistant", ragResult.answer)
-      } catch (error) {
-        console.error("Error saving assistant message:", error)
-      }
+    await saveChatMessage(sessionId, result.answer, false, result.sources)
+    console.log("✅ תשובת בוט נשמרה")
+
+    // אם יש שגיאה, נוסיף אותה לתגובה לצורך debug
+    const response = {
+      answer: result.answer,
+      sources: result.sources,
+      usedFallback: result.usedFallback,
+      ...(result.error && { debugError: result.error }),
     }
 
-    return NextResponse.json({
-      answer: ragResult.answer,
-      sources: ragResult.sources,
-      sessionId: currentSessionId,
-      language: ragResult.language,
-      documentsFound: ragResult.documentsFound,
-    })
+    return NextResponse.json(response)
   } catch (error) {
-    console.error("Error in chat API:", error)
+    console.error("❌ שגיאה כללית ב-API:", error)
+
     return NextResponse.json(
       {
-        error: "Internal server error",
-        answer: "מצטער, אירעה שגיאה בשרת. אנא נסה שוב.",
+        error: "שגיאה פנימית בשרת",
+        debugError: error instanceof Error ? error.message : JSON.stringify(error),
       },
       { status: 500 },
     )
