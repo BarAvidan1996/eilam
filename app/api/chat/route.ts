@@ -18,9 +18,9 @@ export async function POST(request: NextRequest) {
     }
 
     // יצירת תשובה באמצעות RAG
-    console.log("Calling RAG service...")
+    console.log("Processing with RAG...")
     const ragResponse = await answerQuestion(question)
-    console.log("RAG response:", ragResponse)
+    console.log("RAG response received:", ragResponse.method)
 
     let currentSessionId = sessionId
 

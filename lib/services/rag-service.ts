@@ -1,6 +1,11 @@
 import { createClient } from "@supabase/supabase-js"
+import OpenAI from "openai"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+})
 
 // זיהוי שפה פשוט
 function detectLanguage(text: string): string {
@@ -8,41 +13,27 @@ function detectLanguage(text: string): string {
   return hebrewPattern.test(text) ? "he" : "en"
 }
 
-// יצירת embedding באמצעות Supabase Edge Function או OpenAI
+// יצירת embedding לטקסט
 async function createEmbedding(text: string): Promise<number[]> {
   try {
-    // נשתמש ב-OpenAI API ישירות
-    const response = await fetch("https://api.openai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "text-embedding-ada-002",
-        input: text,
-      }),
+    const response = await openai.embeddings.create({
+      model: "text-embedding-ada-002",
+      input: text,
     })
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return data.data[0].embedding
+    return response.data[0].embedding
   } catch (error) {
     console.error("Error creating embedding:", error)
     throw new Error("Failed to create embedding")
   }
 }
 
-// חיפוש מסמכים רלוונטיים
-async function searchRelevantDocuments(query: string, language: string, limit = 3) {
+// חיפוש מסמכים רלוונטיים באמצעות similarity search
+async function searchRelevantDocuments(query: string, language: string, limit = 5) {
   try {
     console.log("Creating embedding for query:", query)
     const embedding = await createEmbedding(query)
-    console.log("Embedding created, searching documents...")
 
+    console.log("Searching for similar documents...")
     const { data, error } = await supabase.rpc("match_documents", {
       query_embedding: embedding,
       match_threshold: 0.7,
@@ -55,7 +46,7 @@ async function searchRelevantDocuments(query: string, language: string, limit = 
       return []
     }
 
-    console.log("Found documents:", data?.length || 0)
+    console.log(`Found ${data?.length || 0} relevant documents`)
     return data || []
   } catch (error) {
     console.error("Error in searchRelevantDocuments:", error)
@@ -63,95 +54,90 @@ async function searchRelevantDocuments(query: string, language: string, limit = 
   }
 }
 
-// יצירת תשובה באמצעות OpenAI
-async function generateAnswer(question: string, context: string, language: string): Promise<string> {
+// יצירת תשובה באמצעות OpenAI עם הקשר מהמסמכים
+async function generateAnswer(question: string, documents: any[], language: string): Promise<string> {
+  if (documents.length === 0) {
+    return language === "he"
+      ? "מצטער, לא נמצאו מסמכים רלוונטיים לשאלתך במאגר המידע של פיקוד העורף."
+      : "Sorry, no relevant documents found for your question in the Home Front Command database."
+  }
+
+  // יצירת הקשר מהמסמכים
+  const context = documents
+    .map((doc) => {
+      return `כותרת: ${doc.title}\nתוכן: ${doc.plain_text}\n---`
+    })
+    .join("\n")
+
   const systemPrompt =
     language === "he"
       ? `אתה עוזר חירום חכם של פיקוד העורף בישראל. תפקידך לספק תשובות מדויקות ואמינות לשאלות הקשורות למצבי חירום.
 
-השתמש רק במידע שסופק להלן. אם המידע לא מכיל תשובה ברורה, אל תמציא - ענה במפורש: "לא נמצאה תשובה מבוססת במידע הנתון."
+השתמש רק במידע שסופק להלן ממסמכי פיקוד העורף. אם המידע לא מכיל תשובה ברורה, אל תמציא - ענה במפורש: "לא נמצאה תשובה מבוססת במידע הנתון."
 
 הוראות:
 - התשובה חייבת להיות בעברית ברורה, נכונה ושוטפת, המתאימה לציבור הרחב
 - אם ההקשר כולל הוראות בטיחות, הצג אותן בצורה ברורה ושלבית
-- אל תסתמך על ידע כללי או תכלול תוכן שלא קיים בהקשר הנתון`
+- אל תסתמך על ידע כללי או תכלול תוכן שלא קיים בהקשר הנתון
+- ציין מקורות רלוונטיים אם יש כאלה`
       : `You are a smart emergency assistant for the Home Front Command in Israel. Your role is to provide accurate and reliable answers to emergency-related questions.
 
-Use only the information provided below. If the information does not contain a clear answer, do not make assumptions – explicitly respond: "No answer found in the provided information."
+Use only the information provided below from Home Front Command documents. If the information does not contain a clear answer, do not make assumptions – explicitly respond: "No answer found in the provided information."
 
 Instructions:
 - Your answer must be in clear, correct, and fluent English, suitable for the general public
 - If the context includes safety instructions, present them in a clear step-by-step manner
-- Do not rely on general knowledge or include any content not present in the provided context`
+- Do not rely on general knowledge or include any content not present in the provided context
+- Cite relevant sources if available`
 
-  const userPrompt = `Context:\n${context}\n\nQuestion: ${question}\n\nAnswer:`
+  const userPrompt = `מידע רלוונטי ממסמכי פיקוד העורף:
+${context}
+
+שאלה: ${question}
+
+תשובה:`
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        max_tokens: 500,
-        temperature: 0.1,
-      }),
+    console.log("Generating answer with OpenAI...")
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      max_tokens: 800,
+      temperature: 0.1,
     })
 
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    return data.choices[0]?.message?.content || "מצטער, לא הצלחתי לייצר תשובה."
+    const answer = response.choices[0]?.message?.content || "מצטער, לא הצלחתי לייצר תשובה."
+    console.log("Generated answer:", answer.substring(0, 100) + "...")
+    return answer
   } catch (error) {
     console.error("Error generating answer:", error)
     throw new Error("Failed to generate answer")
   }
 }
 
-// הפונקציה הראשית לענות על שאלות
+// הפונקציה הראשית לענות על שאלות באמצעות RAG
 export async function answerQuestion(question: string): Promise<{
   answer: string
   sources: string[]
   method: string
 }> {
   try {
-    console.log("Processing question:", question)
+    console.log("Starting RAG process for question:", question)
+
     const language = detectLanguage(question)
     console.log("Detected language:", language)
 
     const documents = await searchRelevantDocuments(question, language)
 
-    if (documents.length === 0) {
-      console.log("No documents found")
-      return {
-        answer:
-          language === "he"
-            ? "מצטער, לא נמצאו מסמכים רלוונטיים לשאלתך במאגר המידע של פיקוד העורף. אנא נסה לנסח את השאלה בצורה אחרת או פנה ישירות לפיקוד העורף."
-            : "Sorry, no relevant documents found for your question in the Home Front Command database. Please try rephrasing your question or contact the Home Front Command directly.",
-        sources: [],
-        method: "no_documents",
-      }
-    }
-
-    console.log("Building context from documents...")
-    const context = documents
-      .map((doc) => `${doc.title || "ללא כותרת"}\n${doc.plain_text || doc.summary || ""}`)
-      .join("\n\n---\n\n")
-
-    console.log("Generating answer...")
-    const answer = await generateAnswer(question, context, language)
+    const answer = await generateAnswer(question, documents, language)
+    const sources = documents.map((doc) => doc.title || doc.file_name || "מסמך לא ידוע")
 
     return {
       answer,
-      sources: documents.map((doc) => doc.title || doc.file_name || "מסמך ללא שם"),
+      sources,
       method: "rag",
     }
   } catch (error) {
