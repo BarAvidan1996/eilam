@@ -1,11 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
-import OpenAI from "openai"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
 
 // זיהוי שפה פשוט
 function detectLanguage(text: string): string {
@@ -13,14 +8,28 @@ function detectLanguage(text: string): string {
   return hebrewPattern.test(text) ? "he" : "en"
 }
 
-// יצירת embedding לטקסט
+// יצירת embedding באמצעות Supabase Edge Function או OpenAI
 async function createEmbedding(text: string): Promise<number[]> {
   try {
-    const response = await openai.embeddings.create({
-      model: "text-embedding-ada-002",
-      input: text,
+    // נשתמש ב-OpenAI API ישירות
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "text-embedding-ada-002",
+        input: text,
+      }),
     })
-    return response.data[0].embedding
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data.data[0].embedding
   } catch (error) {
     console.error("Error creating embedding:", error)
     throw new Error("Failed to create embedding")
@@ -30,7 +39,9 @@ async function createEmbedding(text: string): Promise<number[]> {
 // חיפוש מסמכים רלוונטיים
 async function searchRelevantDocuments(query: string, language: string, limit = 3) {
   try {
+    console.log("Creating embedding for query:", query)
     const embedding = await createEmbedding(query)
+    console.log("Embedding created, searching documents...")
 
     const { data, error } = await supabase.rpc("match_documents", {
       query_embedding: embedding,
@@ -44,6 +55,7 @@ async function searchRelevantDocuments(query: string, language: string, limit = 
       return []
     }
 
+    console.log("Found documents:", data?.length || 0)
     return data || []
   } catch (error) {
     console.error("Error in searchRelevantDocuments:", error)
@@ -75,17 +87,29 @@ Instructions:
   const userPrompt = `Context:\n${context}\n\nQuestion: ${question}\n\nAnswer:`
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      max_tokens: 500,
-      temperature: 0.1,
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        max_tokens: 500,
+        temperature: 0.1,
+      }),
     })
 
-    return response.choices[0]?.message?.content || "מצטער, לא הצלחתי לייצר תשובה."
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`)
+    }
+
+    const data = await response.json()
+    return data.choices[0]?.message?.content || "מצטער, לא הצלחתי לייצר תשובה."
   } catch (error) {
     console.error("Error generating answer:", error)
     throw new Error("Failed to generate answer")
@@ -99,27 +123,35 @@ export async function answerQuestion(question: string): Promise<{
   method: string
 }> {
   try {
+    console.log("Processing question:", question)
     const language = detectLanguage(question)
+    console.log("Detected language:", language)
+
     const documents = await searchRelevantDocuments(question, language)
 
     if (documents.length === 0) {
+      console.log("No documents found")
       return {
         answer:
           language === "he"
-            ? "מצטער, לא נמצאו מסמכים רלוונטיים לשאלתך. אנא נסה לנסח את השאלה בצורה אחרת."
-            : "Sorry, no relevant documents found for your question. Please try rephrasing your question.",
+            ? "מצטער, לא נמצאו מסמכים רלוונטיים לשאלתך במאגר המידע של פיקוד העורף. אנא נסה לנסח את השאלה בצורה אחרת או פנה ישירות לפיקוד העורף."
+            : "Sorry, no relevant documents found for your question in the Home Front Command database. Please try rephrasing your question or contact the Home Front Command directly.",
         sources: [],
         method: "no_documents",
       }
     }
 
-    const context = documents.map((doc) => `${doc.title}\n${doc.plain_text}`).join("\n\n")
+    console.log("Building context from documents...")
+    const context = documents
+      .map((doc) => `${doc.title || "ללא כותרת"}\n${doc.plain_text || doc.summary || ""}`)
+      .join("\n\n---\n\n")
 
+    console.log("Generating answer...")
     const answer = await generateAnswer(question, context, language)
 
     return {
       answer,
-      sources: documents.map((doc) => doc.title || "Unknown"),
+      sources: documents.map((doc) => doc.title || doc.file_name || "מסמך ללא שם"),
       method: "rag",
     }
   } catch (error) {
