@@ -21,7 +21,6 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import ClientLayout from "./ClientLayout"
 
 // Force dynamic rendering to avoid document is not defined error
 export const dynamic = "force-dynamic"
@@ -321,162 +320,160 @@ export default function LoginPage() {
   }
 
   return (
-    <ClientLayout>
-      <div
-        className={`min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-b from-gray-50 to-[#005c72]/20 dark:from-gray-900 dark:to-[#005c72]/20 ${theme} ${isRTL ? "rtl" : ""}`}
-      >
-        <div className="absolute top-4 right-4 flex gap-2">
-          <DropdownMenu dir={isRTL ? "rtl" : "ltr"}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-1 text-gray-800 dark:text-gray-300">
-                <Globe className="h-5 w-5" />
-                <span className="hidden sm:inline">{t.languages[language] || t.languages.he}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align={isRTL ? "start" : "end"} className="dark:bg-gray-800">
-              <DropdownMenuLabel className="dark:text-gray-400">{t.language}</DropdownMenuLabel>
-              <DropdownMenuSeparator className="dark:bg-gray-700" />
-              {Object.keys(t.languages).map((langKey) => (
-                <DropdownMenuItem
-                  key={langKey}
-                  onClick={() => changeLanguage(langKey)}
-                  className={`cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200 ${
-                    language === langKey ? "bg-gray-100 dark:bg-gray-700 font-semibold" : ""
-                  }`}
-                >
-                  {t.languages[langKey]}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-gray-800 dark:text-gray-300">
-            {theme === "light" ? <Moon /> : <Sun />}
-          </Button>
-        </div>
-        <Card className="w-full max-w-md shadow-xl dark:bg-gray-800">
-          <CardHeader className="text-center">
-            <img
-              src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/fcae81_support-agent.png"
-              alt="עילם לוגו"
-              className="w-16 h-16 mx-auto mb-2 rounded-full"
-            />
-            <CardTitle className="text-3xl font-bold text-gray-800 dark:!text-white">עיל"ם</CardTitle>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">* שדות חובה</p>
-            <CardDescription className="text-gray-600 dark:!text-white">{t.enterDetails}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loginError && (
-              <Alert variant="destructive" className="mb-4">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{loginError}</AlertDescription>
-              </Alert>
-            )}
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">
-                  {t.email}
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder={t.emailPlaceholder}
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value)
-                    if (errors.email) {
-                      setErrors({ ...errors, email: "" })
-                    }
-                    if (loginError) {
-                      setLoginError("")
-                    }
-                  }}
-                  className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                    errors.email ? "border-red-500 dark:border-red-500" : ""
-                  }`}
-                  dir="ltr"
-                />
-                {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
-                  {t.password}
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder={t.passwordPlaceholder}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value)
-                    if (errors.password) {
-                      setErrors({ ...errors, password: "" })
-                    }
-                    if (loginError) {
-                      setLoginError("")
-                    }
-                  }}
-                  className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
-                    errors.password ? "border-red-500 dark:border-red-500" : ""
-                  }`}
-                  dir="ltr"
-                />
-                {errors.password && <p className="text-sm text-red-500 mt-1">{errors.password}</p>}
-                {!errors.password && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    הסיסמה צריכה לכלול לפחות 8 תווים, אות גדולה, אות קטנה, מספר ותו מיוחד (%@!#).
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="rememberMe"
-                    checked={rememberMe}
-                    onCheckedChange={setRememberMe}
-                    className="data-[state=checked]:bg-[#005c72] border-gray-400 dark:border-gray-500"
-                  />
-                  <Label htmlFor="rememberMe" className="text-sm text-gray-600 dark:text-gray-300">
-                    {t.rememberMe}
-                  </Label>
-                </div>
-              </div>
-              <Button
-                type="submit"
-                className="w-full bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b1c9f8] dark:text-black"
-                disabled={isLoading}
+    <div
+      className={`min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-b from-gray-50 to-[#005c72]/20 dark:from-gray-900 dark:to-[#005c72]/20 ${theme} ${isRTL ? "rtl" : ""}`}
+    >
+      <div className="absolute top-4 right-4 flex gap-2">
+        <DropdownMenu dir={isRTL ? "rtl" : "ltr"}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="flex items-center gap-1 text-gray-800 dark:text-gray-300">
+              <Globe className="h-5 w-5" />
+              <span className="hidden sm:inline">{t.languages[language] || t.languages.he}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align={isRTL ? "start" : "end"} className="dark:bg-gray-800">
+            <DropdownMenuLabel className="dark:text-gray-400">{t.language}</DropdownMenuLabel>
+            <DropdownMenuSeparator className="dark:bg-gray-700" />
+            {Object.keys(t.languages).map((langKey) => (
+              <DropdownMenuItem
+                key={langKey}
+                onClick={() => changeLanguage(langKey)}
+                className={`cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200 ${
+                  language === langKey ? "bg-gray-100 dark:bg-gray-700 font-semibold" : ""
+                }`}
               >
-                {isLoading ? (
-                  <>
-                    <Spinner size="small" className="mr-2" /> {t.loginButtonLoading}
-                  </>
-                ) : (
-                  t.loginButton
-                )}
-              </Button>
-            </form>
-          </CardContent>
-          <CardFooter className="flex justify-center">
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              {t.noAccount}{" "}
-              <Link href="/register" className="font-medium text-[#005c72] hover:underline dark:text-[#d3e3fd]">
-                {t.registerHere}
-              </Link>
-            </p>
-          </CardFooter>
-        </Card>
-        <style jsx global>{`
-          body {
-            direction: ${isRTL ? "rtl" : "ltr"};
-          }
-          html.${theme} {
-            background-color: ${theme === "dark" ? "#111827" : "#f9fafb"};
-          }
-          /* Force better contrast for dark mode text */
-          .dark label, .dark p {
-            color: #e5e7eb !important;
-          }
-        `}</style>
+                {t.languages[langKey]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-gray-800 dark:text-gray-300">
+          {theme === "light" ? <Moon /> : <Sun />}
+        </Button>
       </div>
-    </ClientLayout>
+      <Card className="w-full max-w-md shadow-xl dark:bg-gray-800">
+        <CardHeader className="text-center">
+          <img
+            src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/fcae81_support-agent.png"
+            alt="עילם לוגו"
+            className="w-16 h-16 mx-auto mb-2 rounded-full"
+          />
+          <CardTitle className="text-3xl font-bold text-gray-800 dark:!text-white">עיל"ם</CardTitle>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">* שדות חובה</p>
+          <CardDescription className="text-gray-600 dark:!text-white">{t.enterDetails}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loginError && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{loginError}</AlertDescription>
+            </Alert>
+          )}
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">
+                {t.email}
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder={t.emailPlaceholder}
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (errors.email) {
+                    setErrors({ ...errors, email: "" })
+                  }
+                  if (loginError) {
+                    setLoginError("")
+                  }
+                }}
+                className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
+                  errors.email ? "border-red-500 dark:border-red-500" : ""
+                }`}
+                dir="ltr"
+              />
+              {errors.email && <p className="text-sm text-red-500 mt-1">{errors.email}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
+                {t.password}
+              </Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder={t.passwordPlaceholder}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  if (errors.password) {
+                    setErrors({ ...errors, password: "" })
+                  }
+                  if (loginError) {
+                    setLoginError("")
+                  }
+                }}
+                className={`dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 ${
+                  errors.password ? "border-red-500 dark:border-red-500" : ""
+                }`}
+                dir="ltr"
+              />
+              {errors.password && <p className="text-sm text-red-500 mt-1">{errors.password}</p>}
+              {!errors.password && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  הסיסמה צריכה לכלול לפחות 8 תווים, אות גדולה, אות קטנה, מספר ותו מיוחד (%@!#).
+                </p>
+              )}
+            </div>
+            <div className="flex items-center">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onCheckedChange={setRememberMe}
+                  className="data-[state=checked]:bg-[#005c72] border-gray-400 dark:border-gray-500"
+                />
+                <Label htmlFor="rememberMe" className="text-sm text-gray-600 dark:text-gray-300">
+                  {t.rememberMe}
+                </Label>
+              </div>
+            </div>
+            <Button
+              type="submit"
+              className="w-full bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b1c9f8] dark:text-black"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Spinner size="small" className="mr-2" /> {t.loginButtonLoading}
+                </>
+              ) : (
+                t.loginButton
+              )}
+            </Button>
+          </form>
+        </CardContent>
+        <CardFooter className="flex justify-center">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {t.noAccount}{" "}
+            <Link href="/register" className="font-medium text-[#005c72] hover:underline dark:text-[#d3e3fd]">
+              {t.registerHere}
+            </Link>
+          </p>
+        </CardFooter>
+      </Card>
+      <style jsx global>{`
+        body {
+          direction: ${isRTL ? "rtl" : "ltr"};
+        }
+        html.${theme} {
+          background-color: ${theme === "dark" ? "#111827" : "#f9fafb"};
+        }
+        /* Force better contrast for dark mode text */
+        .dark label, .dark p {
+          color: #e5e7eb !important;
+        }
+      `}</style>
+    </div>
   )
 }
