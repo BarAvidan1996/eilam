@@ -74,7 +74,7 @@ export async function searchSimilarDocuments(
 
     const { data: functions, error: functionsError } = await supabase.rpc("match_documents", {
       query_embedding: embedding,
-      match_threshold: 0.2, // העליתי את הסף לקבל מסמכים רלוונטיים יותר
+      match_threshold: 0.8, // העליתי את הסף לקבל מסמכים רלוונטיים יותר
       match_count: limit,
       filter_language: language,
     })
