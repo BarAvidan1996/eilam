@@ -159,7 +159,6 @@ function buildContextFromDocuments(
     context += docText
     currentLength += docText.length
   }
-
   return context
 }
 
