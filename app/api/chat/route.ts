@@ -4,11 +4,20 @@ import { processRAGQuery, saveChatMessage } from "@/lib/rag-service"
 
 export async function POST(request: Request) {
   try {
-    const { message, sessionId } = await request.json()
+    const body = await request.json()
+    console.log("🎯 Chat API - קיבלתי בקשה:", body)
 
-    console.log("🎯 Chat API - קיבלתי בקשה:", { message, sessionId })
+    // useChat שולח messages array ו-sessionId בנפרד
+    const { messages, sessionId } = body
+
+    // הודעה אחרונה היא השאלה הנוכחית
+    const lastMessage = messages[messages.length - 1]
+    const message = lastMessage?.content
+
+    console.log("📝 Extracted data:", { message, sessionId, messagesCount: messages?.length })
 
     if (!message || !sessionId) {
+      console.log("❌ Missing data:", { hasMessage: !!message, hasSessionId: !!sessionId })
       return new Response(JSON.stringify({ error: "Missing message or sessionId" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
@@ -25,14 +34,14 @@ export async function POST(request: Request) {
       "📊 RAG Result sources:",
       ragResult.sources?.map((s) => ({
         title: s.title,
-        similarity: s.similarity + "%",
+        similarity: Math.round(s.similarity * 100) + "%",
       })),
     )
 
     // הכנת הקשר למודל
     let context = ""
     if (ragResult.sources && ragResult.sources.length > 0) {
-      context = ragResult.sources.map((source) => `מקור: ${source.title}\nתוכן רלוונטי מהמסמך`).join("\n\n")
+      context = ragResult.sources.map((source) => `מקור: ${source.title}\nתוכן: ${source.content}`).join("\n\n")
     }
 
     const systemPrompt = `אתה עיל"ם, עוזר החירום האישי של פיקוד העורף. 
@@ -62,7 +71,7 @@ ${context ? `\n\nמידע רלוונטי:\n${context}` : ""}`
       },
     })
   } catch (error) {
-    console.error("❌ Chat API Error:", error)
+    console.error("💥 Chat API Error:", error)
     return new Response(
       JSON.stringify({
         error: "Internal server error",

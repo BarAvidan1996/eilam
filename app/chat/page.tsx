@@ -42,7 +42,7 @@ export default function ChatPage() {
             "📊 Sources received:",
             sources.map((s: any) => ({
               title: s.title,
-              similarity: s.similarity + "%",
+              similarity: Math.round(s.similarity * 100) + "%",
             })),
           )
           setCurrentSources(sources)
@@ -57,6 +57,8 @@ export default function ChatPage() {
     onError: (error) => {
       console.error("❌ Chat error:", error)
     },
+    // וידוא שה-sessionId קיים לפני שליחה
+    disabled: !sessionId || isInitializing,
   })
 
   // גלילה אוטומטית למטה
@@ -284,7 +286,17 @@ export default function ChatPage() {
 
       {/* Input */}
       <div className="p-4 border-t dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <form
+          onSubmit={(e) => {
+            if (!sessionId) {
+              e.preventDefault()
+              console.log("❌ Cannot submit without sessionId")
+              return
+            }
+            handleSubmit(e)
+          }}
+          className="flex items-center gap-2"
+        >
           <Input
             type="text"
             placeholder="כתוב את שאלתך כאן..."
