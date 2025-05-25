@@ -1,15 +1,13 @@
-import { OpenAIStream, StreamingTextResponse } from "ai"
-import OpenAI from "openai"
+import { type NextRequest, NextResponse } from "next/server"
 import { processRAGQuery, saveChatMessage } from "@/lib/rag-service"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+export async function POST(request: NextRequest) {
+  console.log("🚀 API Chat - התחלת עיבוד בקשה")
 
-export async function POST(request: Request) {
   try {
+    // קריאת הגוף של הבקשה
     const body = await request.json()
-    console.log("🎯 Chat API - קיבלתי בקשה:", body)
+    console.log("📦 גוף הבקשה שהתקבל:", JSON.stringify(body, null, 2))
 
     // useChat שולח messages array ו-sessionId בנפרד
     const { messages, sessionId } = body
@@ -18,75 +16,121 @@ export async function POST(request: Request) {
     const lastMessage = messages[messages.length - 1]
     const message = lastMessage?.content
 
-    console.log("📝 Extracted data:", { message, sessionId, messagesCount: messages?.length })
+    console.log("🔍 פירוק פרמטרים:")
+    console.log("  - message:", message, "(type:", typeof message, ")")
+    console.log("  - sessionId:", sessionId, "(type:", typeof sessionId, ")")
 
-    if (!message || !sessionId) {
-      console.log("❌ Missing data:", { hasMessage: !!message, hasSessionId: !!sessionId })
-      return new Response(JSON.stringify({ error: "Missing message or sessionId" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+    // בדיקת תקינות פרמטרים
+    if (!message || typeof message !== "string" || message.trim() === "") {
+      console.log("❌ שגיאה: message לא תקין")
+      return NextResponse.json(
+        {
+          error: "Message is required and must be a non-empty string",
+          received: { message, sessionId },
+        },
+        { status: 400 },
+      )
     }
+
+    if (!sessionId || typeof sessionId !== "string") {
+      console.log("❌ שגיאה: sessionId לא תקין")
+      return NextResponse.json(
+        {
+          error: "SessionId is required and must be a string",
+          received: { message, sessionId },
+        },
+        { status: 400 },
+      )
+    }
+
+    console.log("✅ פרמטרים תקינים, מתחיל עיבוד")
+    console.log(`💬 מעבד הודעה: "${message}" עבור סשן: ${sessionId}`)
 
     // שמירת הודעת המשתמש
+    console.log("💾 שומר הודעת משתמש...")
     await saveChatMessage(sessionId, message, true)
+    console.log("✅ הודעת משתמש נשמרה בהצלחה")
 
-    // עיבוד RAG
-    const ragResult = await processRAGQuery(message)
-
-    console.log(
-      "📊 RAG Result sources:",
-      ragResult.sources?.map((s) => ({
-        title: s.title,
-        similarity: Math.round(s.similarity * 100) + "%",
-      })),
-    )
-
-    // הכנת הקשר למודל
-    let context = ""
-    if (ragResult.sources && ragResult.sources.length > 0) {
-      context = ragResult.sources.map((source) => `מקור: ${source.title}\nתוכן: ${source.content}`).join("\n\n")
-    }
-
-    const systemPrompt = `אתה עיל"ם, עוזר החירום האישי של פיקוד העורף. 
-תן תשובה קצרה ומדויקת בעברית בהתבסס על המידע המסופק.
-${context ? `\n\nמידע רלוונטי:\n${context}` : ""}`
-
-    // יצירת streaming response עם OpenAI ישירות
-    const response = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message },
-      ],
-      temperature: 0.3,
-      max_tokens: 800,
-      stream: true,
+    // עיבוד השאלה
+    console.log("🧠 מתחיל עיבוד RAG...")
+    const result = await processRAGQuery(message)
+    console.log("📊 תוצאת עיבוד RAG:", {
+      answerLength: result.answer.length,
+      sourcesCount: result.sources.length,
+      usedFallback: result.usedFallback,
+      hasError: !!result.error,
     })
 
-    // המרה ל-stream של Vercel
-    const stream = OpenAIStream(response, {
-      onCompletion: async (completion) => {
-        // שמירת התשובה המלאה אחרי שהיא מסתיימת
-        await saveChatMessage(sessionId, completion, false, ragResult.sources)
+    // הדפסת אחוזי התאמה לקונסול
+    if (result.sources && result.sources.length > 0) {
+      console.log(
+        "📊 Sources with similarity scores:",
+        result.sources.map((s) => ({
+          title: s.title,
+          similarity: Math.round(s.similarity * 100) + "%",
+        })),
+      )
+    }
+
+    if (result.error) {
+      console.log("⚠️ שגיאה בעיבוד RAG:", result.error)
+    }
+
+    // יצירת streaming response
+    const encoder = new TextEncoder()
+    let fullAnswer = ""
+
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // שליחת התשובה במקטעים קטנים לאפקט streaming
+          const words = result.answer.split(" ")
+
+          for (let i = 0; i < words.length; i++) {
+            const chunk = i === 0 ? words[i] : " " + words[i]
+            fullAnswer += chunk
+
+            // שליחת המקטע
+            controller.enqueue(encoder.encode(chunk))
+
+            // השהיה קטנה לאפקט streaming
+            await new Promise((resolve) => setTimeout(resolve, 50))
+          }
+
+          controller.close()
+
+          // שמירת תשובת הבוט אחרי שהסטרימינג הסתיים
+          console.log("💾 שומר תשובת בוט...")
+          await saveChatMessage(sessionId, fullAnswer, false, result.sources)
+          console.log("✅ תשובת בוט נשמרה בהצלחה")
+        } catch (error) {
+          console.error("❌ שגיאה בסטרימינג:", error)
+          controller.error(error)
+        }
       },
     })
 
-    // החזרת streaming response עם metadata
-    return new StreamingTextResponse(stream, {
+    // החזרת streaming response עם headers
+    return new Response(stream, {
       headers: {
-        "X-Sources": JSON.stringify(ragResult.sources || []),
-        "X-Used-Fallback": ragResult.usedFallback.toString(),
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Sources": JSON.stringify(result.sources || []),
+        "X-Used-Fallback": result.usedFallback.toString(),
       },
     })
   } catch (error) {
-    console.error("💥 Chat API Error:", error)
-    return new Response(
-      JSON.stringify({
-        error: "Internal server error",
-        details: error instanceof Error ? error.message : "Unknown error",
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
+    console.error("💥 שגיאה כללית ב-API:")
+    console.error("  - Error type:", error?.constructor?.name)
+    console.error("  - Error message:", error instanceof Error ? error.message : String(error))
+    console.error("  - Error stack:", error instanceof Error ? error.stack : "No stack")
+
+    return NextResponse.json(
+      {
+        error: "שגיאה פנימית בשרת",
+        debugError: error instanceof Error ? error.message : JSON.stringify(error),
+        errorType: error?.constructor?.name || "Unknown",
+      },
+      { status: 500 },
     )
   }
 }
