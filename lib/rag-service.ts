@@ -42,6 +42,24 @@ function shouldUseWebFallback(documents: any[]): boolean {
   return documents.length === 0 || documents.every((doc) => doc.similarity < 0.7)
 }
 
+// בדיקה אם התשובה לא מועילה ונדרש חיפוש ברשת
+function isAnswerInsufficientForWebSearch(answer: string): boolean {
+  const insufficientPhrases = [
+    "לא מספקת מידע מספיק",
+    "נדרש לחפש",
+    "אין מידע מספיק",
+    "לא ניתן לקבוע",
+    "מידע עדכני באינטרנט",
+    "מקורות אחרים",
+    "insufficient information",
+    "need to search",
+    "cannot determine",
+    "up-to-date information",
+  ]
+
+  return insufficientPhrases.some((phrase) => answer.toLowerCase().includes(phrase.toLowerCase()))
+}
+
 // חיפוש באינטרנט עם OpenAI Web Search
 async function searchWebWithOpenAI(
   question: string,
@@ -49,12 +67,12 @@ async function searchWebWithOpenAI(
 ): Promise<{ answer: string; usedFallback: boolean; usedWebSearch: boolean }> {
   try {
     console.log("🔍 מתחיל חיפוש באינטרנט עם OpenAI Web Search...")
-    console.log("❌ לא נמצאו מסמכים רלוונטיים - עובר לחיפוש ברשת")
+    console.log("🌐 עובר לחיפוש ברשת לקבלת מידע עדכני")
 
     const systemPrompt =
       language === "he"
-        ? "אתה עוזר AI של פיקוד העורף. תן תשובה מדויקת ועדכנית בעברית על בסיס המידע שתמצא באינטרנט. ציין מקורות אם אפשר."
-        : "You are an Israeli Home Front Command AI assistant. Provide accurate, up-to-date information in English based on web search results. Cite sources when possible."
+        ? "אתה עוזר AI של פיקוד העורף. חפש באינטרנט ותן תשובה מדויקת ועדכנית בעברית. ציין מקורות אם אפשר. התמקד במידע רשמי ואמין."
+        : "You are an Israeli Home Front Command AI assistant. Search the web and provide accurate, up-to-date information in English. Cite sources when possible. Focus on official and reliable information."
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-search-preview",
@@ -130,7 +148,7 @@ export async function searchSimilarDocuments(
 
     const { data: functions, error: functionsError } = await supabase.rpc("match_documents", {
       query_embedding: embedding,
-      match_threshold: 0.7, // הורדתי מ-0.8 ל-0.7 כדי לתת יותר הזדמנויות למסמכים
+      match_threshold: 0.7,
       match_count: limit,
       filter_language: language,
     })
@@ -174,7 +192,7 @@ export async function generateAnswer(
     console.log(`🤖 יוצר תשובה לשאלה: "${question}"`)
     console.log(`📚 מספר מסמכים: ${documents.length}`)
 
-    // בדיקה אם צריך להשתמש ב-Web Search
+    // בדיקה ראשונית אם צריך להשתמש ב-Web Search
     if (shouldUseWebFallback(documents)) {
       console.log("⚠️ לא נמצאו מסמכים רלוונטיים או שכולם עם דמיון נמוך. עובר לחיפוש ברשת.")
       return await searchWebWithOpenAI(question, language)
@@ -213,8 +231,8 @@ export async function generateAnswer(
 
     const systemPrompt =
       language === "he"
-        ? `אתה עוזר AI של פיקוד העורף. השתמש במידע המסופק ותן תשובה קצרה ומדויקת. ציין מקורות.`
-        : `You are an Israeli Home Front Command AI assistant. Use the provided information for a concise, accurate answer. Cite sources.`
+        ? `אתה עוזר AI של פיקוד העורף. השתמש במידע המסופק ותן תשובה קצרה ומדויקת. אם המידע לא מספיק לתשובה מלאה, ציין זאת בבירור. ציין מקורות.`
+        : `You are an Israeli Home Front Command AI assistant. Use the provided information for a concise, accurate answer. If the information is insufficient for a complete answer, state this clearly. Cite sources.`
 
     const userPrompt =
       language === "he"
@@ -225,7 +243,7 @@ export async function generateAnswer(
 מידע:
 ${context}
 
-תן תשובה קצרה ומדויקת בעברית.`
+תן תשובה קצרה ומדויקת בעברית. אם המידע לא מספיק, ציין זאת בבירור.`
         : `Background: ${stepBackPrompt}
 
 Question: ${question}
@@ -233,7 +251,7 @@ Question: ${question}
 Information:
 ${context}
 
-Provide a concise, accurate answer in English.`
+Provide a concise, accurate answer in English. If the information is insufficient, state this clearly.`
 
     const totalTokens = estimateTokens(systemPrompt + userPrompt)
     console.log(`📊 טוקנים משוערים לבקשה: ${totalTokens}`)
@@ -257,6 +275,12 @@ Provide a concise, accurate answer in English.`
 
     const answer = completion.choices[0]?.message?.content || ""
     console.log("✅ תשובה נוצרה בהצלחה, אורך:", answer.length)
+
+    // בדיקה אם התשובה לא מועילה ונדרש חיפוש ברשת
+    if (isAnswerInsufficientForWebSearch(answer)) {
+      console.log("🔍 התשובה לא מועילה, עובר לחיפוש ברשת לקבלת מידע עדכני")
+      return await searchWebWithOpenAI(question, language)
+    }
 
     return { answer, usedFallback: false, usedWebSearch: false }
   } catch (error) {
