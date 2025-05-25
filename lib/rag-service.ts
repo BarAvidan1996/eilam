@@ -1,8 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 
-console.log("💥 [processRAGQuery] TEST: זו הגרסה הנכונה של הפונקציה!")
-
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 const openai = new OpenAI({
@@ -368,7 +366,7 @@ async function generateFallbackAnswer(
         : `Provide a brief, helpful answer. Mention that information is not based on official Home Front Command documents.`
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: question },
