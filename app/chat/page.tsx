@@ -166,7 +166,7 @@ export default function ChatPage() {
         console.log("🔍 מנסה לפתוח מקור עם storage_path:", source.storage_path)
 
         // רשימת bucket names אפשריים לנסות
-        const possibleBuckets = ["base44-prod", "documents", "html-docs", "rag-documents", "storage", "files"]
+        const possibleBuckets = ["documents", "html-docs", "rag-documents", "storage", "files"]
 
         let foundUrl = null
 
