@@ -47,6 +47,8 @@ function shouldUseWebFallback(documents: any[]): boolean {
 async function isAnswerInsufficientByGPT(question: string, answer: string, language: "he" | "en"): Promise<boolean> {
   try {
     console.log("🧠 בודק איכות התשובה עם GPT...")
+    console.log("🔍 שאלה:", question)
+    console.log("📄 תשובה לבדיקה:", answer.substring(0, 150) + "...")
 
     const prompt =
       language === "he"
@@ -61,6 +63,8 @@ Answer: "${answer}"
 
 Does the answer directly, clearly and accurately respond to the question? Answer only "yes" or "no".`
 
+    console.log("📤 שולח בקשה לGPT לבדיקת איכות...")
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
@@ -69,14 +73,16 @@ Does the answer directly, clearly and accurately respond to the question? Answer
     })
 
     const content = response.choices[0]?.message?.content?.toLowerCase().trim()
+    console.log("📥 תגובת GPT:", `"${content}"`)
 
     const isInsufficient = language === "he" ? content === "לא" : content === "no"
 
-    console.log(`🎯 GPT הערכה: "${content}" - ${isInsufficient ? "לא מספקת" : "מספקת"}`)
+    console.log(`🎯 GPT הערכה סופית: "${content}" - ${isInsufficient ? "❌ לא מספקת" : "✅ מספקת"}`)
 
     return isInsufficient
   } catch (error) {
     console.error("❌ שגיאה בבדיקת איכות התשובה:", error)
+    console.log("⚠️ בגלל שגיאה, ממשיך עם התשובה הקיימת (לא עובר לחיפוש ברשת)")
     // במקרה של שגיאה, נחזור false (לא נעבור לחיפוש ברשת)
     return false
   }
@@ -299,10 +305,19 @@ Provide a concise, accurate answer in English. If the information is insufficien
     console.log("✅ תשובה נוצרה בהצלחה, אורך:", answer.length)
 
     // בדיקה סמנטית עם GPT אם התשובה מספקת
-    if (await isAnswerInsufficientByGPT(question, answer, language)) {
+    console.log("🔍 מתחיל בדיקת איכות התשובה...")
+    console.log("📝 שאלה לבדיקה:", question)
+    console.log("📝 תשובה לבדיקה:", answer.substring(0, 200) + "...")
+
+    const isInsufficient = await isAnswerInsufficientByGPT(question, answer, language)
+    console.log("🎯 תוצאת בדיקת GPT:", isInsufficient ? "לא מספקת - עובר לחיפוש ברשת" : "מספקת - ממשיך עם התשובה")
+
+    if (isInsufficient) {
       console.log("🔍 התשובה לא ישירה/מספקת לפי GPT – מבצע Web Search")
       return await searchWebWithOpenAI(question, language)
     }
+
+    console.log("✅ התשובה מספקת, ממשיך עם התשובה הקיימת")
 
     return { answer, usedFallback: false, usedWebSearch: false }
   } catch (error) {
