@@ -8,58 +8,39 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useSearchParams } from "next/navigation"
-import { useChat } from "ai/react"
 
-const initialMessages = [
+interface Message {
+  id: string
+  text: string
+  sender: "user" | "bot"
+  timestamp?: Date
+  sources?: Array<{
+    title: string
+    file_name: string
+    similarity: number
+  }>
+}
+
+const initialMessages: Message[] = [
   {
     id: "1",
-    role: "assistant" as const,
-    content: 'שלום! אני עיל"ם, עוזר החירום האישי שלך. איך אני יכול לעזור היום?',
+    text: 'שלום! אני עיל"ם, עוזר החירום האישי שלך. איך אני יכול לעזור היום?',
+    sender: "bot",
+    timestamp: new Date(),
   },
 ]
 
 export default function ChatPage() {
+  const [messages, setMessages] = useState<Message[]>(initialMessages)
+  const [inputValue, setInputValue] = useState("")
+  const [isTyping, setIsTyping] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
   const [isInitializing, setIsInitializing] = useState(true)
-  const [ragSources, setRagSources] = useState<
-    Array<{
-      title: string
-      file_name: string
-      similarity: number
-    }>
-  >([])
 
   const supabase = createClientComponentClient()
   const searchParams = useSearchParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // Vercel AI SDK useChat hook
-  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
-    api: "/api/chat",
-    body: {
-      sessionId,
-    },
-    onResponse: (response) => {
-      // קריאת metadata מהresponse headers
-      const sources = response.headers.get("X-RAG-Sources")
-      const fallback = response.headers.get("X-RAG-Fallback")
-
-      if (sources) {
-        try {
-          setRagSources(JSON.parse(sources))
-        } catch (e) {
-          console.error("שגיאה בפרסור מקורות:", e)
-        }
-      }
-
-      console.log("📊 RAG Fallback:", fallback === "true")
-    },
-    onError: (error) => {
-      console.error("💥 שגיאה בצ'אט:", error)
-    },
-    initialMessages,
-  })
 
   // גלילה אוטומטית למטה
   const scrollToBottom = () => {
@@ -159,10 +140,12 @@ export default function ChatPage() {
       if (!error && data && data.length > 0) {
         console.log(`📜 נמצאו ${data.length} הודעות בהיסטוריה`)
 
-        const chatMessages = data.map((msg) => ({
+        const chatMessages: Message[] = data.map((msg) => ({
           id: msg.id,
-          role: msg.role === "user" ? ("user" as const) : ("assistant" as const),
-          content: msg.content,
+          text: msg.message,
+          sender: msg.is_user ? "user" : "bot",
+          timestamp: new Date(msg.created_at),
+          sources: msg.sources || [],
         }))
 
         // החלפת ההודעות הראשוניות בהיסטוריה
@@ -175,17 +158,122 @@ export default function ChatPage() {
     }
   }
 
+  const handleSendMessage = async () => {
+    console.log("🎯 handleSendMessage - התחלה")
+    console.log("  - inputValue:", `"${inputValue}"`)
+    console.log("  - sessionId:", sessionId)
+    console.log("  - isInitializing:", isInitializing)
+
+    if (inputValue.trim() === "" || isTyping || isInitializing || !sessionId) {
+      console.log("❌ יציאה מוקדמת:", {
+        emptyInput: inputValue.trim() === "",
+        isTyping,
+        isInitializing,
+        noSessionId: !sessionId,
+      })
+      return
+    }
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputValue,
+      sender: "user",
+      timestamp: new Date(),
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    const currentQuestion = inputValue.trim()
+    console.log("📝 currentQuestion:", `"${currentQuestion}"`)
+
+    setInputValue("")
+    setIsTyping(true)
+
+    try {
+      // הכנת הגוף לשליחה
+      const requestBody = {
+        message: currentQuestion,
+        sessionId: sessionId,
+      }
+
+      console.log("📦 מכין בקשה:")
+      console.log("  - URL: /api/chat")
+      console.log("  - Method: POST")
+      console.log("  - Body:", JSON.stringify(requestBody, null, 2))
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      console.log("📡 תגובת שרת:")
+      console.log("  - Status:", response.status)
+      console.log("  - StatusText:", response.statusText)
+      console.log("  - OK:", response.ok)
+
+      if (!response.ok) {
+        // ננסה לקרוא את תוכן השגיאה
+        let errorText = ""
+        try {
+          const errorData = await response.json()
+          console.log("❌ פרטי שגיאה מהשרת:", errorData)
+          errorText = errorData.error || `HTTP ${response.status}`
+        } catch (e) {
+          console.log("❌ לא הצלחתי לפרסר את שגיאת השרת")
+          errorText = `HTTP error! status: ${response.status}`
+        }
+        throw new Error(errorText)
+      }
+
+      const data = await response.json()
+      console.log("✅ נתונים שהתקבלו מהשרת:", data)
+
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: data.answer || "מצטער, לא הצלחתי לייצר תשובה.",
+        sender: "bot",
+        timestamp: new Date(),
+        sources: data.sources,
+      }
+
+      console.log("🤖 הוספת הודעת בוט:", {
+        textPreview: botMessage.text.substring(0, 100) + "...",
+        sourcesCount: botMessage.sources?.length || 0,
+      })
+
+      setMessages((prev) => [...prev, botMessage])
+    } catch (error) {
+      console.error("💥 שגיאה בשליחת הודעה:")
+      console.error("  - Error type:", error?.constructor?.name)
+      console.error("  - Error message:", error instanceof Error ? error.message : String(error))
+      console.error("  - Error object:", error)
+
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: `מצטער, אירעה שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
+        sender: "bot",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      console.log("🏁 סיום handleSendMessage")
+      setIsTyping(false)
+    }
+  }
+
   // הצגת מסך טעינה בזמן אתחול
   if (isInitializing) {
     return (
       <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4">
+        <div className="bg-[#005C72] dark:bg-[#D3E3FD] text-white dark:text-gray-900 p-4">
           <h1 className="text-xl font-semibold">צ'אט חירום - עיל"ם</h1>
-          <p className="text-sm opacity-90">עוזר החירום האישי שלך מבוסס על מידע פיקוד העורף</p>
+          <p className="text-sm opacity-90">עוזר החירום האישי שלך מבוסס על מידע מאתר פיקוד העורף</p>
         </div>
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#005C72] dark:border-[#D3E3FD] mx-auto mb-4"></div>
             <p className="text-gray-600">מכין את הצ'אט...</p>
           </div>
         </div>
@@ -196,61 +284,69 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4">
+      <div className="bg-[#005C72] dark:bg-[#D3E3FD] text-white dark:text-gray-900 p-4">
         <h1 className="text-xl font-semibold">צ'אט חירום - עיל"ם</h1>
-        <p className="text-sm opacity-90">עוזר החירום האישי שלך מבוסס על מידע פיקוד העורף</p>
-        {sessionId && <p className="text-xs opacity-70 mt-1">Session: {sessionId.substring(0, 8)}...</p>}
+        <p className="text-sm opacity-90">עוזר החירום האישי שלך מבוסס על מידע מאתר פיקוד העורף</p>
       </div>
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
-          {messages.map((message, index) => (
+          {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex items-start gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex items-start gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"}`}
             >
-              {message.role === "assistant" && (
+              {message.sender === "bot" && (
                 <Avatar className="h-8 w-8 mt-1">
                   <AvatarImage
                     src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/fcae81_support-agent.png"
                     alt="Bot Avatar"
                   />
-                  <AvatarFallback className="bg-purple-100 text-purple-600">
+                  <AvatarFallback className="bg-[#005C72]/10 dark:bg-[#D3E3FD]/10 text-[#005C72] dark:text-gray-900">
                     <Bot className="h-4 w-4" />
                   </AvatarFallback>
                 </Avatar>
               )}
 
-              <div className={`max-w-[75%] ${message.role === "user" ? "order-2" : ""}`}>
+              <div className={`max-w-[75%] ${message.sender === "user" ? "order-2" : ""}`}>
                 <div
                   className={`p-3 rounded-lg ${
-                    message.role === "user"
-                      ? "bg-purple-600 text-white rounded-br-sm"
+                    message.sender === "user"
+                      ? "bg-[#005C72] dark:bg-[#D3E3FD] text-white dark:text-gray-900 rounded-br-sm"
                       : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-sm"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
                 </div>
 
-                {/* Sources - מציג רק להודעה האחרונה של הבוט */}
-                {message.role === "assistant" && index === messages.length - 1 && ragSources.length > 0 && (
+                {/* Sources */}
+                {message.sources && message.sources.length > 0 && (
                   <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     <p className="font-medium mb-1">מקורות:</p>
                     <ul className="space-y-1">
-                      {ragSources.map((source, sourceIndex) => (
-                        <li key={sourceIndex} className="flex items-center gap-2">
+                      {message.sources.map((source, index) => (
+                        <li key={index} className="flex items-center gap-2">
                           <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                           <span>{source.title}</span>
-                          <span className="text-gray-400">({source.similarity}% התאמה)</span>
+                          <span className="text-gray-400">({Math.round(source.similarity * 100)}% התאמה)</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
+
+                {message.timestamp && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    {message.timestamp.toLocaleTimeString("he-IL", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
               </div>
 
-              {message.role === "user" && (
+              {message.sender === "user" && (
                 <Avatar className="h-8 w-8 mt-1 order-3">
                   <AvatarFallback className="bg-blue-100 text-blue-600">
                     <User className="h-4 w-4" />
@@ -261,10 +357,10 @@ export default function ChatPage() {
           ))}
 
           {/* Typing indicator */}
-          {isLoading && (
+          {isTyping && (
             <div className="flex items-start gap-3">
               <Avatar className="h-8 w-8 mt-1">
-                <AvatarFallback className="bg-purple-100 text-purple-600">
+                <AvatarFallback className="bg-[#005C72]/10 dark:bg-[#D3E3FD]/10 text-[#005C72] dark:text-gray-900">
                   <Bot className="h-4 w-4" />
                 </AvatarFallback>
               </Avatar>
@@ -289,26 +385,30 @@ export default function ChatPage() {
 
       {/* Input */}
       <div className="p-4 border-t dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Input
             type="text"
             placeholder="כתוב את שאלתך כאן..."
-            value={input}
-            onChange={handleInputChange}
-            disabled={isLoading || isInitializing || !sessionId}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                handleSendMessage()
+              }
+            }}
+            disabled={isTyping || isInitializing}
             className="flex-1"
           />
           <Button
-            type="submit"
-            disabled={isLoading || input.trim() === "" || isInitializing || !sessionId}
-            className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
+            onClick={handleSendMessage}
+            disabled={isTyping || inputValue.trim() === "" || isInitializing || !sessionId}
+            className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7F7] text-white dark:text-gray-900 disabled:opacity-50"
           >
             <Send className="w-5 h-5" />
           </Button>
-        </form>
-        <p className="text-xs text-gray-500 mt-2 text-center">
-          עיל"ם מבוסס על מידע רשמי של פיקוד העורף • גרסה ניסיונית
-        </p>
+        </div>
+        <p className="text-xs text-gray-500 mt-2 text-center">עיל"ם מבוסס על מידע מאתר פיקוד העורף • גרסה ניסיונית</p>
       </div>
     </div>
   )
