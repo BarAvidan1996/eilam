@@ -163,16 +163,41 @@ export default function ChatPage() {
   const openSource = async (source: { title: string; file_name: string; storage_path?: string }) => {
     try {
       if (source.storage_path) {
-        // יצירת URL ל-Supabase Storage
-        const { data } = supabase.storage.from("base44-prod").getPublicUrl(source.storage_path)
+        console.log("🔍 מנסה לפתוח מקור עם storage_path:", source.storage_path)
 
-        if (data?.publicUrl) {
-          console.log("🔗 פותח מקור:", source.title, "מ-", data.publicUrl)
-          window.open(data.publicUrl, "_blank", "noopener,noreferrer")
+        // רשימת bucket names אפשריים לנסות
+        const possibleBuckets = ["base44-prod", "documents", "html-docs", "rag-documents", "storage", "files"]
+
+        let foundUrl = null
+
+        // ננסה כל bucket עד שנמצא אחד שעובד
+        for (const bucketName of possibleBuckets) {
+          try {
+            console.log(`🔍 מנסה bucket: ${bucketName}`)
+            const { data } = supabase.storage.from(bucketName).getPublicUrl(source.storage_path)
+
+            if (data?.publicUrl) {
+              // בדיקה מהירה אם ה-URL קיים
+              const testResponse = await fetch(data.publicUrl, { method: "HEAD" })
+              if (testResponse.ok) {
+                foundUrl = data.publicUrl
+                console.log(`✅ נמצא URL עובד ב-bucket ${bucketName}:`, foundUrl)
+                break
+              }
+            }
+          } catch (e) {
+            console.log(`❌ Bucket ${bucketName} לא עובד`)
+            continue
+          }
+        }
+
+        if (foundUrl) {
+          window.open(foundUrl, "_blank", "noopener,noreferrer")
         } else {
-          console.error("❌ לא הצלחתי לקבל URL עבור:", source.storage_path)
+          console.error("❌ לא נמצא bucket עובד עבור:", source.storage_path)
           // fallback - ננסה את האתר הרשמי
           const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
+          console.log("🔄 משתמש ב-fallback URL:", fallbackUrl)
           window.open(fallbackUrl, "_blank", "noopener,noreferrer")
         }
       } else {
