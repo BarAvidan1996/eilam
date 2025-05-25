@@ -65,6 +65,7 @@ export async function searchSimilarDocuments(
     plain_text: string
     title: string
     file_name: string
+    storage_path: string
     similarity: number
   }>
 > {
@@ -90,6 +91,7 @@ export async function searchSimilarDocuments(
       functions?.map((doc) => ({
         title: doc.title,
         similarity: doc.similarity,
+        storage_path: doc.storage_path,
         text_preview: doc.plain_text?.substring(0, 100) + "...",
       })),
     )
@@ -108,6 +110,7 @@ export async function generateAnswer(
     plain_text: string
     title: string
     file_name: string
+    storage_path: string
     similarity: number
   }>,
   language: "he" | "en",
@@ -253,6 +256,7 @@ export async function processRAGQuery(question: string): Promise<{
   sources: Array<{
     title: string
     file_name: string
+    storage_path: string
     similarity: number
   }>
   usedFallback: boolean
@@ -278,6 +282,7 @@ export async function processRAGQuery(question: string): Promise<{
     const sources = documents.map((doc) => ({
       title: doc.title,
       file_name: doc.file_name,
+      storage_path: doc.storage_path,
       similarity: Math.round(doc.similarity * 100),
     }))
 
@@ -330,7 +335,7 @@ export async function saveChatMessage(
   sessionId: string,
   message: string,
   isUser: boolean,
-  sources?: Array<{ title: string; file_name: string; similarity: number }>,
+  sources?: Array<{ title: string; file_name: string; storage_path: string; similarity: number }>,
 ): Promise<void> {
   try {
     console.log(`💾 שומר הודעה: ${isUser ? "משתמש" : "בוט"} - ${message.substring(0, 50)}...`)
@@ -361,7 +366,7 @@ export async function getChatHistory(sessionId: string): Promise<
     id: string
     content: string
     role: string
-    sources: Array<{ title: string; file_name: string; similarity: number }>
+    sources: Array<{ title: string; file_name: string; storage_path: string; similarity: number }>
     created_at: string
   }>
 > {

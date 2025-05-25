@@ -18,6 +18,7 @@ interface Message {
     title: string
     file_name: string
     similarity: number
+    storage_path?: string
   }>
 }
 
@@ -158,6 +159,36 @@ export default function ChatPage() {
     }
   }
 
+  // פונקציה לפתיחת מקור מה-storage
+  const openSource = async (source: { title: string; file_name: string; storage_path?: string }) => {
+    try {
+      if (source.storage_path) {
+        // יצירת URL ל-Supabase Storage
+        const { data } = supabase.storage.from("base44-prod").getPublicUrl(source.storage_path)
+
+        if (data?.publicUrl) {
+          console.log("🔗 פותח מקור:", source.title, "מ-", data.publicUrl)
+          window.open(data.publicUrl, "_blank", "noopener,noreferrer")
+        } else {
+          console.error("❌ לא הצלחתי לקבל URL עבור:", source.storage_path)
+          // fallback - ננסה את האתר הרשמי
+          const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
+          window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+        }
+      } else {
+        // fallback - אם אין storage_path, ננסה את האתר הרשמי
+        console.log("⚠️ אין storage_path, משתמש ב-fallback")
+        const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
+        window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+      }
+    } catch (error) {
+      console.error("❌ שגיאה בפתיחת מקור:", error)
+      // fallback אחרון
+      const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
+      window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+    }
+  }
+
   const handleSendMessage = async () => {
     console.log("🎯 handleSendMessage - התחלה")
     console.log("  - inputValue:", `"${inputValue}"`)
@@ -235,6 +266,9 @@ export default function ChatPage() {
         console.log("📊 Sources similarity scores:")
         data.sources.forEach((source: any, index: number) => {
           console.log(`  ${index + 1}. ${source.title}: ${Math.round(source.similarity * 100)}%`)
+          if (source.storage_path) {
+            console.log(`     Storage path: ${source.storage_path}`)
+          }
         })
       }
 
@@ -337,11 +371,7 @@ export default function ChatPage() {
                         <li key={index} className="flex items-center gap-2">
                           <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                           <button
-                            onClick={() => {
-                              const baseUrl = "https://www.oref.org.il"
-                              const sourceUrl = `${baseUrl}/${source.file_name}`
-                              window.open(sourceUrl, "_blank", "noopener,noreferrer")
-                            }}
+                            onClick={() => openSource(source)}
                             className="text-blue-600 dark:text-blue-400 hover:underline text-left"
                           >
                             {source.title}
