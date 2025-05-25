@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { processRAGQuery } from "../../lib/rag-service"
+import { saveChatMessage } from "../../lib/chat-service"
 
 export async function POST(request: NextRequest) {
   console.log("🚀 API Chat - התחלת עיבוד בקשה")
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
     if (!message || typeof message !== "string" || message.trim() === "") {
       console.log("❌ שגיאה: message לא תקין")
       console.log("  - message exists:", !!message)
-      console.log("  - message type:", typeof message)
+      console.log("  - message type:", typeof message, ")")
       console.log("  - message trimmed length:", message ? message.trim().length : 0)
 
       return NextResponse.json(
@@ -85,6 +86,8 @@ export async function POST(request: NextRequest) {
       answerPreview: response.answer.substring(0, 100) + "...",
       sourcesCount: response.sources.length,
       usedFallback: response.usedFallback,
+      sessionId: sessionId,
+      ...(result.error && { debugError: result.error }),
     })
 
     return NextResponse.json(response)
