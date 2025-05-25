@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { processRAGQuery, saveChatMessage } from "@/lib/rag-service"
 
 export async function POST(request: NextRequest) {
   console.log("🚀 API Chat - התחלת עיבוד בקשה")
@@ -46,20 +45,24 @@ export async function POST(request: NextRequest) {
     console.log("✅ פרמטרים תקינים, מתחיל עיבוד")
     console.log(`💬 מעבד הודעה: "${message}" עבור סשן: ${sessionId}`)
 
-    // שמירת הודעת המשתמש
-    console.log("💾 שומר הודעת משתמש...")
+    // בואו נבדוק אם הבעיה היא בשמירת הודעות
+    console.log("💾 מנסה לשמור הודעת משתמש...")
     try {
+      // נייבא את הפונקציה רק כאן כדי לראות אם זה הבעיה
+      const { saveChatMessage } = await import("@/lib/rag-service")
       await saveChatMessage(sessionId, message, true)
       console.log("✅ הודעת משתמש נשמרה בהצלחה")
     } catch (saveError) {
       console.error("❌ שגיאה בשמירת הודעת משתמש:", saveError)
-      // נמשיך גם אם השמירה נכשלה
+      console.error("❌ Stack trace:", saveError instanceof Error ? saveError.stack : "No stack")
+      // נמשיך בלי לעצור
     }
 
-    // עיבוד השאלה עם RAG
-    console.log("🧠 מתחיל עיבוד RAG...")
+    // בואו נבדוק אם הבעיה היא ב-RAG
+    console.log("🧠 מנסה לעבד RAG...")
     let result
     try {
+      const { processRAGQuery } = await import("@/lib/rag-service")
       result = await processRAGQuery(message)
       console.log("📊 תוצאת עיבוד RAG:", {
         answerLength: result.answer.length,
@@ -84,9 +87,11 @@ export async function POST(request: NextRequest) {
       }
     } catch (ragError) {
       console.error("❌ שגיאה בעיבוד RAG:", ragError)
+      console.error("❌ RAG Stack trace:", ragError instanceof Error ? ragError.stack : "No stack")
+
       // fallback - תשובה גנרית
       result = {
-        answer: "מצטער, אירעה שגיאה בעיבוד השאלה. אנא נסה שוב או פנה לתמיכה.",
+        answer: `מצטער, אירעה שגיאה בעיבוד השאלה "${message}". אנא נסה שוב או פנה לתמיכה.`,
         sources: [],
         usedFallback: true,
         error: ragError instanceof Error ? ragError.message : "Unknown RAG error",
@@ -121,16 +126,19 @@ export async function POST(request: NextRequest) {
           controller.close()
 
           // שמירת תשובת הבוט אחרי שהסטרימינג הסתיים
-          console.log("💾 שומר תשובת בוט...")
+          console.log("💾 מנסה לשמור תשובת בוט...")
           try {
+            const { saveChatMessage } = await import("@/lib/rag-service")
             await saveChatMessage(sessionId, fullAnswer, false, result.sources)
             console.log("✅ תשובת בוט נשמרה בהצלחה")
           } catch (saveError) {
             console.error("❌ שגיאה בשמירת תשובת בוט:", saveError)
+            console.error("❌ Save Stack trace:", saveError instanceof Error ? saveError.stack : "No stack")
             // לא נעצור את התהליך בגלל שגיאת שמירה
           }
         } catch (streamError) {
           console.error("❌ שגיאה בסטרימינג:", streamError)
+          console.error("❌ Stream Stack trace:", streamError instanceof Error ? streamError.stack : "No stack")
           controller.error(streamError)
         }
       },
