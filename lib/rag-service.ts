@@ -93,8 +93,10 @@ async function searchWebWithOpenAI(
     const response = await openai.chat.completions.create({
       model: "gpt-4o-search-preview",
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: question },
+        {
+          role: "user",
+          content: question,
+        },
       ],
       max_tokens: 800,
       temperature: 0.3,
@@ -237,67 +239,57 @@ export async function generateAnswer(
   }>,
   language: "he" | "en",
 ): Promise<{ answer: string; usedFallback: boolean; usedWebSearch?: boolean }> {
-  console.log("🤖 [generateAnswer] *** שורה 1: התחלת הפונקציה ***")
-
+  console.log("🤖 [generateAnswer] *** 1. התחלת הפונקציה ***")
   try {
-    console.log("🤖 [generateAnswer] *** שורה 2: נכנס ל-try block ***")
-    console.log("🤖 [generateAnswer] *** שורה 3: מתחיל יצירת תשובה ***")
-    console.log("🤖 [generateAnswer] *** שורה 4: שאלה:", question)
-    console.log("📚 [generateAnswer] *** שורה 5: מסמכים שנמצאו:", documents.length)
+    console.log("🤖 [generateAnswer] *** 2. נכנס ל-try block ***")
+    console.log("🤖 [generateAnswer] *** 3. שאלה:", question, "***")
+    console.log("📚 [generateAnswer] *** 4. מסמכים שנמצאו:", documents.length, "***")
 
     // 🧪 שלב 1: אם אין כלל מסמכים → מיד עובר ל־Web Search
-    console.log("🤖 [generateAnswer] *** שורה 6: בודק אם יש מסמכים ***")
+    console.log("🤖 [generateAnswer] *** 5. בודק אם אין מסמכים כלל ***")
     if (documents.length === 0) {
-      console.log("⚠️ [generateAnswer] *** שורה 7: לא נמצאו מסמכים כלל, מפעיל Web Search מיידית ***")
-      return await searchWebWithOpenAI(question, language)
+      console.log("⚠️ [generateAnswer] *** 6. לא נמצאו מסמכים כלל, מפעיל Web Search ***")
+      const webSearchResult = await searchWebWithOpenAI(question, language)
+      console.log("🤖 [generateAnswer] *** 7. Web Search result:", webSearchResult, "***")
+      return webSearchResult
     }
 
-    console.log("🧱 [generateAnswer] *** שורה 8: יש מסמכים, ממשיך לבניית הקשר ***")
+    console.log("🧱 [generateAnswer] *** 8. בונה הקשר מהמסמכים ***")
 
     // 🧱 שלב 2: בניית הקשר מהמסמכים
-    console.log("🤖 [generateAnswer] *** שורה 9: קורא ל-buildContextFromDocuments ***")
+    console.log("🤖 [generateAnswer] *** 9. קורא ל-buildContextFromDocuments ***")
     const context = buildContextFromDocuments(documents)
-    console.log("🤖 [generateAnswer] *** שורה 10: buildContextFromDocuments הושלם ***")
+    console.log("🤖 [generateAnswer] *** 10. buildContextFromDocuments הושלם ***")
 
     console.log(
-      `📊 [generateAnswer] *** שורה 11: אורך הקשר: ${context.length} תווים (${estimateTokens(context)} טוקנים משוערים) ***`,
+      `📊 [generateAnswer] *** 11. אורך הקשר: ${context.length} תווים (${estimateTokens(context)} טוקנים משוערים) ***`,
     )
 
-    console.log("🤖 [generateAnswer] *** שורה 12: מכין system prompt ***")
+    console.log("🤖 [generateAnswer] *** 12. מכין system prompt ***")
     const systemPrompt =
       language === "he"
         ? `אתה עוזר AI של פיקוד העורף. השתמש רק במידע המסופק. אם אין מספיק מידע, ציין זאת במפורש.`
         : `You are an AI assistant for Home Front Command. Use only the provided information. If there's insufficient information, state this explicitly.`
 
-    console.log("🤖 [generateAnswer] *** שורה 13: מכין user prompt ***")
+    console.log("🤖 [generateAnswer] *** 13. מכין user prompt ***")
     const userPrompt =
       language === "he"
-        ? `שאלה: ${question}
+        ? `שאלה: ${question}\n\nמידע:\n${context}\n\nענה בצורה מדויקת. אם אין מספיק מידע, אמור זאת.`
+        : `Question: ${question}\n\nInformation:\n${context}\n\nAnswer accurately. If there's insufficient information, say so.`
 
-מידע:
-${context}
-
-ענה בצורה מדויקת. אם אין מספיק מידע, אמור זאת.`
-        : `Question: ${question}
-
-Information:
-${context}
-
-Answer accurately. If there's insufficient information, say so.`
-
-    console.log("🤖 [generateAnswer] *** שורה 14: מחשב טוקנים ***")
+    console.log("🤖 [generateAnswer] *** 14. מחשב טוקנים ***")
     const totalTokens = estimateTokens(systemPrompt + userPrompt)
-    console.log(`📊 [generateAnswer] *** שורה 15: טוקנים משוערים לבקשה: ${totalTokens} ***`)
+    console.log(`📊 [generateAnswer] *** 15. טוקנים משוערים לבקשה: ${totalTokens} ***`)
 
-    console.log("🤖 [generateAnswer] *** שורה 16: בודק אם יותר מדי טוקנים ***")
+    console.log("🤖 [generateAnswer] *** 16. בודק אם יותר מדי טוקנים ***")
     if (totalTokens > 3500) {
-      console.log("⚠️ [generateAnswer] *** שורה 17: יותר מדי טוקנים, עובר ל-Web Search ***")
+      console.log("⚠️ [generateAnswer] *** 17. יותר מדי טוקנים, עובר ל-Web Search ***")
       return await searchWebWithOpenAI(question, language)
     }
 
-    console.log("🔄 [generateAnswer] *** שורה 18: שולח בקשה ל-OpenAI... ***")
+    console.log("🔄 [generateAnswer] *** 18. שולח בקשה ל-OpenAI... ***")
 
-    console.log("🤖 [generateAnswer] *** שורה 19: קורא ל-openai.chat.completions.create ***")
+    console.log("🤖 [generateAnswer] *** 19. קורא ל-openai.chat.completions.create ***")
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -307,55 +299,55 @@ Answer accurately. If there's insufficient information, say so.`
       temperature: 0.3,
       max_tokens: 800,
     })
-    console.log("🤖 [generateAnswer] *** שורה 20: openai.chat.completions.create הושלם ***")
+    console.log("🤖 [generateAnswer] *** 20. openai.chat.completions.create הושלם ***")
 
-    console.log("🤖 [generateAnswer] *** שורה 21: מחלץ תשובה מהתגובה ***")
+    console.log("🤖 [generateAnswer] *** 21. מחלץ תשובה מהתגובה ***")
     const answer = completion.choices[0]?.message?.content || ""
-    console.log("✅ [generateAnswer] *** שורה 22: תשובה ראשונית נוצרה! ***")
-    console.log("📝 [generateAnswer] *** שורה 23: תשובה:", answer.substring(0, 200) + "... ***")
-    console.log("🧪 [generateAnswer] *** שורה 24: האם יש בכלל תשובה לבדוק?", answer?.length, "תווים ***")
+    console.log("✅ [generateAnswer] *** 22. תשובה ראשונית נוצרה! ***")
+    console.log("📝 [generateAnswer] *** 23. תשובה:", answer.substring(0, 200) + "... ***")
+    console.log("🧪 [generateAnswer] *** 24. האם יש בכלל תשובה לבדוק?", answer?.length, "תווים ***")
 
     // בדיקה אם התשובה ריקה
-    console.log("🤖 [generateAnswer] *** שורה 25: בודק אם התשובה ריקה ***")
+    console.log("🤖 [generateAnswer] *** 25. בודק אם התשובה ריקה ***")
     if (answer.trim().length === 0) {
-      console.log("⚠️ [generateAnswer] *** שורה 26: תשובה ריקה – מפעיל Web Search ישירות ***")
+      console.log("⚠️ [generateAnswer] *** 26. תשובה ריקה – מפעיל Web Search ישירות ***")
       return await searchWebWithOpenAI(question, language)
     }
 
     // 🧠 שלב 3: בדיקה עם GPT האם התשובה מספקת - תמיד מתבצעת!
-    console.log("🔍 [generateAnswer] *** שורה 27: מתחיל בדיקת איכות התשובה - תמיד מתבצעת! ***")
+    console.log("🔍 [generateAnswer] *** 27. מתחיל בדיקת איכות התשובה - תמיד מתבצעת! ***")
 
-    console.log("🤖 [generateAnswer] *** שורה 28: קורא ל-isAnswerInsufficientByGPT ***")
+    console.log("🤖 [generateAnswer] *** 28. קורא ל-isAnswerInsufficientByGPT ***")
     const isBadAnswer = await isAnswerInsufficientByGPT(question, answer, language)
-    console.log("🤖 [generateAnswer] *** שורה 29: isAnswerInsufficientByGPT הושלם ***")
+    console.log("🤖 [generateAnswer] *** 29. isAnswerInsufficientByGPT הושלם ***")
 
-    console.log("🎯 [generateAnswer] *** שורה 30: תוצאת בדיקת איכות:", isBadAnswer ? "❌ לא מספקת" : "✅ מספקת", "***")
+    console.log("🎯 [generateAnswer] *** 30. תוצאת בדיקת איכות:", isBadAnswer ? "❌ לא מספקת" : "✅ מספקת", "***")
 
-    console.log("🤖 [generateAnswer] *** שורה 31: בודק אם התשובה לא מספקת ***")
+    console.log("🤖 [generateAnswer] *** 31. בודק אם התשובה לא מספקת ***")
     if (isBadAnswer) {
-      console.log("🔍 [generateAnswer] *** שורה 32: התשובה לא מספקת לפי GPT – עובר ל־Web Search ***")
+      console.log("🔍 [generateAnswer] *** 32. התשובה לא מספקת לפי GPT – עובר ל־Web Search ***")
       return await searchWebWithOpenAI(question, language)
     }
 
-    console.log("✅ [generateAnswer] *** שורה 33: התשובה נבדקה ונמצאה מספקת - משתמש בתשובה מהמסמכים ***")
+    console.log("✅ [generateAnswer] *** 33. התשובה נבדקה ונמצאה מספקת - משתמש בתשובה מהמסמכים ***")
 
-    console.log("🤖 [generateAnswer] *** שורה 34: מחזיר תשובה סופית ***")
+    console.log("🤖 [generateAnswer] *** 34. מחזיר תשובה סופית ***")
     return {
       answer,
       usedFallback: false,
       usedWebSearch: false,
     }
   } catch (error) {
-    console.error("❌ [generateAnswer] *** שורה 35: שגיאה ביצירת תשובה:", error, "***")
+    console.error("❌ [generateAnswer] *** 35. שגיאה ביצירת תשובה:", error, "***")
 
     if (error instanceof Error && error.message.includes("maximum context")) {
-      console.log("🔄 [generateAnswer] *** שורה 36: ניסיון חוזר עם פחות מסמכים... ***")
+      console.log("🔄 [generateAnswer] *** 36: ניסיון חוזר עם פחות מסמכים... ***")
       const reducedDocuments = documents.slice(0, 1)
       return await generateAnswer(question, reducedDocuments, language)
     }
 
     // אם יש שגיאה, ננסה Web Search
-    console.log("🔄 [generateAnswer] *** שורה 37: שגיאה ביצירת תשובה, עובר ל-Web Search... ***")
+    console.log("🔄 [generateAnswer] *** 37: שגיאה ביצירת תשובה, עובר ל-Web Search... ***")
     return await searchWebWithOpenAI(question, language)
   }
 }
