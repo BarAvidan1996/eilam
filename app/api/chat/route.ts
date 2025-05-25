@@ -1,8 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { StreamingTextResponse } from "ai"
+import { OpenAIStream, StreamingTextResponse } from "ai"
+import OpenAI from "openai"
+import { processRAGQuery, saveChatMessage } from "@/lib/rag-service"
 
 // ודא שאנחנו ב-Node.js runtime ולא Edge
 export const runtime = "nodejs"
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export async function POST(request: NextRequest) {
   console.log("🚀 API Chat - התחלת עיבוד בקשה")
@@ -49,39 +55,87 @@ export async function POST(request: NextRequest) {
     console.log("✅ פרמטרים תקינים, מתחיל עיבוד")
     console.log(`💬 מעבד הודעה: "${message}" עבור סשן: ${sessionId}`)
 
-    // בואו נתחיל עם תשובה פשוטה כדי לבדוק שהסטרימינג עובד
-    console.log("🧪 מחזיר תשובה פשוטה לבדיקה...")
+    // שמירת הודעת המשתמש
+    console.log("💾 שומר הודעת משתמש...")
+    try {
+      await saveChatMessage(sessionId, message, true)
+      console.log("✅ הודעת משתמש נשמרה בהצלחה")
+    } catch (saveError) {
+      console.error("❌ שגיאה בשמירת הודעת משתמש:", saveError)
+      // נמשיך גם אם השמירה נכשלה
+    }
 
-    const simpleAnswer = `שלום! קיבלתי את השאלה שלך: "${message}". זוהי תשובה פשוטה לבדיקת הסטרימינג עם StreamingTextResponse.`
+    // עיבוד השאלה עם RAG
+    console.log("🧠 מתחיל עיבוד RAG...")
+    let ragResult
+    try {
+      ragResult = await processRAGQuery(message)
+      console.log("📊 תוצאת עיבוד RAG:", {
+        answerLength: ragResult.answer.length,
+        sourcesCount: ragResult.sources.length,
+        usedFallback: ragResult.usedFallback,
+        hasError: !!ragResult.error,
+      })
 
-    // יצירת streaming response תואם ל-useChat
-    console.log("🌊 מתחיל יצירת streaming response...")
-    const encoder = new TextEncoder()
+      // הדפסת אחוזי התאמה לקונסול
+      if (ragResult.sources && ragResult.sources.length > 0) {
+        console.log(
+          "📊 Sources with similarity scores:",
+          ragResult.sources.map((s) => ({
+            title: s.title,
+            similarity: Math.round(s.similarity * 100) + "%",
+          })),
+        )
+      }
 
-    const stream = new ReadableStream({
-      async start(controller) {
+      if (ragResult.error) {
+        console.log("⚠️ שגיאה בעיבוד RAG:", ragResult.error)
+      }
+    } catch (ragError) {
+      console.error("❌ שגיאה בעיבוד RAG:", ragError)
+      // fallback - תשובה גנרית
+      ragResult = {
+        answer: "מצטער, אירעה שגיאה בעיבוד השאלה. אנא נסה שוב או פנה לתמיכה.",
+        sources: [],
+        usedFallback: true,
+        error: ragError instanceof Error ? ragError.message : "Unknown RAG error",
+      }
+    }
+
+    // יצירת OpenAI stream עם התשובה מ-RAG
+    console.log("🌊 מתחיל יצירת OpenAI stream...")
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        {
+          role: "system",
+          content: `אתה עוזר חירום בשם עיל"ם. תענה בעברית בצורה ברורה ומועילה. 
+          
+          התשובה שלך צריכה להיות: ${ragResult.answer}
+          
+          פשוט החזר את התשובה הזו בדיוק כפי שהיא, ללא שינויים.`,
+        },
+        {
+          role: "user",
+          content: message,
+        },
+      ],
+      stream: true,
+      temperature: 0.1,
+    })
+
+    console.log("✅ OpenAI stream נוצר בהצלחה")
+
+    // המרה ל-OpenAIStream
+    const stream = OpenAIStream(response, {
+      onCompletion: async (completion) => {
+        console.log("💾 שומר תשובת בוט...")
         try {
-          console.log("🎬 מתחיל streaming של התשובה...")
-          // שליחת התשובה במקטעים קטנים לאפקט streaming
-          const words = simpleAnswer.split(" ")
-          console.log("📝 מספר מילים לשליחה:", words.length)
-
-          for (let i = 0; i < words.length; i++) {
-            const chunk = i === 0 ? words[i] : " " + words[i]
-
-            // שליחת המקטע
-            controller.enqueue(encoder.encode(chunk))
-            console.log(`📤 שלחתי מקטע ${i + 1}/${words.length}: "${chunk}"`)
-
-            // השהיה קטנה לאפקט streaming
-            await new Promise((resolve) => setTimeout(resolve, 100))
-          }
-
-          console.log("✅ סיום streaming")
-          controller.close()
-        } catch (streamError) {
-          console.error("❌ שגיאה בסטרימינג:", streamError)
-          controller.error(streamError)
+          await saveChatMessage(sessionId, completion, false, ragResult.sources)
+          console.log("✅ תשובת בוט נשמרה בהצלחה")
+        } catch (saveError) {
+          console.error("❌ שגיאה בשמירת תשובת בוט:", saveError)
         }
       },
     })
@@ -91,8 +145,8 @@ export async function POST(request: NextRequest) {
     // החזרת StreamingTextResponse תואם ל-useChat
     return new StreamingTextResponse(stream, {
       headers: {
-        "X-Sources": JSON.stringify([]),
-        "X-Used-Fallback": "true",
+        "X-Sources": JSON.stringify(ragResult.sources || []),
+        "X-Used-Fallback": ragResult.usedFallback.toString(),
       },
     })
   } catch (error) {
