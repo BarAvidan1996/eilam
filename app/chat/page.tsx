@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Send, Bot, User, ExternalLink } from "lucide-react"
+import { Send, Bot, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -74,6 +74,7 @@ export default function ChatPage() {
       return data.sessionId
     } catch (error) {
       console.error("❌ שגיאה ביצירת session:", error)
+      // fallback - יצירת UUID פשוט
       return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     }
   }
@@ -93,15 +94,19 @@ export default function ChatPage() {
           console.log("👤 User loaded:", session.user.id)
         }
 
+        // בדיקה אם יש session ID בפרמטרים
         const sessionParam = searchParams.get("session")
         if (sessionParam) {
           console.log("🔗 נמצא session בURL:", sessionParam)
           setSessionId(sessionParam)
+          await loadChatHistory(sessionParam)
         } else {
+          // אין session בURL - ניצור חדש
           console.log("🆕 אין session בURL, יוצר חדש...")
           const newSessionId = await createNewSession()
           setSessionId(newSessionId)
 
+          // עדכון URL עם session ID החדש
           const url = new URL(window.location.href)
           url.searchParams.set("session", newSessionId)
           window.history.replaceState({}, "", url.toString())
@@ -109,6 +114,7 @@ export default function ChatPage() {
         }
       } catch (error) {
         console.error("❌ שגיאה בטעינת משתמש/סשן:", error)
+        // fallback - יצירת session פשוט
         const fallbackSessionId = `fallback_${Date.now()}`
         setSessionId(fallbackSessionId)
       } finally {
@@ -120,18 +126,51 @@ export default function ChatPage() {
     loadUserAndSession()
   }, [searchParams])
 
-  // פונקציה לפתיחת מקור בטאב חדש
-  const openSource = (source: { title: string; file_name: string }) => {
-    const baseUrl = "https://www.oref.org.il"
-    const sourceUrl = `${baseUrl}/${source.file_name}`
-    window.open(sourceUrl, "_blank", "noopener,noreferrer")
+  // טעינת היסטוריית צ'אט
+  const loadChatHistory = async (sessionId: string) => {
+    try {
+      console.log("📚 טוען היסטוריה עבור session:", sessionId)
+
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true })
+
+      if (!error && data && data.length > 0) {
+        console.log(`📜 נמצאו ${data.length} הודעות בהיסטוריה`)
+
+        const chatMessages: Message[] = data.map((msg) => ({
+          id: msg.id,
+          text: msg.message,
+          sender: msg.is_user ? "user" : "bot",
+          timestamp: new Date(msg.created_at),
+          sources: msg.sources || [],
+        }))
+
+        // החלפת ההודעות הראשוניות בהיסטוריה
+        setMessages(chatMessages)
+      } else {
+        console.log("📭 אין הודעות בהיסטוריה, משאיר הודעות ראשוניות")
+      }
+    } catch (error) {
+      console.error("❌ שגיאה בטעינת היסטוריה:", error)
+    }
   }
 
   const handleSendMessage = async () => {
     console.log("🎯 handleSendMessage - התחלה")
+    console.log("  - inputValue:", `"${inputValue}"`)
+    console.log("  - sessionId:", sessionId)
+    console.log("  - isInitializing:", isInitializing)
 
     if (inputValue.trim() === "" || isTyping || isInitializing || !sessionId) {
-      console.log("❌ יציאה מוקדמת")
+      console.log("❌ יציאה מוקדמת:", {
+        emptyInput: inputValue.trim() === "",
+        isTyping,
+        isInitializing,
+        noSessionId: !sessionId,
+      })
       return
     }
 
@@ -144,26 +183,22 @@ export default function ChatPage() {
 
     setMessages((prev) => [...prev, userMessage])
     const currentQuestion = inputValue.trim()
+    console.log("📝 currentQuestion:", `"${currentQuestion}"`)
+
     setInputValue("")
     setIsTyping(true)
 
-    // יצירת הודעת בוט ריקה לסטרימינג
-    const botMessageId = (Date.now() + 1).toString()
-    const botMessage: Message = {
-      id: botMessageId,
-      text: "",
-      sender: "bot",
-      timestamp: new Date(),
-    }
-    setMessages((prev) => [...prev, botMessage])
-
     try {
+      // הכנת הגוף לשליחה
       const requestBody = {
-        messages: [{ role: "user", content: currentQuestion }],
+        message: currentQuestion,
         sessionId: sessionId,
       }
 
-      console.log("📦 שולח בקשה:", requestBody)
+      console.log("📦 מכין בקשה:")
+      console.log("  - URL: /api/chat")
+      console.log("  - Method: POST")
+      console.log("  - Body:", JSON.stringify(requestBody, null, 2))
 
       const response = await fetch("/api/chat", {
         method: "POST",
@@ -173,78 +208,65 @@ export default function ChatPage() {
         body: JSON.stringify(requestBody),
       })
 
+      console.log("📡 תגובת שרת:")
+      console.log("  - Status:", response.status)
+      console.log("  - StatusText:", response.statusText)
+      console.log("  - OK:", response.ok)
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      // קריאת המקורות מה-headers
-      const sourcesHeader = response.headers.get("X-Sources")
-      let sources: any[] = []
-      if (sourcesHeader) {
+        // ננסה לקרוא את תוכן השגיאה
+        let errorText = ""
         try {
-          sources = JSON.parse(sourcesHeader)
-          console.log(
-            "📊 Sources received:",
-            sources.map((s: any) => ({
-              title: s.title,
-              similarity: Math.round(s.similarity * 100) + "%",
-            })),
-          )
+          const errorData = await response.json()
+          console.log("❌ פרטי שגיאה מהשרת:", errorData)
+          errorText = errorData.error || `HTTP ${response.status}`
         } catch (e) {
-          console.error("Failed to parse sources:", e)
+          console.log("❌ לא הצלחתי לפרסר את שגיאת השרת")
+          errorText = `HTTP error! status: ${response.status}`
         }
+        throw new Error(errorText)
       }
 
-      // קריאת הסטרימינג
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
+      const data = await response.json()
+      console.log("✅ נתונים שהתקבלו מהשרת:", data)
 
-      if (reader) {
-        let streamedText = ""
-
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-
-          const chunk = decoder.decode(value, { stream: true })
-
-          // פרסור של Server-Sent Events
-          const lines = chunk.split("\n")
-          for (const line of lines) {
-            if (line.startsWith("data: ")) {
-              const data = line.slice(6)
-              if (data === "[DONE]") {
-                break
-              }
-              try {
-                const parsed = JSON.parse(data)
-                if (parsed.content) {
-                  streamedText += parsed.content
-                }
-              } catch (e) {
-                // אם זה לא JSON, פשוט נוסיף את הטקסט
-                streamedText += data
-              }
-            }
-          }
-
-          // עדכון ההודעה בזמן אמת
-          setMessages((prev) =>
-            prev.map((msg) => (msg.id === botMessageId ? { ...msg, text: streamedText, sources: sources } : msg)),
-          )
-        }
+      // הדפסת אחוזי התאמה לקונסול
+      if (data.sources && data.sources.length > 0) {
+        console.log("📊 Sources similarity scores:")
+        data.sources.forEach((source: any, index: number) => {
+          console.log(`  ${index + 1}. ${source.title}: ${Math.round(source.similarity * 100)}%`)
+        })
       }
+
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: data.answer || "מצטער, לא הצלחתי לייצר תשובה.",
+        sender: "bot",
+        timestamp: new Date(),
+        sources: data.sources,
+      }
+
+      console.log("🤖 הוספת הודעת בוט:", {
+        textPreview: botMessage.text.substring(0, 100) + "...",
+        sourcesCount: botMessage.sources?.length || 0,
+      })
+
+      setMessages((prev) => [...prev, botMessage])
     } catch (error) {
-      console.error("💥 שגיאה בשליחת הודעה:", error)
+      console.error("💥 שגיאה בשליחת הודעה:")
+      console.error("  - Error type:", error?.constructor?.name)
+      console.error("  - Error message:", error instanceof Error ? error.message : String(error))
+      console.error("  - Error object:", error)
 
       const errorMessage: Message = {
-        id: (Date.now() + 2).toString(),
+        id: (Date.now() + 1).toString(),
         text: `מצטער, אירעה שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
         sender: "bot",
         timestamp: new Date(),
       }
-      setMessages((prev) => [...prev.slice(0, -1), errorMessage])
+      setMessages((prev) => [...prev, errorMessage])
     } finally {
+      console.log("🏁 סיום handleSendMessage")
       setIsTyping(false)
     }
   }
@@ -278,7 +300,7 @@ export default function ChatPage() {
       {/* Messages */}
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
-          {messages.map((message, index) => (
+          {messages.map((message) => (
             <div
               key={message.id}
               className={`flex items-start gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"}`}
@@ -311,15 +333,18 @@ export default function ChatPage() {
                   <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     <p className="font-medium mb-1">מקורות:</p>
                     <ul className="space-y-1">
-                      {message.sources.map((source, sourceIndex) => (
-                        <li key={sourceIndex} className="flex items-center gap-2">
+                      {message.sources.map((source, index) => (
+                        <li key={index} className="flex items-center gap-2">
                           <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                           <button
-                            onClick={() => openSource(source)}
-                            className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                            onClick={() => {
+                              const baseUrl = "https://www.oref.org.il"
+                              const sourceUrl = `${baseUrl}/${source.file_name}`
+                              window.open(sourceUrl, "_blank", "noopener,noreferrer")
+                            }}
+                            className="text-blue-600 dark:text-blue-400 hover:underline text-left"
                           >
-                            <span>{source.title}</span>
-                            <ExternalLink className="h-3 w-3" />
+                            {source.title}
                           </button>
                         </li>
                       ))}

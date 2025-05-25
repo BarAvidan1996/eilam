@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { processRAGQuery, saveChatMessage } from "@/lib/rag-service"
 
 export async function POST(request: NextRequest) {
   console.log("🚀 API Chat - התחלת עיבוד בקשה")
@@ -8,12 +9,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     console.log("📦 גוף הבקשה שהתקבל:", JSON.stringify(body, null, 2))
 
-    // useChat שולח messages array ו-sessionId בנפרד
-    const { messages, sessionId } = body
-
-    // הודעה אחרונה היא השאלה הנוכחית
-    const lastMessage = messages?.[messages.length - 1]
-    const message = lastMessage?.content
+    const { message, sessionId } = body
 
     console.log("🔍 פירוק פרמטרים:")
     console.log("  - message:", message, "(type:", typeof message, ")")
@@ -22,6 +18,10 @@ export async function POST(request: NextRequest) {
     // בדיקת תקינות פרמטרים
     if (!message || typeof message !== "string" || message.trim() === "") {
       console.log("❌ שגיאה: message לא תקין")
+      console.log("  - message exists:", !!message)
+      console.log("  - message type:", typeof message)
+      console.log("  - message trimmed length:", message ? message.trim().length : 0)
+
       return NextResponse.json(
         {
           error: "Message is required and must be a non-empty string",
@@ -33,6 +33,9 @@ export async function POST(request: NextRequest) {
 
     if (!sessionId || typeof sessionId !== "string") {
       console.log("❌ שגיאה: sessionId לא תקין")
+      console.log("  - sessionId exists:", !!sessionId)
+      console.log("  - sessionId type:", typeof sessionId)
+
       return NextResponse.json(
         {
           error: "SessionId is required and must be a string",
@@ -45,58 +48,46 @@ export async function POST(request: NextRequest) {
     console.log("✅ פרמטרים תקינים, מתחיל עיבוד")
     console.log(`💬 מעבד הודעה: "${message}" עבור סשן: ${sessionId}`)
 
-    // תשובה פשוטה לבדיקה (ללא RAG)
-    const simpleAnswer = `שלום! קיבלתי את השאלה שלך: "${message}". זוהי תשובה פשוטה לבדיקת הסטרימינג. אני עובד על שיפור התשובות שלי.`
+    // שמירת הודעת המשתמש
+    console.log("💾 שומר הודעת משתמש...")
+    await saveChatMessage(sessionId, message, true)
+    console.log("✅ הודעת משתמש נשמרה בהצלחה")
 
-    console.log("🧪 משתמש בתשובה פשוטה לבדיקה")
-
-    // יצירת streaming response פשוט
-    console.log("🌊 מתחיל יצירת streaming response...")
-    const encoder = new TextEncoder()
-
-    const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          console.log("🎬 מתחיל streaming של התשובה...")
-          // שליחת התשובה במקטעים קטנים לאפקט streaming
-          const words = simpleAnswer.split(" ")
-          console.log("📝 מספר מילים לשליחה:", words.length)
-
-          for (let i = 0; i < words.length; i++) {
-            const chunk = i === 0 ? words[i] : " " + words[i]
-
-            // שליחת המקטע בפורמט שתואם ל-useChat
-            const data = `data: ${JSON.stringify({ content: chunk })}\n\n`
-            controller.enqueue(encoder.encode(data))
-            console.log(`📤 שלחתי מקטע ${i + 1}/${words.length}: "${chunk}"`)
-
-            // השהיה קטנה לאפקט streaming
-            await new Promise((resolve) => setTimeout(resolve, 100))
-          }
-
-          // סיום הסטרימינג
-          controller.enqueue(encoder.encode("data: [DONE]\n\n"))
-          console.log("✅ סיום streaming")
-          controller.close()
-        } catch (streamError) {
-          console.error("❌ שגיאה בסטרימינג:", streamError)
-          controller.error(streamError)
-        }
-      },
+    // עיבוד השאלה
+    console.log("🧠 מתחיל עיבוד RAG...")
+    const result = await processRAGQuery(message)
+    console.log("📊 תוצאת עיבוד RAG:", {
+      answerLength: result.answer.length,
+      sourcesCount: result.sources.length,
+      usedFallback: result.usedFallback,
+      hasError: !!result.error,
     })
 
-    console.log("✅ Response מוכן לשליחה")
+    if (result.error) {
+      console.log("⚠️ שגיאה בעיבוד RAG:", result.error)
+    }
 
-    // החזרת streaming response עם headers נכונים
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        "X-Sources": JSON.stringify([]),
-        "X-Used-Fallback": "true",
-      },
+    // שמירת תשובת הבוט
+    console.log("💾 שומר תשובת בוט...")
+    await saveChatMessage(sessionId, result.answer, false, result.sources)
+    console.log("✅ תשובת בוט נשמרה בהצלחה")
+
+    // הכנת התגובה
+    const response = {
+      answer: result.answer,
+      sources: result.sources,
+      usedFallback: result.usedFallback,
+      sessionId: sessionId,
+      ...(result.error && { debugError: result.error }),
+    }
+
+    console.log("📤 שולח תגובה:", {
+      answerPreview: response.answer.substring(0, 100) + "...",
+      sourcesCount: response.sources.length,
+      usedFallback: response.usedFallback,
     })
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error("💥 שגיאה כללית ב-API:")
     console.error("  - Error type:", error?.constructor?.name)
