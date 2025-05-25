@@ -12,11 +12,18 @@ export async function POST(request: NextRequest) {
     // useChat שולח messages array ו-sessionId בנפרד
     const { messages, sessionId } = body
 
+    console.log("🔍 Raw data from body:")
+    console.log("  - messages:", messages)
+    console.log("  - sessionId:", sessionId)
+    console.log("  - messages type:", typeof messages)
+    console.log("  - messages length:", messages?.length)
+
     // הודעה אחרונה היא השאלה הנוכחית
-    const lastMessage = messages[messages.length - 1]
+    const lastMessage = messages?.[messages.length - 1]
     const message = lastMessage?.content
 
     console.log("🔍 פירוק פרמטרים:")
+    console.log("  - lastMessage:", lastMessage)
     console.log("  - message:", message, "(type:", typeof message, ")")
     console.log("  - sessionId:", sessionId, "(type:", typeof sessionId, ")")
 
@@ -48,18 +55,29 @@ export async function POST(request: NextRequest) {
 
     // שמירת הודעת המשתמש
     console.log("💾 שומר הודעת משתמש...")
-    await saveChatMessage(sessionId, message, true)
-    console.log("✅ הודעת משתמש נשמרה בהצלחה")
+    try {
+      await saveChatMessage(sessionId, message, true)
+      console.log("✅ הודעת משתמש נשמרה בהצלחה")
+    } catch (saveError) {
+      console.error("❌ שגיאה בשמירת הודעת משתמש:", saveError)
+      throw saveError
+    }
 
     // עיבוד השאלה
     console.log("🧠 מתחיל עיבוד RAG...")
-    const result = await processRAGQuery(message)
-    console.log("📊 תוצאת עיבוד RAG:", {
-      answerLength: result.answer.length,
-      sourcesCount: result.sources.length,
-      usedFallback: result.usedFallback,
-      hasError: !!result.error,
-    })
+    let result
+    try {
+      result = await processRAGQuery(message)
+      console.log("📊 תוצאת עיבוד RAG:", {
+        answerLength: result.answer.length,
+        sourcesCount: result.sources.length,
+        usedFallback: result.usedFallback,
+        hasError: !!result.error,
+      })
+    } catch (ragError) {
+      console.error("❌ שגיאה בעיבוד RAG:", ragError)
+      throw ragError
+    }
 
     // הדפסת אחוזי התאמה לקונסול
     if (result.sources && result.sources.length > 0) {
@@ -77,14 +95,17 @@ export async function POST(request: NextRequest) {
     }
 
     // יצירת streaming response
+    console.log("🌊 מתחיל יצירת streaming response...")
     const encoder = new TextEncoder()
     let fullAnswer = ""
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          console.log("🎬 מתחיל streaming של התשובה...")
           // שליחת התשובה במקטעים קטנים לאפקט streaming
           const words = result.answer.split(" ")
+          console.log("📝 מספר מילים לשליחה:", words.length)
 
           for (let i = 0; i < words.length; i++) {
             const chunk = i === 0 ? words[i] : " " + words[i]
@@ -97,15 +118,20 @@ export async function POST(request: NextRequest) {
             await new Promise((resolve) => setTimeout(resolve, 50))
           }
 
+          console.log("✅ סיום streaming")
           controller.close()
 
           // שמירת תשובת הבוט אחרי שהסטרימינג הסתיים
           console.log("💾 שומר תשובת בוט...")
-          await saveChatMessage(sessionId, fullAnswer, false, result.sources)
-          console.log("✅ תשובת בוט נשמרה בהצלחה")
-        } catch (error) {
-          console.error("❌ שגיאה בסטרימינג:", error)
-          controller.error(error)
+          try {
+            await saveChatMessage(sessionId, fullAnswer, false, result.sources)
+            console.log("✅ תשובת בוט נשמרה בהצלחה")
+          } catch (saveError) {
+            console.error("❌ שגיאה בשמירת תשובת בוט:", saveError)
+          }
+        } catch (streamError) {
+          console.error("❌ שגיאה בסטרימינג:", streamError)
+          controller.error(streamError)
         }
       },
     })
