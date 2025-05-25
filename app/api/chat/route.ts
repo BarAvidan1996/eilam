@@ -1,6 +1,10 @@
-import { streamText, StreamingTextResponse } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { OpenAIStream, StreamingTextResponse } from "ai"
+import OpenAI from "openai"
 import { processRAGQuery, saveChatMessage } from "@/lib/rag-service"
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export async function POST(request: Request) {
   try {
@@ -48,23 +52,28 @@ export async function POST(request: Request) {
 תן תשובה קצרה ומדויקת בעברית בהתבסס על המידע המסופק.
 ${context ? `\n\nמידע רלוונטי:\n${context}` : ""}`
 
-    // יצירת streaming response
-    const result = await streamText({
-      model: openai("gpt-4"),
-      system: systemPrompt,
-      prompt: message,
+    // יצירת streaming response עם OpenAI ישירות
+    const response = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message },
+      ],
       temperature: 0.3,
-      maxTokens: 800,
+      max_tokens: 800,
+      stream: true,
     })
 
-    // שמירת התשובה המלאה אחרי שהיא מסתיימת
-    result.finishReason.then(async () => {
-      const fullText = await result.text
-      await saveChatMessage(sessionId, fullText, false, ragResult.sources)
+    // המרה ל-stream של Vercel
+    const stream = OpenAIStream(response, {
+      onCompletion: async (completion) => {
+        // שמירת התשובה המלאה אחרי שהיא מסתיימת
+        await saveChatMessage(sessionId, completion, false, ragResult.sources)
+      },
     })
 
-    // החזרת streaming response עם metadata - התיקון כאן!
-    return new StreamingTextResponse(result.toAIStream(), {
+    // החזרת streaming response עם metadata
+    return new StreamingTextResponse(stream, {
       headers: {
         "X-Sources": JSON.stringify(ragResult.sources || []),
         "X-Used-Fallback": ragResult.usedFallback.toString(),
