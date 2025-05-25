@@ -42,22 +42,43 @@ function shouldUseWebFallback(documents: any[]): boolean {
   return documents.length === 0 || documents.every((doc) => doc.similarity < 0.7)
 }
 
-// בדיקה אם התשובה לא מועילה ונדרש חיפוש ברשת
-function isAnswerInsufficientForWebSearch(answer: string): boolean {
-  const insufficientPhrases = [
-    "לא מספקת מידע מספיק",
-    "נדרש לחפש",
-    "אין מידע מספיק",
-    "לא ניתן לקבוע",
-    "מידע עדכני באינטרנט",
-    "מקורות אחרים",
-    "insufficient information",
-    "need to search",
-    "cannot determine",
-    "up-to-date information",
-  ]
+// בדיקה סמנטית עם GPT אם התשובה מספקת
+async function isAnswerInsufficientByGPT(question: string, answer: string, language: "he" | "en"): Promise<boolean> {
+  try {
+    console.log("🧠 בודק איכות התשובה עם GPT...")
 
-  return insufficientPhrases.some((phrase) => answer.toLowerCase().includes(phrase.toLowerCase()))
+    const prompt =
+      language === "he"
+        ? `שאלה: "${question}"
+
+תשובה: "${answer}"
+
+האם התשובה עונה באופן ישיר, ברור ומדויק על השאלה? ענה רק ב"כן" או "לא".`
+        : `Question: "${question}"
+
+Answer: "${answer}"
+
+Does the answer directly, clearly and accurately respond to the question? Answer only "yes" or "no".`
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0,
+      max_tokens: 5,
+    })
+
+    const content = response.choices[0]?.message?.content?.toLowerCase().trim()
+
+    const isInsufficient = language === "he" ? content === "לא" : content === "no"
+
+    console.log(`🎯 GPT הערכה: "${content}" - ${isInsufficient ? "לא מספקת" : "מספקת"}`)
+
+    return isInsufficient
+  } catch (error) {
+    console.error("❌ שגיאה בבדיקת איכות התשובה:", error)
+    // במקרה של שגיאה, נחזור false (לא נעבור לחיפוש ברשת)
+    return false
+  }
 }
 
 // חיפוש באינטרנט עם OpenAI Web Search
@@ -276,9 +297,9 @@ Provide a concise, accurate answer in English. If the information is insufficien
     const answer = completion.choices[0]?.message?.content || ""
     console.log("✅ תשובה נוצרה בהצלחה, אורך:", answer.length)
 
-    // בדיקה אם התשובה לא מועילה ונדרש חיפוש ברשת
-    if (isAnswerInsufficientForWebSearch(answer)) {
-      console.log("🔍 התשובה לא מועילה, עובר לחיפוש ברשת לקבלת מידע עדכני")
+    // בדיקה סמנטית עם GPT אם התשובה מספקת
+    if (await isAnswerInsufficientByGPT(question, answer, language)) {
+      console.log("🔍 התשובה לא ישירה/מספקת לפי GPT – מבצע Web Search")
       return await searchWebWithOpenAI(question, language)
     }
 
