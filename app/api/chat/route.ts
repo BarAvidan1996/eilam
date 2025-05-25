@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { processRAGQuery } from "../../lib/rag-service"
-import { saveChatMessage } from "../../lib/chat-service"
+import { processRAGQuery } from "../lib/rag-service"
+import { saveChatMessage } from "../lib/chat-service"
 
 export async function POST(request: NextRequest) {
   console.log("🚀 API Chat - התחלת עיבוד בקשה")
