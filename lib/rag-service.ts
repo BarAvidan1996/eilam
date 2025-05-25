@@ -37,6 +37,61 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4)
 }
 
+// בדיקה אם צריך להשתמש ב-Web Search
+function shouldUseWebFallback(documents: any[]): boolean {
+  return documents.length === 0 || documents.every((doc) => doc.similarity < 0.7)
+}
+
+// חיפוש באינטרנט עם OpenAI Web Search
+async function searchWebWithOpenAI(
+  question: string,
+  language: "he" | "en",
+): Promise<{ answer: string; usedFallback: boolean; usedWebSearch: boolean }> {
+  try {
+    console.log("🔍 מתחיל חיפוש באינטרנט עם OpenAI Web Search...")
+    console.log("❌ לא נמצאו מסמכים רלוונטיים - עובר לחיפוש ברשת")
+
+    const systemPrompt =
+      language === "he"
+        ? "אתה עוזר AI של פיקוד העורף. תן תשובה מדויקת ועדכנית בעברית על בסיס המידע שתמצא באינטרנט. ציין מקורות אם אפשר."
+        : "You are an Israeli Home Front Command AI assistant. Provide accurate, up-to-date information in English based on web search results. Cite sources when possible."
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-search-preview",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: question },
+      ],
+      temperature: 0.3,
+      max_tokens: 800,
+    })
+
+    const content = response.choices[0]?.message?.content || "לא נמצאה תשובה מבוססת אינטרנט."
+
+    // הוספת הערה על מקור המידע
+    const webNote =
+      language === "he"
+        ? "\n\n📍 הערה: מידע זה נאסף ממקורות באינטרנט לצורך מענה עדכני ואינו מבוסס על מסמכים רשמיים של פיקוד העורף."
+        : "\n\n📍 Note: This information was gathered from internet sources for up-to-date response and is not based on official Home Front Command documents."
+
+    const finalAnswer = content + webNote
+
+    console.log("🌐 תשובה מבוססת אינטרנט נוצרה בהצלחה")
+    console.log("📄 מחזיר תשובה מחיפוש ברשת")
+
+    return {
+      answer: finalAnswer,
+      usedFallback: true,
+      usedWebSearch: true,
+    }
+  } catch (error) {
+    console.error("❌ שגיאה בחיפוש ברשת:", error)
+
+    // fallback לתשובה כללית אם גם Web Search נכשל
+    return await generateFallbackAnswer(question, language)
+  }
+}
+
 // יצירת embedding
 export async function createEmbedding(text: string): Promise<number[]> {
   try {
@@ -59,7 +114,7 @@ export async function createEmbedding(text: string): Promise<number[]> {
 export async function searchSimilarDocuments(
   embedding: number[],
   language: "he" | "en",
-  limit = 3, // הקטנתי מ-5 ל-3 כדי לחסוך טוקנים
+  limit = 3,
 ): Promise<
   Array<{
     plain_text: string
@@ -75,7 +130,7 @@ export async function searchSimilarDocuments(
 
     const { data: functions, error: functionsError } = await supabase.rpc("match_documents", {
       query_embedding: embedding,
-      match_threshold: 0.8, // העליתי את הסף לקבל מסמכים רלוונטיים יותר
+      match_threshold: 0.7, // הורדתי מ-0.8 ל-0.7 כדי לתת יותר הזדמנויות למסמכים
       match_count: limit,
       filter_language: language,
     })
@@ -114,18 +169,24 @@ export async function generateAnswer(
     similarity: number
   }>,
   language: "he" | "en",
-): Promise<{ answer: string; usedFallback: boolean }> {
+): Promise<{ answer: string; usedFallback: boolean; usedWebSearch?: boolean }> {
   try {
     console.log(`🤖 יוצר תשובה לשאלה: "${question}"`)
     console.log(`📚 מספר מסמכים: ${documents.length}`)
 
-    if (documents.length === 0) {
-      console.log("⚠️ אין מסמכים רלוונטיים, משתמש ב-fallback")
-      return await generateFallbackAnswer(question, language)
+    // בדיקה אם צריך להשתמש ב-Web Search
+    if (shouldUseWebFallback(documents)) {
+      console.log("⚠️ לא נמצאו מסמכים רלוונטיים או שכולם עם דמיון נמוך. עובר לחיפוש ברשת.")
+      return await searchWebWithOpenAI(question, language)
     }
 
+    console.log(
+      "🧠 משתמש בתשובה מבוססת מסמכים מהקשר:",
+      documents.map((d) => d.title),
+    )
+
     // הכנת הקשר עם ניהול טוקנים חכם
-    const maxContextLength = 2000 // מקסימום תווים להקשר
+    const maxContextLength = 2000
     let context = ""
     let currentLength = 0
 
@@ -133,10 +194,8 @@ export async function generateAnswer(
       const docText = `מקור: ${doc.title}\nתוכן: ${doc.plain_text}\n\n`
 
       if (currentLength + docText.length > maxContextLength) {
-        // אם המסמך גדול מדי, חותכים אותו
         const remainingSpace = maxContextLength - currentLength
         if (remainingSpace > 200) {
-          // רק אם יש מספיק מקום למשהו משמעותי
           const truncatedText = truncateText(doc.plain_text, remainingSpace - doc.title.length - 20)
           context += `מקור: ${doc.title}\nתוכן: ${truncatedText}\n\n`
         }
@@ -149,7 +208,6 @@ export async function generateAnswer(
 
     console.log(`📊 אורך הקשר סופי: ${context.length} תווים (${estimateTokens(context)} טוקנים משוערים)`)
 
-    // Step-back prompting מקוצר
     const stepBackPrompt =
       language === "he" ? `עקרונות כלליים לשאלה: "${question}"` : `General principles for: "${question}"`
 
@@ -177,14 +235,12 @@ ${context}
 
 Provide a concise, accurate answer in English.`
 
-    // חישוב טוקנים משוער
     const totalTokens = estimateTokens(systemPrompt + userPrompt)
     console.log(`📊 טוקנים משוערים לבקשה: ${totalTokens}`)
 
     if (totalTokens > 3500) {
-      // השארתי מרווח בטיחות
-      console.log("⚠️ יותר מדי טוקנים, עובר ל-fallback")
-      return await generateFallbackAnswer(question, language)
+      console.log("⚠️ יותר מדי טוקנים, עובר לחיפוש ברשת")
+      return await searchWebWithOpenAI(question, language)
     }
 
     console.log("🔄 שולח בקשה ל-OpenAI...")
@@ -196,24 +252,25 @@ Provide a concise, accurate answer in English.`
         { role: "user", content: userPrompt },
       ],
       temperature: 0.3,
-      max_tokens: 800, // הקטנתי מ-1000 ל-800
+      max_tokens: 800,
     })
 
     const answer = completion.choices[0]?.message?.content || ""
     console.log("✅ תשובה נוצרה בהצלחה, אורך:", answer.length)
 
-    return { answer, usedFallback: false }
+    return { answer, usedFallback: false, usedWebSearch: false }
   } catch (error) {
     console.error("❌ שגיאה ביצירת תשובה:", error)
 
-    // אם זו שגיאת טוקנים, ננסה עם פחות מסמכים
     if (error instanceof Error && error.message.includes("maximum context")) {
       console.log("🔄 ניסיון חוזר עם פחות מסמכים...")
-      const reducedDocuments = documents.slice(0, 1) // רק המסמך הכי רלוונטי
+      const reducedDocuments = documents.slice(0, 1)
       return await generateAnswer(question, reducedDocuments, language)
     }
 
-    throw new Error(`שגיאה ביצירת תשובה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`)
+    // אם יש שגיאה, ננסה Web Search
+    console.log("🔄 שגיאה ביצירת תשובה, עובר לחיפוש ברשת...")
+    return await searchWebWithOpenAI(question, language)
   }
 }
 
@@ -221,7 +278,7 @@ Provide a concise, accurate answer in English.`
 async function generateFallbackAnswer(
   question: string,
   language: "he" | "en",
-): Promise<{ answer: string; usedFallback: boolean }> {
+): Promise<{ answer: string; usedFallback: boolean; usedWebSearch?: boolean }> {
   try {
     console.log("🔄 יוצר תשובת fallback...")
 
@@ -237,13 +294,13 @@ async function generateFallbackAnswer(
         { role: "user", content: question },
       ],
       temperature: 0.5,
-      max_tokens: 300, // הקטנתי מ-500 ל-300
+      max_tokens: 300,
     })
 
     const answer = completion.choices[0]?.message?.content || ""
     console.log("✅ תשובת fallback נוצרה בהצלחה")
 
-    return { answer, usedFallback: true }
+    return { answer, usedFallback: true, usedWebSearch: false }
   } catch (error) {
     console.error("❌ שגיאה ביצירת תשובת fallback:", error)
     throw error
@@ -260,6 +317,8 @@ export async function processRAGQuery(question: string): Promise<{
     similarity: number
   }>
   usedFallback: boolean
+  usedWebSearch?: boolean
+  documentsFound: number
   error?: string
 }> {
   try {
@@ -276,15 +335,30 @@ export async function processRAGQuery(question: string): Promise<{
     const documents = await searchSimilarDocuments(embedding, language)
 
     // יצירת תשובה
-    const { answer, usedFallback } = await generateAnswer(question, documents, language)
+    const { answer, usedFallback, usedWebSearch } = await generateAnswer(question, documents, language)
 
     // הכנת מקורות
-    const sources = documents.map((doc) => ({
-      title: doc.title,
-      file_name: doc.file_name,
-      storage_path: doc.storage_path,
-      similarity: Math.round(doc.similarity * 100),
-    }))
+    let sources = []
+
+    if (usedWebSearch) {
+      // אם השתמשנו ב-Web Search, נוסיף מקור מיוחד
+      sources = [
+        {
+          title: "מידע מהאינטרנט",
+          file_name: "web_search",
+          storage_path: "",
+          similarity: 0,
+        },
+      ]
+    } else {
+      // אחרת, נשתמש במקורות הרגילים
+      sources = documents.map((doc) => ({
+        title: doc.title,
+        file_name: doc.file_name,
+        storage_path: doc.storage_path,
+        similarity: Math.round(doc.similarity * 100),
+      }))
+    }
 
     console.log("✅ עיבוד הושלם בהצלחה")
 
@@ -292,6 +366,8 @@ export async function processRAGQuery(question: string): Promise<{
       answer,
       sources,
       usedFallback,
+      usedWebSearch,
+      documentsFound: documents.length,
     }
   } catch (error) {
     console.error("❌ שגיאה כללית בעיבוד:", error)
@@ -300,6 +376,8 @@ export async function processRAGQuery(question: string): Promise<{
       answer: "מצטער, אירעה שגיאה בעיבוד השאלה שלך. אנא נסה שוב.",
       sources: [],
       usedFallback: true,
+      usedWebSearch: false,
+      documentsFound: 0,
       error: error instanceof Error ? error.message : JSON.stringify(error),
     }
   }
@@ -314,7 +392,6 @@ export async function createChatSession(userId?: string): Promise<string> {
       created_at: new Date().toISOString(),
     }
 
-    // אם יש user_id, נוסיף אותו
     if (userId) {
       sessionData.user_id = userId
       console.log("👤 מוסיף user_id לsession:", userId)
