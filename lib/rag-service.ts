@@ -38,9 +38,9 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4)
 }
 
-// בדיקה אם צריך להשתמש ב-Web Search
-function shouldUseWebFallback(documents: any[]): boolean {
-  return documents.length === 0 || documents.every((doc) => doc.similarity < 0.7)
+// בדיקה אם צריך להשתמש ב-Web Search (רק אם אין מסמכים כלל)
+function shouldUseWebFallbackImmediately(documents: any[]): boolean {
+  return documents.length === 0
 }
 
 // בדיקה סמנטית עם GPT אם התשובה מספקת
@@ -220,9 +220,9 @@ export async function generateAnswer(
     console.log(`🤖 יוצר תשובה לשאלה: "${question}"`)
     console.log(`📚 מספר מסמכים: ${documents.length}`)
 
-    // בדיקה אם צריך להשתמש ב-Web Search
-    if (shouldUseWebFallback(documents)) {
-      console.log("⚠️ לא נמצאו מסמכים רלוונטיים או שכולם עם דמיון נמוך. עובר לחיפוש ברשת.")
+    // בדיקה ראשונית - רק אם אין מסמכים כלל
+    if (shouldUseWebFallbackImmediately(documents)) {
+      console.log("⚠️ לא נמצאו מסמכים כלל. עובר לחיפוש ברשת.")
       return await searchWebWithOpenAI(question, language)
     }
 
@@ -304,13 +304,13 @@ Provide a concise, accurate answer in English. If the information is insufficien
     const answer = completion.choices[0]?.message?.content || ""
     console.log("✅ תשובה נוצרה בהצלחה, אורך:", answer.length)
 
-    // בדיקה סמנטית עם GPT אם התשובה מספקת
-    console.log("🔍 מתחיל בדיקת איכות התשובה...")
+    // ✅ בדיקה סמנטית עם GPT - תמיד, בלי קשר לציוני התאמה!
+    console.log("🔍 מתחיל בדיקת איכות התשובה (תמיד מתבצעת)...")
     console.log("📝 שאלה לבדיקה:", question)
     console.log("📝 תשובה לבדיקה:", answer.substring(0, 200) + "...")
 
     const isInsufficient = await isAnswerInsufficientByGPT(question, answer, language)
-    console.log("🎯 תוצאת בדיקת GPT:", isInsufficient ? "לא מספקת - עובר לחיפוש ברשת" : "מספקת - ממשיך עם התשובה")
+    console.log("🎯 תוצאת בדיקת GPT:", isInsufficient ? "❌ לא מספקת - עובר לחיפוש ברשת" : "✅ מספקת - ממשיך עם התשובה")
 
     if (isInsufficient) {
       console.log("🔍 התשובה לא ישירה/מספקת לפי GPT – מבצע Web Search")
