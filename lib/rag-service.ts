@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 
+console.log("💥 [processRAGQuery] TEST: זו הגרסה הנכונה של הפונקציה!")
+
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 const openai = new OpenAI({
