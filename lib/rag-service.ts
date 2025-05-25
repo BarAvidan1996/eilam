@@ -46,9 +46,9 @@ function shouldUseWebFallbackImmediately(documents: any[]): boolean {
 // בדיקה סמנטית עם GPT אם התשובה מספקת
 async function isAnswerInsufficientByGPT(question: string, answer: string, language: "he" | "en"): Promise<boolean> {
   try {
-    console.log("🧠 בודק איכות התשובה עם GPT...")
-    console.log("🔍 שאלה:", question)
-    console.log("📄 תשובה לבדיקה:", answer.substring(0, 150) + "...")
+    console.log("🧠 [isAnswerInsufficientByGPT] בודק איכות התשובה עם GPT...")
+    console.log("🔍 [isAnswerInsufficientByGPT] שאלה:", question)
+    console.log("📄 [isAnswerInsufficientByGPT] תשובה לבדיקה:", answer.substring(0, 150) + "...")
 
     const prompt =
       language === "he"
@@ -63,7 +63,7 @@ Answer: "${answer}"
 
 Does the answer directly, clearly and accurately respond to the question? Answer only "yes" or "no".`
 
-    console.log("📤 שולח בקשה לGPT לבדיקת איכות...")
+    console.log("📤 [isAnswerInsufficientByGPT] שולח בקשה לGPT לבדיקת איכות...")
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -73,16 +73,18 @@ Does the answer directly, clearly and accurately respond to the question? Answer
     })
 
     const content = response.choices[0]?.message?.content?.toLowerCase().trim()
-    console.log("📥 תגובת GPT:", `"${content}"`)
+    console.log("📥 [isAnswerInsufficientByGPT] תגובת GPT:", `"${content}"`)
 
     const isInsufficient = language === "he" ? content === "לא" : content === "no"
 
-    console.log(`🎯 GPT הערכה סופית: "${content}" - ${isInsufficient ? "❌ לא מספקת" : "✅ מספקת"}`)
+    console.log(
+      `🎯 [isAnswerInsufficientByGPT] GPT הערכה סופית: "${content}" - ${isInsufficient ? "❌ לא מספקת" : "✅ מספקת"}`,
+    )
 
     return isInsufficient
   } catch (error) {
-    console.error("❌ שגיאה בבדיקת איכות התשובה:", error)
-    console.log("⚠️ בגלל שגיאה, ממשיך עם התשובה הקיימת (לא עובר לחיפוש ברשת)")
+    console.error("❌ [isAnswerInsufficientByGPT] שגיאה בבדיקת איכות התשובה:", error)
+    console.log("⚠️ [isAnswerInsufficientByGPT] בגלל שגיאה, ממשיך עם התשובה הקיימת (לא עובר לחיפוש ברשת)")
     // במקרה של שגיאה, נחזור false (לא נעבור לחיפוש ברשת)
     return false
   }
@@ -94,8 +96,8 @@ async function searchWebWithOpenAI(
   language: "he" | "en",
 ): Promise<{ answer: string; usedFallback: boolean; usedWebSearch: boolean }> {
   try {
-    console.log("🔍 מתחיל חיפוש באינטרנט עם OpenAI Web Search...")
-    console.log("🌐 עובר לחיפוש ברשת לקבלת מידע עדכני")
+    console.log("🔍 [searchWebWithOpenAI] מתחיל חיפוש באינטרנט עם OpenAI Web Search...")
+    console.log("🌐 [searchWebWithOpenAI] עובר לחיפוש ברשת לקבלת מידע עדכני")
 
     const systemPrompt =
       language === "he"
@@ -122,8 +124,8 @@ async function searchWebWithOpenAI(
 
     const finalAnswer = content + webNote
 
-    console.log("🌐 תשובה מבוססת אינטרנט נוצרה בהצלחה")
-    console.log("📄 מחזיר תשובה מחיפוש ברשת")
+    console.log("🌐 [searchWebWithOpenAI] תשובה מבוססת אינטרנט נוצרה בהצלחה")
+    console.log("📄 [searchWebWithOpenAI] מחזיר תשובה מחיפוש ברשת")
 
     return {
       answer: finalAnswer,
@@ -131,7 +133,7 @@ async function searchWebWithOpenAI(
       usedWebSearch: true,
     }
   } catch (error) {
-    console.error("❌ שגיאה בחיפוש ברשת:", error)
+    console.error("❌ [searchWebWithOpenAI] שגיאה בחיפוש ברשת:", error)
 
     // fallback לתשובה כללית אם גם Web Search נכשל
     return await generateFallbackAnswer(question, language)
@@ -217,17 +219,17 @@ export async function generateAnswer(
   language: "he" | "en",
 ): Promise<{ answer: string; usedFallback: boolean; usedWebSearch?: boolean }> {
   try {
-    console.log(`🤖 יוצר תשובה לשאלה: "${question}"`)
-    console.log(`📚 מספר מסמכים: ${documents.length}`)
+    console.log(`🤖 [generateAnswer] יוצר תשובה לשאלה: "${question}"`)
+    console.log(`📚 [generateAnswer] מספר מסמכים: ${documents.length}`)
 
     // בדיקה ראשונית - רק אם אין מסמכים כלל
     if (shouldUseWebFallbackImmediately(documents)) {
-      console.log("⚠️ לא נמצאו מסמכים כלל. עובר לחיפוש ברשת.")
+      console.log("⚠️ [generateAnswer] לא נמצאו מסמכים כלל. עובר לחיפוש ברשת.")
       return await searchWebWithOpenAI(question, language)
     }
 
     console.log(
-      "🧠 משתמש בתשובה מבוססת מסמכים מהקשר:",
+      "🧠 [generateAnswer] משתמש בתשובה מבוססת מסמכים מהקשר:",
       documents.map((d) => d.title),
     )
 
@@ -252,7 +254,9 @@ export async function generateAnswer(
       currentLength += docText.length
     }
 
-    console.log(`📊 אורך הקשר סופי: ${context.length} תווים (${estimateTokens(context)} טוקנים משוערים)`)
+    console.log(
+      `📊 [generateAnswer] אורך הקשר סופי: ${context.length} תווים (${estimateTokens(context)} טוקנים משוערים)`,
+    )
 
     const stepBackPrompt =
       language === "he" ? `עקרונות כלליים לשאלה: "${question}"` : `General principles for: "${question}"`
@@ -282,14 +286,14 @@ ${context}
 Provide a concise, accurate answer in English. If the information is insufficient, state this clearly.`
 
     const totalTokens = estimateTokens(systemPrompt + userPrompt)
-    console.log(`📊 טוקנים משוערים לבקשה: ${totalTokens}`)
+    console.log(`📊 [generateAnswer] טוקנים משוערים לבקשה: ${totalTokens}`)
 
     if (totalTokens > 3500) {
-      console.log("⚠️ יותר מדי טוקנים, עובר לחיפוש ברשת")
+      console.log("⚠️ [generateAnswer] יותר מדי טוקנים, עובר לחיפוש ברשת")
       return await searchWebWithOpenAI(question, language)
     }
 
-    console.log("🔄 שולח בקשה ל-OpenAI...")
+    console.log("🔄 [generateAnswer] שולח בקשה ל-OpenAI...")
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
@@ -302,35 +306,38 @@ Provide a concise, accurate answer in English. If the information is insufficien
     })
 
     const answer = completion.choices[0]?.message?.content || ""
-    console.log("✅ תשובה נוצרה בהצלחה, אורך:", answer.length)
+    console.log("✅ [generateAnswer] תשובה נוצרה בהצלחה, אורך:", answer.length)
 
     // ✅ בדיקה סמנטית עם GPT - תמיד, בלי קשר לציוני התאמה!
-    console.log("🔍 מתחיל בדיקת איכות התשובה (תמיד מתבצעת)...")
-    console.log("📝 שאלה לבדיקה:", question)
-    console.log("📝 תשובה לבדיקה:", answer.substring(0, 200) + "...")
+    console.log("🔍 [generateAnswer] מתחיל בדיקת איכות התשובה (תמיד מתבצעת)...")
+    console.log("📝 [generateAnswer] שאלה לבדיקה:", question)
+    console.log("📝 [generateAnswer] תשובה לבדיקה:", answer.substring(0, 200) + "...")
 
     const isInsufficient = await isAnswerInsufficientByGPT(question, answer, language)
-    console.log("🎯 תוצאת בדיקת GPT:", isInsufficient ? "❌ לא מספקת - עובר לחיפוש ברשת" : "✅ מספקת - ממשיך עם התשובה")
+    console.log(
+      "🎯 [generateAnswer] תוצאת בדיקת GPT:",
+      isInsufficient ? "❌ לא מספקת - עובר לחיפוש ברשת" : "✅ מספקת - ממשיך עם התשובה",
+    )
 
     if (isInsufficient) {
-      console.log("🔍 התשובה לא ישירה/מספקת לפי GPT – מבצע Web Search")
+      console.log("🔍 [generateAnswer] התשובה לא ישירה/מספקת לפי GPT – מבצע Web Search")
       return await searchWebWithOpenAI(question, language)
     }
 
-    console.log("✅ התשובה מספקת, ממשיך עם התשובה הקיימת")
+    console.log("✅ [generateAnswer] התשובה מספקת, ממשיך עם התשובה הקיימת")
 
     return { answer, usedFallback: false, usedWebSearch: false }
   } catch (error) {
-    console.error("❌ שגיאה ביצירת תשובה:", error)
+    console.error("❌ [generateAnswer] שגיאה ביצירת תשובה:", error)
 
     if (error instanceof Error && error.message.includes("maximum context")) {
-      console.log("🔄 ניסיון חוזר עם פחות מסמכים...")
+      console.log("🔄 [generateAnswer] ניסיון חוזר עם פחות מסמכים...")
       const reducedDocuments = documents.slice(0, 1)
       return await generateAnswer(question, reducedDocuments, language)
     }
 
     // אם יש שגיאה, ננסה Web Search
-    console.log("🔄 שגיאה ביצירת תשובה, עובר לחיפוש ברשת...")
+    console.log("🔄 [generateAnswer] שגיאה ביצירת תשובה, עובר לחיפוש ברשת...")
     return await searchWebWithOpenAI(question, language)
   }
 }
@@ -385,16 +392,17 @@ export async function processRAGQuery(question: string): Promise<{
   error?: string
 }> {
   try {
-    console.log("🚀 מתחיל עיבוד שאלה:", question)
+    console.log("🚀 [processRAGQuery] מתחיל עיבוד שאלה:", question)
 
     // זיהוי שפה
     const language = detectLanguage(question)
-    console.log("🌐 שפה שזוהתה:", language)
+    console.log("🌐 [processRAGQuery] שפה שזוהתה:", language)
 
     // ✅ קודם ננסה להביא מה־Cache
+    console.log("💰 [processRAGQuery] בודק cache...")
     const cached = await CacheService.getCachedAnswer(question, language)
     if (cached) {
-      console.log("💰 חיסכון בעלויות - תשובה מה-cache!")
+      console.log("💰 [processRAGQuery] חיסכון בעלויות - תשובה מה-cache!")
       return {
         answer: cached.answer,
         sources: cached.sources,
@@ -405,15 +413,25 @@ export async function processRAGQuery(question: string): Promise<{
       }
     }
 
+    console.log("🔄 [processRAGQuery] לא נמצא בcache, ממשיך לעיבוד רגיל...")
+
     // 🔁 המשך רגיל...
     // יצירת embedding
+    console.log("🔄 [processRAGQuery] יוצר embedding...")
     const embedding = await createEmbedding(question)
 
     // חיפוש מסמכים
+    console.log("🔍 [processRAGQuery] מחפש מסמכים...")
     const documents = await searchSimilarDocuments(embedding, language)
 
     // יצירת תשובה
+    console.log("🤖 [processRAGQuery] קורא ל-generateAnswer...")
     const { answer, usedFallback, usedWebSearch } = await generateAnswer(question, documents, language)
+
+    console.log("📊 [processRAGQuery] תוצאות generateAnswer:")
+    console.log("  - usedFallback:", usedFallback)
+    console.log("  - usedWebSearch:", usedWebSearch)
+    console.log("  - answer length:", answer.length)
 
     // הכנת מקורות
     let sources: Array<{
@@ -425,6 +443,7 @@ export async function processRAGQuery(question: string): Promise<{
     }> = []
 
     if (usedWebSearch) {
+      console.log("🌐 [processRAGQuery] מכין מקורות לweb search...")
       // אם השתמשנו ב-Web Search, נוסיף מקור מיוחד
       sources = [
         {
@@ -436,6 +455,7 @@ export async function processRAGQuery(question: string): Promise<{
         },
       ]
     } else if (usedFallback) {
+      console.log("🤖 [processRAGQuery] מכין מקורות לfallback...")
       sources = [
         {
           title: "תשובה מבוססת AI",
@@ -446,6 +466,7 @@ export async function processRAGQuery(question: string): Promise<{
         },
       ]
     } else {
+      console.log("📄 [processRAGQuery] מכין מקורות רגילים...")
       // אחרת, נשתמש במקורות הרגילים
       sources = documents.map((doc) => ({
         title: doc.title,
@@ -457,9 +478,10 @@ export async function processRAGQuery(question: string): Promise<{
     }
 
     // ✅ נשמור ב־Cache אחרי שליפה
+    console.log("💾 [processRAGQuery] שומר בcache...")
     await CacheService.saveAnswerToCache(question, language, answer, sources)
 
-    console.log("✅ עיבוד הושלם בהצלחה")
+    console.log("✅ [processRAGQuery] עיבוד הושלם בהצלחה")
 
     return {
       answer,
@@ -470,7 +492,7 @@ export async function processRAGQuery(question: string): Promise<{
       documentsFound: documents.length,
     }
   } catch (error) {
-    console.error("❌ שגיאה כללית בעיבוד:", error)
+    console.error("❌ [processRAGQuery] שגיאה כללית בעיבוד:", error)
 
     return {
       answer: "מצטער, אירעה שגיאה בעיבוד השאלה שלך. אנא נסה שוב.",
