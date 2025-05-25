@@ -1,4 +1,4 @@
-import { streamText } from "ai"
+import { streamText, StreamingTextResponse } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { processRAGQuery, saveChatMessage } from "@/lib/rag-service"
 
@@ -63,8 +63,8 @@ ${context ? `\n\nמידע רלוונטי:\n${context}` : ""}`
       await saveChatMessage(sessionId, fullText, false, ragResult.sources)
     })
 
-    // החזרת streaming response עם metadata
-    return result.toAIStreamResponse({
+    // החזרת streaming response עם metadata - התיקון כאן!
+    return new StreamingTextResponse(result.toAIStream(), {
       headers: {
         "X-Sources": JSON.stringify(ragResult.sources || []),
         "X-Used-Fallback": ragResult.usedFallback.toString(),
