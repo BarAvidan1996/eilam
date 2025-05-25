@@ -8,40 +8,58 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useSearchParams } from "next/navigation"
+import { useChat } from "ai/react"
 
-interface Message {
-  id: string
-  text: string
-  sender: "user" | "bot"
-  timestamp?: Date
-  sources?: Array<{
-    title: string
-    file_name: string
-    similarity: number
-  }>
-  isStreaming?: boolean
-}
-
-const initialMessages: Message[] = [
+const initialMessages = [
   {
     id: "1",
-    text: 'שלום! אני עיל"ם, עוזר החירום האישי שלך. איך אני יכול לעזור היום?',
-    sender: "bot",
-    timestamp: new Date(),
+    role: "assistant" as const,
+    content: 'שלום! אני עיל"ם, עוזר החירום האישי שלך. איך אני יכול לעזור היום?',
   },
 ]
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages)
-  const [inputValue, setInputValue] = useState("")
-  const [isTyping, setIsTyping] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
   const [isInitializing, setIsInitializing] = useState(true)
+  const [ragSources, setRagSources] = useState<
+    Array<{
+      title: string
+      file_name: string
+      similarity: number
+    }>
+  >([])
 
   const supabase = createClientComponentClient()
   const searchParams = useSearchParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Vercel AI SDK useChat hook
+  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
+    api: "/api/chat",
+    body: {
+      sessionId,
+    },
+    onResponse: (response) => {
+      // קריאת metadata מהresponse headers
+      const sources = response.headers.get("X-RAG-Sources")
+      const fallback = response.headers.get("X-RAG-Fallback")
+
+      if (sources) {
+        try {
+          setRagSources(JSON.parse(sources))
+        } catch (e) {
+          console.error("שגיאה בפרסור מקורות:", e)
+        }
+      }
+
+      console.log("📊 RAG Fallback:", fallback === "true")
+    },
+    onError: (error) => {
+      console.error("💥 שגיאה בצ'אט:", error)
+    },
+    initialMessages,
+  })
 
   // גלילה אוטומטית למטה
   const scrollToBottom = () => {
@@ -141,12 +159,10 @@ export default function ChatPage() {
       if (!error && data && data.length > 0) {
         console.log(`📜 נמצאו ${data.length} הודעות בהיסטוריה`)
 
-        const chatMessages: Message[] = data.map((msg) => ({
+        const chatMessages = data.map((msg) => ({
           id: msg.id,
-          text: msg.content,
-          sender: msg.role === "user" ? "user" : "bot",
-          timestamp: new Date(msg.created_at),
-          sources: msg.sources || [],
+          role: msg.role === "user" ? ("user" as const) : ("assistant" as const),
+          content: msg.content,
         }))
 
         // החלפת ההודעות הראשוניות בהיסטוריה
@@ -156,134 +172,6 @@ export default function ChatPage() {
       }
     } catch (error) {
       console.error("❌ שגיאה בטעינת היסטוריה:", error)
-    }
-  }
-
-  const handleSendMessage = async () => {
-    console.log("🎯 handleSendMessage - התחלה")
-
-    if (inputValue.trim() === "" || isTyping || isInitializing || !sessionId) {
-      console.log("❌ יציאה מוקדמת")
-      return
-    }
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputValue,
-      sender: "user",
-      timestamp: new Date(),
-    }
-
-    setMessages((prev) => [...prev, userMessage])
-    const currentQuestion = inputValue.trim()
-
-    setInputValue("")
-    setIsTyping(true)
-
-    // יצירת הודעת בוט ריקה לstreaming
-    const botMessageId = (Date.now() + 1).toString()
-    const initialBotMessage: Message = {
-      id: botMessageId,
-      text: "",
-      sender: "bot",
-      timestamp: new Date(),
-      isStreaming: true,
-    }
-
-    setMessages((prev) => [...prev, initialBotMessage])
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: currentQuestion,
-          sessionId: sessionId,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-
-      if (!reader) {
-        throw new Error("No reader available")
-      }
-
-      let accumulatedText = ""
-
-      while (true) {
-        const { done, value } = await reader.read()
-
-        if (done) break
-
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split("\n").filter((line) => line.trim())
-
-        for (const line of lines) {
-          try {
-            const data = JSON.parse(line)
-
-            if (data.type === "chunk") {
-              accumulatedText += data.content
-
-              // עדכון ההודעה עם הטקסט המצטבר
-              setMessages((prev) =>
-                prev.map((msg) => (msg.id === botMessageId ? { ...msg, text: accumulatedText } : msg)),
-              )
-            } else if (data.type === "final") {
-              // עדכון סופי עם מקורות
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === botMessageId
-                    ? {
-                        ...msg,
-                        text: data.answer,
-                        sources: data.sources,
-                        isStreaming: false,
-                      }
-                    : msg,
-                ),
-              )
-            } else if (data.type === "error") {
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === botMessageId
-                    ? {
-                        ...msg,
-                        text: `מצטער, אירעה שגיאה: ${data.error}`,
-                        isStreaming: false,
-                      }
-                    : msg,
-                ),
-              )
-            }
-          } catch (parseError) {
-            console.error("שגיאה בפרסור JSON:", parseError)
-          }
-        }
-      }
-    } catch (error) {
-      console.error("💥 שגיאה בשליחת הודעה:", error)
-
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === botMessageId
-            ? {
-                ...msg,
-                text: `מצטער, אירעה שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
-                isStreaming: false,
-              }
-            : msg,
-        ),
-      )
-    } finally {
-      setIsTyping(false)
     }
   }
 
@@ -317,12 +205,12 @@ export default function ChatPage() {
       {/* Messages */}
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
-          {messages.map((message) => (
+          {messages.map((message, index) => (
             <div
               key={message.id}
-              className={`flex items-start gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex items-start gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
-              {message.sender === "bot" && (
+              {message.role === "assistant" && (
                 <Avatar className="h-8 w-8 mt-1">
                   <AvatarImage
                     src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/fcae81_support-agent.png"
@@ -334,49 +222,35 @@ export default function ChatPage() {
                 </Avatar>
               )}
 
-              <div className={`max-w-[75%] ${message.sender === "user" ? "order-2" : ""}`}>
+              <div className={`max-w-[75%] ${message.role === "user" ? "order-2" : ""}`}>
                 <div
                   className={`p-3 rounded-lg ${
-                    message.sender === "user"
+                    message.role === "user"
                       ? "bg-purple-600 text-white rounded-br-sm"
                       : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-sm"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap break-words">
-                    {message.text}
-                    {message.isStreaming && (
-                      <span className="inline-block w-2 h-4 bg-current ml-1 animate-pulse">|</span>
-                    )}
-                  </p>
+                  <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                 </div>
 
-                {/* Sources */}
-                {message.sources && message.sources.length > 0 && (
+                {/* Sources - מציג רק להודעה האחרונה של הבוט */}
+                {message.role === "assistant" && index === messages.length - 1 && ragSources.length > 0 && (
                   <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     <p className="font-medium mb-1">מקורות:</p>
                     <ul className="space-y-1">
-                      {message.sources.map((source, index) => (
-                        <li key={index} className="flex items-center gap-2">
+                      {ragSources.map((source, sourceIndex) => (
+                        <li key={sourceIndex} className="flex items-center gap-2">
                           <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                           <span>{source.title}</span>
-                          <span className="text-gray-400">({Math.round(source.similarity * 100)}% התאמה)</span>
+                          <span className="text-gray-400">({source.similarity}% התאמה)</span>
                         </li>
                       ))}
                     </ul>
                   </div>
                 )}
-
-                {message.timestamp && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    {message.timestamp.toLocaleTimeString("he-IL", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                )}
               </div>
 
-              {message.sender === "user" && (
+              {message.role === "user" && (
                 <Avatar className="h-8 w-8 mt-1 order-3">
                   <AvatarFallback className="bg-blue-100 text-blue-600">
                     <User className="h-4 w-4" />
@@ -387,7 +261,7 @@ export default function ChatPage() {
           ))}
 
           {/* Typing indicator */}
-          {isTyping && (
+          {isLoading && (
             <div className="flex items-start gap-3">
               <Avatar className="h-8 w-8 mt-1">
                 <AvatarFallback className="bg-purple-100 text-purple-600">
@@ -415,29 +289,23 @@ export default function ChatPage() {
 
       {/* Input */}
       <div className="p-4 border-t dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
-        <div className="flex items-center gap-2">
+        <form onSubmit={handleSubmit} className="flex items-center gap-2">
           <Input
             type="text"
             placeholder="כתוב את שאלתך כאן..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault()
-                handleSendMessage()
-              }
-            }}
-            disabled={isTyping || isInitializing}
+            value={input}
+            onChange={handleInputChange}
+            disabled={isLoading || isInitializing || !sessionId}
             className="flex-1"
           />
           <Button
-            onClick={handleSendMessage}
-            disabled={isTyping || inputValue.trim() === "" || isInitializing || !sessionId}
+            type="submit"
+            disabled={isLoading || input.trim() === "" || isInitializing || !sessionId}
             className="bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50"
           >
             <Send className="w-5 h-5" />
           </Button>
-        </div>
+        </form>
         <p className="text-xs text-gray-500 mt-2 text-center">
           עיל"ם מבוסס על מידע רשמי של פיקוד העורף • גרסה ניסיונית
         </p>
