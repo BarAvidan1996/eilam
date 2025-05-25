@@ -8,12 +8,12 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useSearchParams } from "next/navigation"
-import { useChat } from "ai/react"
 
-interface ExtendedMessage {
+interface Message {
   id: string
-  content: string
-  role: "user" | "assistant"
+  text: string
+  sender: "user" | "bot"
+  timestamp?: Date
   sources?: Array<{
     title: string
     file_name: string
@@ -21,66 +21,26 @@ interface ExtendedMessage {
   }>
 }
 
-const initialMessages = [
+const initialMessages: Message[] = [
   {
     id: "1",
-    content: 'שלום! אני עיל"ם, עוזר החירום האישי שלך. איך אני יכול לעזור היום?',
-    role: "assistant" as const,
+    text: 'שלום! אני עיל"ם, עוזר החירום האישי שלך. איך אני יכול לעזור היום?',
+    sender: "bot",
+    timestamp: new Date(),
   },
 ]
 
 export default function ChatPage() {
+  const [messages, setMessages] = useState<Message[]>(initialMessages)
+  const [inputValue, setInputValue] = useState("")
+  const [isTyping, setIsTyping] = useState(false)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
   const [isInitializing, setIsInitializing] = useState(true)
-  const [currentSources, setCurrentSources] = useState<
-    Array<{
-      title: string
-      file_name: string
-      similarity: number
-    }>
-  >([])
 
   const supabase = createClientComponentClient()
   const searchParams = useSearchParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  // useChat hook מ-Vercel AI SDK
-  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
-    api: "/api/chat",
-    initialMessages,
-    body: {
-      sessionId,
-    },
-    onResponse: async (response) => {
-      // קריאת המקורות מה-headers
-      const sourcesHeader = response.headers.get("X-Sources")
-      if (sourcesHeader) {
-        try {
-          const sources = JSON.parse(sourcesHeader)
-          console.log(
-            "📊 Sources received:",
-            sources.map((s: any) => ({
-              title: s.title,
-              similarity: Math.round(s.similarity * 100) + "%",
-            })),
-          )
-          setCurrentSources(sources)
-        } catch (e) {
-          console.error("Failed to parse sources:", e)
-        }
-      }
-    },
-    onFinish: (message) => {
-      // הוספת המקורות להודעה האחרונה
-      if (currentSources.length > 0) {
-        setMessages((prev) =>
-          prev.map((msg, index) => (index === prev.length - 1 ? { ...msg, sources: currentSources } : msg)),
-        )
-        setCurrentSources([])
-      }
-    },
-  })
 
   // גלילה אוטומטית למטה
   const scrollToBottom = () => {
@@ -167,6 +127,128 @@ export default function ChatPage() {
     window.open(sourceUrl, "_blank", "noopener,noreferrer")
   }
 
+  const handleSendMessage = async () => {
+    console.log("🎯 handleSendMessage - התחלה")
+
+    if (inputValue.trim() === "" || isTyping || isInitializing || !sessionId) {
+      console.log("❌ יציאה מוקדמת")
+      return
+    }
+
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputValue,
+      sender: "user",
+      timestamp: new Date(),
+    }
+
+    setMessages((prev) => [...prev, userMessage])
+    const currentQuestion = inputValue.trim()
+    setInputValue("")
+    setIsTyping(true)
+
+    // יצירת הודעת בוט ריקה לסטרימינג
+    const botMessageId = (Date.now() + 1).toString()
+    const botMessage: Message = {
+      id: botMessageId,
+      text: "",
+      sender: "bot",
+      timestamp: new Date(),
+    }
+    setMessages((prev) => [...prev, botMessage])
+
+    try {
+      const requestBody = {
+        messages: [{ role: "user", content: currentQuestion }],
+        sessionId: sessionId,
+      }
+
+      console.log("📦 שולח בקשה:", requestBody)
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      // קריאת המקורות מה-headers
+      const sourcesHeader = response.headers.get("X-Sources")
+      let sources: any[] = []
+      if (sourcesHeader) {
+        try {
+          sources = JSON.parse(sourcesHeader)
+          console.log(
+            "📊 Sources received:",
+            sources.map((s: any) => ({
+              title: s.title,
+              similarity: Math.round(s.similarity * 100) + "%",
+            })),
+          )
+        } catch (e) {
+          console.error("Failed to parse sources:", e)
+        }
+      }
+
+      // קריאת הסטרימינג
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (reader) {
+        let streamedText = ""
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+
+          const chunk = decoder.decode(value, { stream: true })
+
+          // פרסור של Server-Sent Events
+          const lines = chunk.split("\n")
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              const data = line.slice(6)
+              if (data === "[DONE]") {
+                break
+              }
+              try {
+                const parsed = JSON.parse(data)
+                if (parsed.content) {
+                  streamedText += parsed.content
+                }
+              } catch (e) {
+                // אם זה לא JSON, פשוט נוסיף את הטקסט
+                streamedText += data
+              }
+            }
+          }
+
+          // עדכון ההודעה בזמן אמת
+          setMessages((prev) =>
+            prev.map((msg) => (msg.id === botMessageId ? { ...msg, text: streamedText, sources: sources } : msg)),
+          )
+        }
+      }
+    } catch (error) {
+      console.error("💥 שגיאה בשליחת הודעה:", error)
+
+      const errorMessage: Message = {
+        id: (Date.now() + 2).toString(),
+        text: `מצטער, אירעה שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
+        sender: "bot",
+        timestamp: new Date(),
+      }
+      setMessages((prev) => [...prev.slice(0, -1), errorMessage])
+    } finally {
+      setIsTyping(false)
+    }
+  }
+
   // הצגת מסך טעינה בזמן אתחול
   if (isInitializing) {
     return (
@@ -199,9 +281,9 @@ export default function ChatPage() {
           {messages.map((message, index) => (
             <div
               key={message.id}
-              className={`flex items-start gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex items-start gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"}`}
             >
-              {message.role === "assistant" && (
+              {message.sender === "bot" && (
                 <Avatar className="h-8 w-8 mt-1">
                   <AvatarImage
                     src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/fcae81_support-agent.png"
@@ -213,23 +295,23 @@ export default function ChatPage() {
                 </Avatar>
               )}
 
-              <div className={`max-w-[75%] ${message.role === "user" ? "order-2" : ""}`}>
+              <div className={`max-w-[75%] ${message.sender === "user" ? "order-2" : ""}`}>
                 <div
                   className={`p-3 rounded-lg ${
-                    message.role === "user"
+                    message.sender === "user"
                       ? "bg-[#005C72] dark:bg-[#D3E3FD] text-white dark:text-gray-900 rounded-br-sm"
                       : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-sm"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
                 </div>
 
                 {/* Sources */}
-                {(message as any).sources && (message as any).sources.length > 0 && (
+                {message.sources && message.sources.length > 0 && (
                   <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                     <p className="font-medium mb-1">מקורות:</p>
                     <ul className="space-y-1">
-                      {(message as any).sources.map((source: any, sourceIndex: number) => (
+                      {message.sources.map((source, sourceIndex) => (
                         <li key={sourceIndex} className="flex items-center gap-2">
                           <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                           <button
@@ -244,9 +326,18 @@ export default function ChatPage() {
                     </ul>
                   </div>
                 )}
+
+                {message.timestamp && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    {message.timestamp.toLocaleTimeString("he-IL", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
               </div>
 
-              {message.role === "user" && (
+              {message.sender === "user" && (
                 <Avatar className="h-8 w-8 mt-1 order-3">
                   <AvatarFallback className="bg-blue-100 text-blue-600">
                     <User className="h-4 w-4" />
@@ -257,7 +348,7 @@ export default function ChatPage() {
           ))}
 
           {/* Typing indicator */}
-          {isLoading && (
+          {isTyping && (
             <div className="flex items-start gap-3">
               <Avatar className="h-8 w-8 mt-1">
                 <AvatarFallback className="bg-[#005C72]/10 dark:bg-[#D3E3FD]/10 text-[#005C72] dark:text-gray-900">
@@ -285,23 +376,29 @@ export default function ChatPage() {
 
       {/* Input */}
       <div className="p-4 border-t dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Input
             type="text"
             placeholder="כתוב את שאלתך כאן..."
-            value={input}
-            onChange={handleInputChange}
-            disabled={isLoading || isInitializing || !sessionId}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                handleSendMessage()
+              }
+            }}
+            disabled={isTyping || isInitializing}
             className="flex-1"
           />
           <Button
-            type="submit"
-            disabled={isLoading || input.trim() === "" || isInitializing || !sessionId}
+            onClick={handleSendMessage}
+            disabled={isTyping || inputValue.trim() === "" || isInitializing || !sessionId}
             className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7F7] text-white dark:text-gray-900 disabled:opacity-50"
           >
             <Send className="w-5 h-5" />
           </Button>
-        </form>
+        </div>
         <p className="text-xs text-gray-500 mt-2 text-center">עיל"ם מבוסס על מידע מאתר פיקוד העורף • גרסה ניסיונית</p>
       </div>
     </div>
