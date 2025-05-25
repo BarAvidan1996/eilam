@@ -37,12 +37,12 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4)
 }
 
-// בדיקה סמנטית עם GPT אם התשובה מספקת
+// בדיקה סמנטית עם GPT אם התשובה מספקת - תמיד מתבצעת!
 async function isAnswerInsufficientByGPT(question: string, answer: string, language: "he" | "en"): Promise<boolean> {
   try {
-    console.log("🧠 [isAnswerInsufficientByGPT] בודק איכות התשובה עם GPT...")
+    console.log("🧠 [isAnswerInsufficientByGPT] *** התחלת בדיקת איכות התשובה עם GPT ***")
     console.log("🔍 [isAnswerInsufficientByGPT] שאלה:", question)
-    console.log("📄 [isAnswerInsufficientByGPT] תשובה לבדיקה:", answer.substring(0, 150) + "...")
+    console.log("📄 [isAnswerInsufficientByGPT] תשובה לבדיקה:", answer.substring(0, 200) + "...")
 
     const prompt =
       language === "he"
@@ -56,6 +56,7 @@ Answer: "${answer}"
 Is the answer direct, accurate and sufficient? Answer only "yes" or "no".`
 
     console.log("📤 [isAnswerInsufficientByGPT] שולח בקשה לGPT לבדיקת איכות...")
+    console.log("🔧 [isAnswerInsufficientByGPT] משתמש במודל: gpt-4o")
 
     const result = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -65,17 +66,18 @@ Is the answer direct, accurate and sufficient? Answer only "yes" or "no".`
     })
 
     const reply = result.choices[0]?.message?.content?.toLowerCase().trim()
-    console.log("📥 [isAnswerInsufficientByGPT] תגובת GPT:", `"${reply}"`)
+    console.log("📥 [isAnswerInsufficientByGPT] תגובת GPT RAW:", `"${result.choices[0]?.message?.content}"`)
+    console.log("📥 [isAnswerInsufficientByGPT] תגובת GPT מעובדת:", `"${reply}"`)
 
     const isInsufficient = reply === "no" || reply === "לא"
     console.log(
-      `🎯 [isAnswerInsufficientByGPT] הערכה סופית: "${reply}" - ${isInsufficient ? "❌ לא מספקת" : "✅ מספקת"}`,
+      `🎯 [isAnswerInsufficientByGPT] *** הערכה סופית: "${reply}" - ${isInsufficient ? "❌ לא מספקת - עובר לWeb Search" : "✅ מספקת - ממשיך עם התשובה"} ***`,
     )
 
     return isInsufficient
   } catch (error) {
     console.error("❌ [isAnswerInsufficientByGPT] שגיאה בבדיקת איכות התשובה:", error)
-    console.log("⚠️ [isAnswerInsufficientByGPT] בגלל שגיאה, ממשיך עם התשובה הקיימת")
+    console.log("⚠️ [isAnswerInsufficientByGPT] בגלל שגיאה, ממשיך עם התשובה הקיימת (לא עובר לWeb Search)")
     return false
   }
 }
@@ -86,7 +88,7 @@ async function searchWebWithOpenAI(
   language: "he" | "en",
 ): Promise<{ answer: string; usedFallback: boolean; usedWebSearch: boolean }> {
   try {
-    console.log("🔍 [searchWebWithOpenAI] מתחיל חיפוש באינטרנט עם OpenAI Web Search...")
+    console.log("🔍 [searchWebWithOpenAI] *** מתחיל חיפוש באינטרנט עם OpenAI Web Search ***")
     console.log("🌐 [searchWebWithOpenAI] עובר לחיפוש ברשת לקבלת מידע עדכני")
 
     const systemPrompt =
@@ -114,7 +116,7 @@ async function searchWebWithOpenAI(
 
     const finalAnswer = content + webNote
 
-    console.log("🌐 [searchWebWithOpenAI] תשובה מבוססת אינטרנט נוצרה בהצלחה")
+    console.log("🌐 [searchWebWithOpenAI] *** תשובה מבוססת אינטרנט נוצרה בהצלחה ***")
     console.log("📄 [searchWebWithOpenAI] מחזיר תשובה מחיפוש ברשת")
 
     return {
@@ -242,12 +244,13 @@ export async function generateAnswer(
   language: "he" | "en",
 ): Promise<{ answer: string; usedFallback: boolean; usedWebSearch?: boolean }> {
   try {
-    console.log("🤖 [generateAnswer] מתחיל יצירת תשובה עבור:", question)
+    console.log("🤖 [generateAnswer] *** מתחיל יצירת תשובה ***")
+    console.log("🤖 [generateAnswer] שאלה:", question)
     console.log("📚 [generateAnswer] מסמכים שנמצאו:", documents.length)
 
     // 🧪 שלב 1: אם אין כלל מסמכים → מיד עובר ל־Web Search
     if (documents.length === 0) {
-      console.log("⚠️ [generateAnswer] לא נמצאו מסמכים כלל, מפעיל Web Search")
+      console.log("⚠️ [generateAnswer] *** לא נמצאו מסמכים כלל, מפעיל Web Search מיידית ***")
       return await searchWebWithOpenAI(question, language)
     }
 
@@ -299,17 +302,22 @@ Answer accurately. If there's insufficient information, say so.`
     })
 
     const answer = completion.choices[0]?.message?.content || ""
-    console.log("✅ [generateAnswer] תשובה ראשונית נוצרה, מתחיל בדיקת איכות...")
+    console.log("✅ [generateAnswer] תשובה ראשונית נוצרה!")
+    console.log("📝 [generateAnswer] תשובה:", answer.substring(0, 200) + "...")
 
-    // 🧠 שלב 3: בדיקה עם GPT האם התשובה מספקת
+    // 🧠 שלב 3: בדיקה עם GPT האם התשובה מספקת - תמיד מתבצעת!
+    console.log("🔍 [generateAnswer] *** מתחיל בדיקת איכות התשובה - תמיד מתבצעת! ***")
+
     const isBadAnswer = await isAnswerInsufficientByGPT(question, answer, language)
 
+    console.log("🎯 [generateAnswer] תוצאת בדיקת איכות:", isBadAnswer ? "❌ לא מספקת" : "✅ מספקת")
+
     if (isBadAnswer) {
-      console.log("🔍 [generateAnswer] התשובה לא מספקת לפי GPT – עובר ל־Web Search")
+      console.log("🔍 [generateAnswer] *** התשובה לא מספקת לפי GPT – עובר ל־Web Search ***")
       return await searchWebWithOpenAI(question, language)
     }
 
-    console.log("✅ [generateAnswer] התשובה נבדקה ונמצאה מספקת")
+    console.log("✅ [generateAnswer] *** התשובה נבדקה ונמצאה מספקת - משתמש בתשובה מהמסמכים ***")
 
     return {
       answer,
@@ -379,7 +387,8 @@ export async function processRAGQuery(question: string): Promise<{
   error?: string
 }> {
   try {
-    console.log("🚀 [processRAGQuery] מתחיל עיבוד שאלה:", question)
+    console.log("🚀 [processRAGQuery] *** מתחיל עיבוד שאלה ***")
+    console.log("🚀 [processRAGQuery] שאלה:", question)
 
     // זיהוי שפה
     const language = detectLanguage(question)
@@ -394,10 +403,10 @@ export async function processRAGQuery(question: string): Promise<{
     const documents = await searchSimilarDocuments(embedding, language)
 
     // יצירת תשובה - כאן קורה הקסם!
-    console.log("🤖 [processRAGQuery] קורא ל-generateAnswer...")
+    console.log("🤖 [processRAGQuery] *** קורא ל-generateAnswer - כאן תתבצע בדיקת האיכות ***")
     const { answer, usedFallback, usedWebSearch } = await generateAnswer(question, documents, language)
 
-    console.log("📊 [processRAGQuery] תוצאות generateAnswer:")
+    console.log("📊 [processRAGQuery] *** תוצאות generateAnswer ***")
     console.log("  - usedFallback:", usedFallback)
     console.log("  - usedWebSearch:", usedWebSearch)
     console.log("  - answer length:", answer.length)
@@ -444,7 +453,7 @@ export async function processRAGQuery(question: string): Promise<{
       }))
     }
 
-    console.log("✅ [processRAGQuery] עיבוד הושלם בהצלחה")
+    console.log("✅ [processRAGQuery] *** עיבוד הושלם בהצלחה ***")
 
     return {
       answer,
