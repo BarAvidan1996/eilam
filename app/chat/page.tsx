@@ -165,14 +165,47 @@ export default function ChatPage() {
       if (source.storage_path) {
         console.log("🔍 מנסה לפתוח מקור עם storage_path:", source.storage_path)
 
-        // בדיקה ישירה ב-bucket html-docs
-        const { data } = supabase.storage.from("html-docs").getPublicUrl(source.storage_path)
+        // רשימת buckets אפשריים לנסות
+        const bucketsToTry = ["html-docs", "documents", "files", "rag-documents", "storage"]
 
-        if (data?.publicUrl) {
-          console.log("✅ פותח מקור:", source.title, "מ-", data.publicUrl)
-          window.open(data.publicUrl, "_blank", "noopener,noreferrer")
+        let foundUrl = null
+
+        // ננסה כל bucket עד שנמצא אחד שעובד
+        for (const bucketName of bucketsToTry) {
+          try {
+            console.log(`🔍 מנסה bucket: ${bucketName}`)
+            const { data } = supabase.storage.from(bucketName).getPublicUrl(source.storage_path)
+
+            if (data?.publicUrl) {
+              console.log(`🔗 נוצר URL עבור ${bucketName}:`, data.publicUrl)
+
+              // בדיקה מהירה אם הקובץ קיים
+              try {
+                const testResponse = await fetch(data.publicUrl, {
+                  method: "HEAD",
+                  mode: "no-cors", // כדי להימנע מ-CORS issues
+                })
+                foundUrl = data.publicUrl
+                console.log(`✅ נמצא קובץ עובד ב-bucket ${bucketName}`)
+                break
+              } catch (fetchError) {
+                // אם יש CORS error, ננסה בכל זאת לפתוח
+                console.log(`⚠️ CORS issue עם ${bucketName}, אבל ננסה לפתוח`)
+                foundUrl = data.publicUrl
+                break
+              }
+            }
+          } catch (e) {
+            console.log(`❌ Bucket ${bucketName} לא עובד:`, e)
+            continue
+          }
+        }
+
+        if (foundUrl) {
+          console.log("🚀 פותח URL:", foundUrl)
+          window.open(foundUrl, "_blank", "noopener,noreferrer")
         } else {
-          console.error("❌ לא הצלחתי לקבל URL עבור:", source.storage_path)
+          console.error("❌ לא נמצא bucket עובד עבור:", source.storage_path)
           // fallback - ננסה את האתר הרשמי
           const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
           console.log("🔄 משתמש ב-fallback URL:", fallbackUrl)
