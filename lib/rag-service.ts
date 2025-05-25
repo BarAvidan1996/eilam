@@ -366,7 +366,7 @@ async function generateFallbackAnswer(
         : `Provide a brief, helpful answer. Mention that information is not based on official Home Front Command documents.`
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: question },
@@ -400,31 +400,36 @@ export async function processRAGQuery(question: string): Promise<{
   error?: string
 }> {
   try {
-    console.log("🚀 [processRAGQuery] *** מתחיל עיבוד שאלה ***")
-    console.log("🚀 [processRAGQuery] שאלה:", question)
+    console.log("🚀 [processRAGQuery] *** 1. מתחיל עיבוד שאלה ***")
+    console.log("🚀 [processRAGQuery] *** 2. שאלה:", question, "***")
 
     // זיהוי שפה
+    console.log("🌐 [processRAGQuery] *** 3. מזהה שפה ***")
     const language = detectLanguage(question)
-    console.log("🌐 [processRAGQuery] שפה שזוהתה:", language)
+    console.log("🌐 [processRAGQuery] *** 4. שפה שזוהתה:", language, "***")
 
     // יצירת embedding
-    console.log("🔄 [processRAGQuery] יוצר embedding...")
+    console.log("🔄 [processRAGQuery] *** 5. יוצר embedding ***")
     const embedding = await createEmbedding(question)
+    console.log("✅ [processRAGQuery] *** 6. embedding נוצר בהצלחה ***")
 
     // חיפוש מסמכים
-    console.log("🔍 [processRAGQuery] מחפש מסמכים...")
+    console.log("🔍 [processRAGQuery] *** 7. מחפש מסמכים ***")
     const documents = await searchSimilarDocuments(embedding, language)
+    console.log("✅ [processRAGQuery] *** 8. מסמכים נמצאו:", documents.length, "***")
 
     // יצירת תשובה - כאן קורה הקסם!
-    console.log("🤖 [processRAGQuery] *** קורא ל-generateAnswer - כאן תתבצע בדיקת האיכות ***")
+    console.log("🤖 [processRAGQuery] *** 9. קורא ל-generateAnswer - כאן תתבצע בדיקת האיכות ***")
     const { answer, usedFallback, usedWebSearch } = await generateAnswer(question, documents, language)
+    console.log("✅ [processRAGQuery] *** 10. generateAnswer הושלם ***")
 
-    console.log("📊 [processRAGQuery] *** תוצאות generateAnswer ***")
+    console.log("📊 [processRAGQuery] *** 11. תוצאות generateAnswer ***")
     console.log("  - usedFallback:", usedFallback)
     console.log("  - usedWebSearch:", usedWebSearch)
     console.log("  - answer length:", answer.length)
 
     // הכנת מקורות
+    console.log("📄 [processRAGQuery] *** 12. מכין מקורות רגילים... ***")
     let sources: Array<{
       title: string
       file_name: string
@@ -466,7 +471,7 @@ export async function processRAGQuery(question: string): Promise<{
       }))
     }
 
-    console.log("✅ [processRAGQuery] *** עיבוד הושלם בהצלחה ***")
+    console.log("✅ [processRAGQuery] *** 13. עיבוד הושלם בהצלחה ***")
 
     return {
       answer,
