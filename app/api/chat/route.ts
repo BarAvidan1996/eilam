@@ -1,106 +1,74 @@
-import { type NextRequest, NextResponse } from "next/server"
+import { streamText } from "ai"
+import { openai } from "@ai-sdk/openai"
 import { processRAGQuery, saveChatMessage } from "@/lib/rag-service"
 
-export async function POST(request: NextRequest) {
-  console.log("🚀 API Chat - התחלת עיבוד בקשה")
-
+export async function POST(request: Request) {
   try {
-    // קריאת הגוף של הבקשה
-    const body = await request.json()
-    console.log("📦 גוף הבקשה שהתקבל:", JSON.stringify(body, null, 2))
+    const { message, sessionId } = await request.json()
 
-    const { message, sessionId } = body
+    console.log("🎯 Chat API - קיבלתי בקשה:", { message, sessionId })
 
-    console.log("🔍 פירוק פרמטרים:")
-    console.log("  - message:", message, "(type:", typeof message, ")")
-    console.log("  - sessionId:", sessionId, "(type:", typeof sessionId, ")")
-
-    // בדיקת תקינות פרמטרים
-    if (!message || typeof message !== "string" || message.trim() === "") {
-      console.log("❌ שגיאה: message לא תקין")
-      console.log("  - message exists:", !!message)
-      console.log("  - message type:", typeof message)
-      console.log("  - message trimmed length:", message ? message.trim().length : 0)
-
-      return NextResponse.json(
-        {
-          error: "Message is required and must be a non-empty string",
-          received: { message, sessionId },
-        },
-        { status: 400 },
-      )
+    if (!message || !sessionId) {
+      return new Response(JSON.stringify({ error: "Missing message or sessionId" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
-
-    if (!sessionId || typeof sessionId !== "string") {
-      console.log("❌ שגיאה: sessionId לא תקין")
-      console.log("  - sessionId exists:", !!sessionId)
-      console.log("  - sessionId type:", typeof sessionId)
-
-      return NextResponse.json(
-        {
-          error: "SessionId is required and must be a string",
-          received: { message, sessionId },
-        },
-        { status: 400 },
-      )
-    }
-
-    console.log("✅ פרמטרים תקינים, מתחיל עיבוד")
-    console.log(`💬 מעבד הודעה: "${message}" עבור סשן: ${sessionId}`)
 
     // שמירת הודעת המשתמש
-    console.log("💾 שומר הודעת משתמש...")
     await saveChatMessage(sessionId, message, true)
-    console.log("✅ הודעת משתמש נשמרה בהצלחה")
 
-    // עיבוד השאלה
-    console.log("🧠 מתחיל עיבוד RAG...")
-    const result = await processRAGQuery(message)
-    console.log("📊 תוצאת עיבוד RAG:", {
-      answerLength: result.answer.length,
-      sourcesCount: result.sources.length,
-      usedFallback: result.usedFallback,
-      hasError: !!result.error,
-    })
+    // עיבוד RAG
+    const ragResult = await processRAGQuery(message)
 
-    if (result.error) {
-      console.log("⚠️ שגיאה בעיבוד RAG:", result.error)
+    console.log(
+      "📊 RAG Result sources:",
+      ragResult.sources?.map((s) => ({
+        title: s.title,
+        similarity: s.similarity + "%",
+      })),
+    )
+
+    // הכנת הקשר למודל
+    let context = ""
+    if (ragResult.sources && ragResult.sources.length > 0) {
+      context = ragResult.sources.map((source) => `מקור: ${source.title}\nתוכן רלוונטי מהמסמך`).join("\n\n")
     }
 
-    // שמירת תשובת הבוט
-    console.log("💾 שומר תשובת בוט...")
-    await saveChatMessage(sessionId, result.answer, false, result.sources)
-    console.log("✅ תשובת בוט נשמרה בהצלחה")
+    const systemPrompt = `אתה עיל"ם, עוזר החירום האישי של פיקוד העורף. 
+תן תשובה קצרה ומדויקת בעברית בהתבסס על המידע המסופק.
+${context ? `\n\nמידע רלוונטי:\n${context}` : ""}`
 
-    // הכנת התגובה
-    const response = {
-      answer: result.answer,
-      sources: result.sources,
-      usedFallback: result.usedFallback,
-      sessionId: sessionId,
-      ...(result.error && { debugError: result.error }),
-    }
-
-    console.log("📤 שולח תגובה:", {
-      answerPreview: response.answer.substring(0, 100) + "...",
-      sourcesCount: response.sources.length,
-      usedFallback: response.usedFallback,
+    // יצירת streaming response
+    const result = await streamText({
+      model: openai("gpt-4"),
+      system: systemPrompt,
+      prompt: message,
+      temperature: 0.3,
+      maxTokens: 800,
     })
 
-    return NextResponse.json(response)
-  } catch (error) {
-    console.error("💥 שגיאה כללית ב-API:")
-    console.error("  - Error type:", error?.constructor?.name)
-    console.error("  - Error message:", error instanceof Error ? error.message : String(error))
-    console.error("  - Error stack:", error instanceof Error ? error.stack : "No stack")
+    // שמירת התשובה המלאה אחרי שהיא מסתיימת
+    result.finishReason.then(async () => {
+      const fullText = await result.text
+      await saveChatMessage(sessionId, fullText, false, ragResult.sources)
+    })
 
-    return NextResponse.json(
-      {
-        error: "שגיאה פנימית בשרת",
-        debugError: error instanceof Error ? error.message : JSON.stringify(error),
-        errorType: error?.constructor?.name || "Unknown",
+    // החזרת streaming response עם metadata
+    return result.toAIStreamResponse({
+      headers: {
+        "X-Sources": JSON.stringify(ragResult.sources || []),
+        "X-Used-Fallback": ragResult.usedFallback.toString(),
       },
-      { status: 500 },
+    })
+  } catch (error) {
+    console.error("❌ Chat API Error:", error)
+    return new Response(
+      JSON.stringify({
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
     )
   }
 }
