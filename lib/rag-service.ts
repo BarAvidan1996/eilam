@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 
+console.log("💥 [processRAGQuery] TEST: זו הגרסה הנכונה של הפונקציה!")
+
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 const openai = new OpenAI({
@@ -343,7 +345,7 @@ export async function generateAnswer(
     if (error instanceof Error && error.message.includes("maximum context")) {
       console.log("🔄 [generateAnswer] *** 36: ניסיון חוזר עם פחות מסמכים... ***")
       const reducedDocuments = documents.slice(0, 1)
-      return await generateAnswer(question, reducedDocuments, language)
+      return await generateAnswer(question, language)
     }
 
     // אם יש שגיאה, ננסה Web Search
