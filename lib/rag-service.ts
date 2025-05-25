@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
+import { CacheService } from "./services/cache-service"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -352,7 +353,7 @@ async function generateFallbackAnswer(
   }
 }
 
-// הפונקציה הראשית
+// הפונקציה הראשית עם Cache
 export async function processRAGQuery(question: string): Promise<{
   answer: string
   sources: Array<{
@@ -364,6 +365,7 @@ export async function processRAGQuery(question: string): Promise<{
   }>
   usedFallback: boolean
   usedWebSearch?: boolean
+  usedCache?: boolean
   documentsFound: number
   error?: string
 }> {
@@ -374,6 +376,21 @@ export async function processRAGQuery(question: string): Promise<{
     const language = detectLanguage(question)
     console.log("🌐 שפה שזוהתה:", language)
 
+    // ✅ קודם ננסה להביא מה־Cache
+    const cached = await CacheService.getCachedAnswer(question, language)
+    if (cached) {
+      console.log("💰 חיסכון בעלויות - תשובה מה-cache!")
+      return {
+        answer: cached.answer,
+        sources: cached.sources,
+        usedFallback: false,
+        usedWebSearch: false,
+        usedCache: true,
+        documentsFound: 0,
+      }
+    }
+
+    // 🔁 המשך רגיל...
     // יצירת embedding
     const embedding = await createEmbedding(question)
 
@@ -424,6 +441,9 @@ export async function processRAGQuery(question: string): Promise<{
       }))
     }
 
+    // ✅ נשמור ב־Cache אחרי שליפה
+    await CacheService.saveAnswerToCache(question, language, answer, sources)
+
     console.log("✅ עיבוד הושלם בהצלחה")
 
     return {
@@ -431,6 +451,7 @@ export async function processRAGQuery(question: string): Promise<{
       sources,
       usedFallback,
       usedWebSearch,
+      usedCache: false,
       documentsFound: documents.length,
     }
   } catch (error) {
@@ -441,6 +462,7 @@ export async function processRAGQuery(question: string): Promise<{
       sources: [],
       usedFallback: true,
       usedWebSearch: false,
+      usedCache: false,
       documentsFound: 0,
       error: error instanceof Error ? error.message : JSON.stringify(error),
     }
