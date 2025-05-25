@@ -165,36 +165,14 @@ export default function ChatPage() {
       if (source.storage_path) {
         console.log("🔍 מנסה לפתוח מקור עם storage_path:", source.storage_path)
 
-        // רשימת bucket names אפשריים לנסות
-        const possibleBuckets = ["documents", "html-docs", "rag-documents", "storage", "files"]
+        // בדיקה ישירה ב-bucket html-docs
+        const { data } = supabase.storage.from("html-docs").getPublicUrl(source.storage_path)
 
-        let foundUrl = null
-
-        // ננסה כל bucket עד שנמצא אחד שעובד
-        for (const bucketName of possibleBuckets) {
-          try {
-            console.log(`🔍 מנסה bucket: ${bucketName}`)
-            const { data } = supabase.storage.from(bucketName).getPublicUrl(source.storage_path)
-
-            if (data?.publicUrl) {
-              // בדיקה מהירה אם ה-URL קיים
-              const testResponse = await fetch(data.publicUrl, { method: "HEAD" })
-              if (testResponse.ok) {
-                foundUrl = data.publicUrl
-                console.log(`✅ נמצא URL עובד ב-bucket ${bucketName}:`, foundUrl)
-                break
-              }
-            }
-          } catch (e) {
-            console.log(`❌ Bucket ${bucketName} לא עובד`)
-            continue
-          }
-        }
-
-        if (foundUrl) {
-          window.open(foundUrl, "_blank", "noopener,noreferrer")
+        if (data?.publicUrl) {
+          console.log("✅ פותח מקור:", source.title, "מ-", data.publicUrl)
+          window.open(data.publicUrl, "_blank", "noopener,noreferrer")
         } else {
-          console.error("❌ לא נמצא bucket עובד עבור:", source.storage_path)
+          console.error("❌ לא הצלחתי לקבל URL עבור:", source.storage_path)
           // fallback - ננסה את האתר הרשמי
           const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
           console.log("🔄 משתמש ב-fallback URL:", fallbackUrl)
