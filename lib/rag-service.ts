@@ -305,18 +305,22 @@ export async function processRAGQuery(question: string): Promise<{
   }
 }
 
-// ניהול שיחות - יצירת session חדש (עכשיו עם UUID אוטומטי)
-export async function createChatSession(): Promise<string> {
+// ניהול שיחות - יצירת session חדש עם user_id
+export async function createChatSession(userId?: string): Promise<string> {
   try {
-    console.log("🆕 יוצר chat session חדש...")
+    console.log("🆕 יוצר chat session חדש עבור user:", userId)
 
-    const { data, error } = await supabase
-      .from("chat_sessions")
-      .insert({
-        created_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single()
+    const sessionData: any = {
+      created_at: new Date().toISOString(),
+    }
+
+    // אם יש user_id, נוסיף אותו
+    if (userId) {
+      sessionData.user_id = userId
+      console.log("👤 מוסיף user_id לsession:", userId)
+    }
+
+    const { data, error } = await supabase.from("chat_sessions").insert(sessionData).select("id").single()
 
     if (error) {
       console.error("❌ שגיאה ביצירת session:", error)
