@@ -59,7 +59,7 @@ export async function createEmbedding(text: string): Promise<number[]> {
 export async function searchSimilarDocuments(
   embedding: number[],
   language: "he" | "en",
-  limit = 3, // הקטנתי מ-5 ל-3 כדי לחסוך טוקנים
+  limit = 3,
 ): Promise<
   Array<{
     plain_text: string
@@ -74,7 +74,7 @@ export async function searchSimilarDocuments(
 
     const { data: functions, error: functionsError } = await supabase.rpc("match_documents", {
       query_embedding: embedding,
-      match_threshold: 0.8, // העליתי את הסף לקבל מסמכים רלוונטיים יותר
+      match_threshold: 0.2, // הורדתי חזרה ל-0.2 כדי למצוא יותר מסמכים
       match_count: limit,
       filter_language: language,
     })
@@ -122,7 +122,7 @@ export async function generateAnswer(
     }
 
     // הכנת הקשר עם ניהול טוקנים חכם
-    const maxContextLength = 2000 // מקסימום תווים להקשר
+    const maxContextLength = 2000
     let context = ""
     let currentLength = 0
 
@@ -130,10 +130,8 @@ export async function generateAnswer(
       const docText = `מקור: ${doc.title}\nתוכן: ${doc.plain_text}\n\n`
 
       if (currentLength + docText.length > maxContextLength) {
-        // אם המסמך גדול מדי, חותכים אותו
         const remainingSpace = maxContextLength - currentLength
         if (remainingSpace > 200) {
-          // רק אם יש מספיק מקום למשהו משמעותי
           const truncatedText = truncateText(doc.plain_text, remainingSpace - doc.title.length - 20)
           context += `מקור: ${doc.title}\nתוכן: ${truncatedText}\n\n`
         }
@@ -146,7 +144,6 @@ export async function generateAnswer(
 
     console.log(`📊 אורך הקשר סופי: ${context.length} תווים (${estimateTokens(context)} טוקנים משוערים)`)
 
-    // Step-back prompting מקוצר
     const stepBackPrompt =
       language === "he" ? `עקרונות כלליים לשאלה: "${question}"` : `General principles for: "${question}"`
 
@@ -174,12 +171,10 @@ ${context}
 
 Provide a concise, accurate answer in English.`
 
-    // חישוב טוקנים משוער
     const totalTokens = estimateTokens(systemPrompt + userPrompt)
     console.log(`📊 טוקנים משוערים לבקשה: ${totalTokens}`)
 
     if (totalTokens > 3500) {
-      // השארתי מרווח בטיחות
       console.log("⚠️ יותר מדי טוקנים, עובר ל-fallback")
       return await generateFallbackAnswer(question, language)
     }
@@ -193,7 +188,7 @@ Provide a concise, accurate answer in English.`
         { role: "user", content: userPrompt },
       ],
       temperature: 0.3,
-      max_tokens: 800, // הקטנתי מ-1000 ל-800
+      max_tokens: 800,
     })
 
     const answer = completion.choices[0]?.message?.content || ""
@@ -203,10 +198,9 @@ Provide a concise, accurate answer in English.`
   } catch (error) {
     console.error("❌ שגיאה ביצירת תשובה:", error)
 
-    // אם זו שגיאת טוקנים, ננסה עם פחות מסמכים
     if (error instanceof Error && error.message.includes("maximum context")) {
       console.log("🔄 ניסיון חוזר עם פחות מסמכים...")
-      const reducedDocuments = documents.slice(0, 1) // רק המסמך הכי רלוונטי
+      const reducedDocuments = documents.slice(0, 1)
       return await generateAnswer(question, reducedDocuments, language)
     }
 
@@ -234,7 +228,7 @@ async function generateFallbackAnswer(
         { role: "user", content: question },
       ],
       temperature: 0.5,
-      max_tokens: 300, // הקטנתי מ-500 ל-300
+      max_tokens: 300,
     })
 
     const answer = completion.choices[0]?.message?.content || ""
@@ -261,20 +255,13 @@ export async function processRAGQuery(question: string): Promise<{
   try {
     console.log("🚀 מתחיל עיבוד שאלה:", question)
 
-    // זיהוי שפה
     const language = detectLanguage(question)
     console.log("🌐 שפה שזוהתה:", language)
 
-    // יצירת embedding
     const embedding = await createEmbedding(question)
-
-    // חיפוש מסמכים
     const documents = await searchSimilarDocuments(embedding, language)
-
-    // יצירת תשובה
     const { answer, usedFallback } = await generateAnswer(question, documents, language)
 
-    // הכנת מקורות
     const sources = documents.map((doc) => ({
       title: doc.title,
       file_name: doc.file_name,
@@ -300,7 +287,7 @@ export async function processRAGQuery(question: string): Promise<{
   }
 }
 
-// ניהול שיחות - יצירת session חדש (עכשיו עם UUID אוטומטי)
+// ניהול שיחות - יצירת session חדש
 export async function createChatSession(): Promise<string> {
   try {
     console.log("🆕 יוצר chat session חדש...")

@@ -6,17 +6,22 @@ export async function POST(req: Request) {
   console.log("🚀 API Chat - התחלת עיבוד בקשה")
 
   try {
-    const { messages, sessionId } = await req.json()
-    console.log("📦 הודעות שהתקבלו:", messages?.length || 0)
-    console.log("🔑 Session ID:", sessionId)
+    const body = await req.json()
+    console.log("📦 גוף הבקשה שהתקבל:", JSON.stringify(body, null, 2))
+
+    const { messages, sessionId } = body
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      console.log("❌ שגיאה: messages לא תקין")
       return new Response("Messages are required", { status: 400 })
     }
 
     if (!sessionId || typeof sessionId !== "string") {
+      console.log("❌ שגיאה: sessionId לא תקין")
       return new Response("SessionId is required", { status: 400 })
     }
+
+    console.log("✅ פרמטרים תקינים, מתחיל עיבוד")
 
     // ההודעה האחרונה היא השאלה של המשתמש
     const lastMessage = messages[messages.length - 1]
@@ -38,10 +43,6 @@ export async function POST(req: Request) {
       usedFallback: ragResult.usedFallback,
     })
 
-    // שמירת תשובת הבוט
-    console.log("💾 שומר תשובת בוט...")
-    await saveChatMessage(sessionId, ragResult.answer, false, ragResult.sources)
-
     // יצירת streaming response עם Vercel AI SDK
     const result = await streamText({
       model: openai("gpt-4"),
@@ -49,13 +50,9 @@ export async function POST(req: Request) {
         {
           role: "system",
           content: `אתה עיל"ם, עוזר החירום של פיקוד העורף. 
-          השתמש בתשובה הבאה שכבר הוכנה עבורך ותציג אותה בצורה טבעית וחלקה.
+          הצג את התשובה הבאה בצורה טבעית וחלקה:
           
-          תשובה מוכנה: ${ragResult.answer}
-          
-          מקורות: ${ragResult.sources.map((s) => s.title).join(", ")}
-          
-          הצג את התשובה בדיוק כמו שהיא, אבל בצורה טבעית.`,
+          ${ragResult.answer}`,
         },
         {
           role: "user",
@@ -64,6 +61,12 @@ export async function POST(req: Request) {
       ],
       temperature: 0.1,
       maxTokens: 1000,
+      onFinish: async (result) => {
+        // שמירת תשובת הבוט אחרי שהstreaming מסתיים
+        console.log("💾 שומר תשובת בוט...")
+        await saveChatMessage(sessionId, result.text, false, ragResult.sources)
+        console.log("✅ תשובת בוט נשמרה בהצלחה")
+      },
     })
 
     // הוספת metadata למטא-דאטה של הresponse
@@ -75,7 +78,20 @@ export async function POST(req: Request) {
       },
     })
   } catch (error) {
-    console.error("💥 שגיאה כללית ב-API:", error)
-    return new Response("Internal Server Error", { status: 500 })
+    console.error("💥 שגיאה כללית ב-API:")
+    console.error("  - Error type:", error?.constructor?.name)
+    console.error("  - Error message:", error instanceof Error ? error.message : String(error))
+    console.error("  - Error stack:", error instanceof Error ? error.stack : "No stack")
+
+    return new Response(
+      JSON.stringify({
+        error: "שגיאה פנימית בשרת",
+        debugError: error instanceof Error ? error.message : JSON.stringify(error),
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    )
   }
 }
