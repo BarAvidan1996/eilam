@@ -19,6 +19,7 @@ interface Message {
     file_name: string
     similarity: number
   }>
+  isStreaming?: boolean
 }
 
 const initialMessages: Message[] = [
@@ -142,8 +143,8 @@ export default function ChatPage() {
 
         const chatMessages: Message[] = data.map((msg) => ({
           id: msg.id,
-          text: msg.message,
-          sender: msg.is_user ? "user" : "bot",
+          text: msg.content,
+          sender: msg.role === "user" ? "user" : "bot",
           timestamp: new Date(msg.created_at),
           sources: msg.sources || [],
         }))
@@ -160,17 +161,9 @@ export default function ChatPage() {
 
   const handleSendMessage = async () => {
     console.log("🎯 handleSendMessage - התחלה")
-    console.log("  - inputValue:", `"${inputValue}"`)
-    console.log("  - sessionId:", sessionId)
-    console.log("  - isInitializing:", isInitializing)
 
     if (inputValue.trim() === "" || isTyping || isInitializing || !sessionId) {
-      console.log("❌ יציאה מוקדמת:", {
-        emptyInput: inputValue.trim() === "",
-        isTyping,
-        isInitializing,
-        noSessionId: !sessionId,
-      })
+      console.log("❌ יציאה מוקדמת")
       return
     }
 
@@ -183,82 +176,113 @@ export default function ChatPage() {
 
     setMessages((prev) => [...prev, userMessage])
     const currentQuestion = inputValue.trim()
-    console.log("📝 currentQuestion:", `"${currentQuestion}"`)
 
     setInputValue("")
     setIsTyping(true)
 
+    // יצירת הודעת בוט ריקה לstreaming
+    const botMessageId = (Date.now() + 1).toString()
+    const initialBotMessage: Message = {
+      id: botMessageId,
+      text: "",
+      sender: "bot",
+      timestamp: new Date(),
+      isStreaming: true,
+    }
+
+    setMessages((prev) => [...prev, initialBotMessage])
+
     try {
-      // הכנת הגוף לשליחה
-      const requestBody = {
-        message: currentQuestion,
-        sessionId: sessionId,
-      }
-
-      console.log("📦 מכין בקשה:")
-      console.log("  - URL: /api/chat")
-      console.log("  - Method: POST")
-      console.log("  - Body:", JSON.stringify(requestBody, null, 2))
-
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          message: currentQuestion,
+          sessionId: sessionId,
+        }),
       })
-
-      console.log("📡 תגובת שרת:")
-      console.log("  - Status:", response.status)
-      console.log("  - StatusText:", response.statusText)
-      console.log("  - OK:", response.ok)
 
       if (!response.ok) {
-        // ננסה לקרוא את תוכן השגיאה
-        let errorText = ""
-        try {
-          const errorData = await response.json()
-          console.log("❌ פרטי שגיאה מהשרת:", errorData)
-          errorText = errorData.error || `HTTP ${response.status}`
-        } catch (e) {
-          console.log("❌ לא הצלחתי לפרסר את שגיאת השרת")
-          errorText = `HTTP error! status: ${response.status}`
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) {
+        throw new Error("No reader available")
+      }
+
+      let accumulatedText = ""
+
+      while (true) {
+        const { done, value } = await reader.read()
+
+        if (done) break
+
+        const chunk = decoder.decode(value, { stream: true })
+        const lines = chunk.split("\n").filter((line) => line.trim())
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line)
+
+            if (data.type === "chunk") {
+              accumulatedText += data.content
+
+              // עדכון ההודעה עם הטקסט המצטבר
+              setMessages((prev) =>
+                prev.map((msg) => (msg.id === botMessageId ? { ...msg, text: accumulatedText } : msg)),
+              )
+            } else if (data.type === "final") {
+              // עדכון סופי עם מקורות
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === botMessageId
+                    ? {
+                        ...msg,
+                        text: data.answer,
+                        sources: data.sources,
+                        isStreaming: false,
+                      }
+                    : msg,
+                ),
+              )
+            } else if (data.type === "error") {
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === botMessageId
+                    ? {
+                        ...msg,
+                        text: `מצטער, אירעה שגיאה: ${data.error}`,
+                        isStreaming: false,
+                      }
+                    : msg,
+                ),
+              )
+            }
+          } catch (parseError) {
+            console.error("שגיאה בפרסור JSON:", parseError)
+          }
         }
-        throw new Error(errorText)
       }
-
-      const data = await response.json()
-      console.log("✅ נתונים שהתקבלו מהשרת:", data)
-
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: data.answer || "מצטער, לא הצלחתי לייצר תשובה.",
-        sender: "bot",
-        timestamp: new Date(),
-        sources: data.sources,
-      }
-
-      console.log("🤖 הוספת הודעת בוט:", {
-        textPreview: botMessage.text.substring(0, 100) + "...",
-        sourcesCount: botMessage.sources?.length || 0,
-      })
-
-      setMessages((prev) => [...prev, botMessage])
     } catch (error) {
-      console.error("💥 שגיאה בשליחת הודעה:")
-      console.error("  - Error type:", error?.constructor?.name)
-      console.error("  - Error message:", error instanceof Error ? error.message : String(error))
-      console.error("  - Error object:", error)
+      console.error("💥 שגיאה בשליחת הודעה:", error)
 
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: `מצטער, אירעה שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
-        sender: "bot",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === botMessageId
+            ? {
+                ...msg,
+                text: `מצטער, אירעה שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
+                isStreaming: false,
+              }
+            : msg,
+        ),
+      )
     } finally {
-      console.log("🏁 סיום handleSendMessage")
       setIsTyping(false)
     }
   }
@@ -318,7 +342,12 @@ export default function ChatPage() {
                       : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-sm"
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap break-words">{message.text}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">
+                    {message.text}
+                    {message.isStreaming && (
+                      <span className="inline-block w-2 h-4 bg-current ml-1 animate-pulse">|</span>
+                    )}
+                  </p>
                 </div>
 
                 {/* Sources */}
