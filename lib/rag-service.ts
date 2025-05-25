@@ -39,21 +39,15 @@ function estimateTokens(text: string): number {
 
 // בדיקה סמנטית עם GPT אם התשובה מספקת - תמיד מתבצעת!
 async function isAnswerInsufficientByGPT(question: string, answer: string, language: "he" | "en"): Promise<boolean> {
+  console.log("🧠 [isAnswerInsufficientByGPT] *** התחלת בדיקת איכות התשובה עם GPT ***")
   try {
-    console.log("🧠 [isAnswerInsufficientByGPT] *** התחלת בדיקת איכות התשובה עם GPT ***")
     console.log("🔍 [isAnswerInsufficientByGPT] שאלה:", question)
     console.log("📄 [isAnswerInsufficientByGPT] תשובה לבדיקה:", answer.substring(0, 200) + "...")
 
     const prompt =
       language === "he"
-        ? `שאלה: "${question}"
-תשובה: "${answer}"
-
-האם התשובה מספקת, ישירה וברורה? ענה רק ב"כן" או "לא".`
-        : `Question: "${question}"
-Answer: "${answer}"
-
-Is the answer direct, accurate and sufficient? Answer only "yes" or "no".`
+        ? `שאלה: "${question}"\nתשובה: "${answer}"\n\nהאם התשובה מספקת, ישירה וברורה? ענה רק ב"כן" או "לא".`
+        : `Question: "${question}"\nAnswer: "${answer}"\n\nIs the answer direct, accurate and sufficient? Answer only "yes" or "no".`
 
     console.log("📤 [isAnswerInsufficientByGPT] שולח בקשה לGPT לבדיקת איכות...")
     console.log("🔧 [isAnswerInsufficientByGPT] משתמש במודל: gpt-4o")
@@ -471,108 +465,5 @@ export async function processRAGQuery(question: string): Promise<{
       usedWebSearch: false,
       error: error instanceof Error ? error.message : JSON.stringify(error),
     }
-  }
-}
-
-// ניהול שיחות - יצירת session חדש עם user_id
-export async function createChatSession(userId?: string): Promise<string> {
-  try {
-    console.log("🆕 יוצר chat session חדש עבור user:", userId)
-
-    const sessionData: any = {
-      created_at: new Date().toISOString(),
-    }
-
-    // אם יש user_id, נוסיף אותו
-    if (userId) {
-      sessionData.user_id = userId
-      console.log("👤 מוסיף user_id לsession:", userId)
-    }
-
-    const { data, error } = await supabase.from("chat_sessions").insert(sessionData).select("id").single()
-
-    if (error) {
-      console.error("❌ שגיאה ביצירת session:", error)
-      throw error
-    }
-
-    console.log("✅ Session נוצר בהצלחה:", data.id)
-    return data.id
-  } catch (error) {
-    console.error("❌ שגיאה ביצירת סשן:", error)
-    throw error
-  }
-}
-
-export async function saveChatMessage(
-  sessionId: string,
-  message: string,
-  isUser: boolean,
-  sources?: Array<{
-    title: string
-    file_name: string
-    storage_path: string
-    similarity: number
-    sourceType: "official" | "web" | "ai_generated"
-  }>,
-): Promise<void> {
-  try {
-    console.log(`💾 שומר הודעה: ${isUser ? "משתמש" : "בוט"} - ${message.substring(0, 50)}...`)
-    console.log(`📊 מקורות לשמירה:`, sources?.length || 0)
-
-    const { error } = await supabase.from("chat_messages").insert({
-      session_id: sessionId,
-      content: message,
-      role: isUser ? "user" : "assistant",
-      sources: sources || [],
-      created_at: new Date().toISOString(),
-    })
-
-    if (error) {
-      console.error("❌ שגיאה בשמירת הודעה:", error)
-      throw error
-    }
-
-    console.log("✅ הודעה נשמרה בהצלחה")
-  } catch (error) {
-    console.error("❌ שגיאה בשמירת הודעה:", error)
-    throw error
-  }
-}
-
-export async function getChatHistory(sessionId: string): Promise<
-  Array<{
-    id: string
-    content: string
-    role: string
-    sources: Array<{
-      title: string
-      file_name: string
-      storage_path: string
-      similarity: number
-      sourceType: "official" | "web" | "ai_generated"
-    }>
-    created_at: string
-  }>
-> {
-  try {
-    console.log("📚 טוען היסטוריית צ'אט עבור session:", sessionId)
-
-    const { data, error } = await supabase
-      .from("chat_messages")
-      .select("*")
-      .eq("session_id", sessionId)
-      .order("created_at", { ascending: true })
-
-    if (error) {
-      console.error("❌ שגיאה בטעינת היסטוריה:", error)
-      throw error
-    }
-
-    console.log(`✅ נטענו ${data?.length || 0} הודעות`)
-    return data || []
-  } catch (error) {
-    console.error("❌ שגיאה בטעינת היסטוריה:", error)
-    return []
   }
 }
