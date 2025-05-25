@@ -192,7 +192,7 @@ export async function generateAnswer(
     console.log(`🤖 יוצר תשובה לשאלה: "${question}"`)
     console.log(`📚 מספר מסמכים: ${documents.length}`)
 
-    // בדיקה ראשונית אם צריך להשתמש ב-Web Search
+    // בדיקה אם צריך להשתמש ב-Web Search
     if (shouldUseWebFallback(documents)) {
       console.log("⚠️ לא נמצאו מסמכים רלוונטיים או שכולם עם דמיון נמוך. עובר לחיפוש ברשת.")
       return await searchWebWithOpenAI(question, language)
@@ -339,6 +339,7 @@ export async function processRAGQuery(question: string): Promise<{
     file_name: string
     storage_path: string
     similarity: number
+    sourceType: "official" | "web" | "ai_generated"
   }>
   usedFallback: boolean
   usedWebSearch?: boolean
@@ -362,7 +363,13 @@ export async function processRAGQuery(question: string): Promise<{
     const { answer, usedFallback, usedWebSearch } = await generateAnswer(question, documents, language)
 
     // הכנת מקורות
-    let sources = []
+    let sources: Array<{
+      title: string
+      file_name: string
+      storage_path: string
+      similarity: number
+      sourceType: "official" | "web" | "ai_generated"
+    }> = []
 
     if (usedWebSearch) {
       // אם השתמשנו ב-Web Search, נוסיף מקור מיוחד
@@ -372,6 +379,17 @@ export async function processRAGQuery(question: string): Promise<{
           file_name: "web_search",
           storage_path: "",
           similarity: 0,
+          sourceType: "web",
+        },
+      ]
+    } else if (usedFallback) {
+      sources = [
+        {
+          title: "תשובה מבוססת AI",
+          file_name: "ai_generated",
+          storage_path: "",
+          similarity: 0,
+          sourceType: "ai_generated",
         },
       ]
     } else {
@@ -380,7 +398,8 @@ export async function processRAGQuery(question: string): Promise<{
         title: doc.title,
         file_name: doc.file_name,
         storage_path: doc.storage_path,
-        similarity: Math.round(doc.similarity * 100),
+        similarity: doc.similarity,
+        sourceType: "official",
       }))
     }
 
@@ -440,7 +459,13 @@ export async function saveChatMessage(
   sessionId: string,
   message: string,
   isUser: boolean,
-  sources?: Array<{ title: string; file_name: string; storage_path: string; similarity: number }>,
+  sources?: Array<{
+    title: string
+    file_name: string
+    storage_path: string
+    similarity: number
+    sourceType: "official" | "web" | "ai_generated"
+  }>,
 ): Promise<void> {
   try {
     console.log(`💾 שומר הודעה: ${isUser ? "משתמש" : "בוט"} - ${message.substring(0, 50)}...`)
@@ -471,7 +496,13 @@ export async function getChatHistory(sessionId: string): Promise<
     id: string
     content: string
     role: string
-    sources: Array<{ title: string; file_name: string; storage_path: string; similarity: number }>
+    sources: Array<{
+      title: string
+      file_name: string
+      storage_path: string
+      similarity: number
+      sourceType: "official" | "web" | "ai_generated"
+    }>
     created_at: string
   }>
 > {
