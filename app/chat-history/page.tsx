@@ -19,7 +19,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 export const dynamic = "force-dynamic"
@@ -434,20 +433,15 @@ export default function ChatHistoryPage() {
                           )}
                           צור תקציר
                         </Button>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                            title="מחק שיחה"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSessionToDelete(session.id)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 ml-2" />
-                            מחק שיחה
-                          </Button>
-                        </AlertDialogTrigger>
+                        <Button
+                          size="sm"
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                          title="מחק שיחה"
+                          onClick={() => deleteSession(session.id)}
+                        >
+                          <Trash2 className="h-4 w-4 ml-2" />
+                          מחק שיחה
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -480,7 +474,14 @@ export default function ChatHistoryPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSessionToDelete(null)}>ביטול</AlertDialogCancel>
+            <AlertDialogCancel
+              onClick={() => {
+                setSessionToDelete(null)
+                setIsOpen(false)
+              }}
+            >
+              ביטול
+            </AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteSession}>מחק</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
