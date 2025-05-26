@@ -484,7 +484,7 @@ export default function ChatHistoryPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteSession}
-              className="bg-red-600 hover:bg-red-700 text-white dark:bg-red-600 dark:hover:bg-red-700 dark:text-white"
+              className="bg-red-600 hover:bg-red-700 text-white dark:bg-red-600 dark:hover:bg-red-700 dark:text-black"
             >
               מחק
             </AlertDialogAction>
