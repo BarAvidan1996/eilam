@@ -294,21 +294,21 @@ export default function ChatHistoryPage() {
 
   return (
     <div className="container mx-auto py-10">
-      {/* Centered Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center justify-center gap-2">
-          <History className="h-8 w-8" />
-          היסטוריית שיחות צ'אט
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300 mt-1">
-          נהל את השיחות שלך עם עיל"ם ({chatSessions.length} שיחות)
-        </p>
-      </div>
-
       {/* Content Container */}
       <div className="max-w-4xl mx-auto">
-        {/* New Chat Button - positioned above the list, aligned to the right */}
-        <div className="flex justify-end mb-4">
+        {/* Header - aligned to the right within the content area */}
+        <div className="text-right mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center justify-end gap-2">
+            <History className="h-8 w-8" />
+            היסטוריית שיחות צ'אט
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">
+            נהל את השיחות שלך עם עיל"ם ({chatSessions.length} שיחות)
+          </p>
+        </div>
+
+        {/* New Chat Button - positioned above the list, aligned to the left within content area */}
+        <div className="flex justify-start mb-4">
           <Link href="/chat">
             <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black">
               <Plus className="h-4 w-4 ml-2" />
