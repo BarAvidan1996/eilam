@@ -391,10 +391,10 @@ export default function ChatHistoryPage() {
                     </div>
 
                     {/* Action buttons - 2x2 grid layout */}
-                    <div className="flex flex-col gap-2 flex-shrink-0 justify-center">
+                    <div className=\"flex flex-col gap-2 flex-shrink-0 justify-center">
                       {/* Top row */}
                       <div className="flex gap-2">
-                        <Link href={`/chat?session=${session.id}`} className="flex-1">
+                        <Link href={`/chat?session=${session.id}`}  className="flex-1">
                           <Button
                             size="sm"
                             className="w-full bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
