@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { History, MessageSquare, Save, X, Plus, Calendar } from "lucide-react"
+import { History, MessageSquare, Save, X, Plus, Calendar, Eye, Edit2, Bot, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { he } from "date-fns/locale"
@@ -293,34 +293,35 @@ export default function ChatHistoryPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 min-h-screen">
+    <div className="container mx-auto py-10">
       {/* Header */}
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-            <History className="h-8 w-8" />
-            היסטוריית שיחות צ'אט
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
-            נהל את השיחות שלך עם עיל"ם ({chatSessions.length} שיחות)
-          </p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+          <History className="h-8 w-8" />
+          היסטוריית שיחות צ'אט
+        </h1>
+        <p className="text-gray-600 dark:text-gray-300 mt-1">
+          נהל את השיחות שלך עם עיל"ם ({chatSessions.length} שיחות)
+        </p>
 
-        <Link href="/chat">
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black">
-            <Plus className="h-4 w-4 ml-2" />
-            שיחה חדשה
-          </Button>
-        </Link>
+        {/* New Chat Button - positioned below header, aligned to the right */}
+        <div className="flex justify-end mt-4">
+          <Link href="/chat">
+            <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black">
+              <Plus className="h-4 w-4 ml-2" />
+              שיחה חדשה
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Sessions List */}
       {chatSessions.length > 0 ? (
-        <div className="grid gap-4">
+        <div className="max-w-4xl mx-auto space-y-4">
           {chatSessions.map((session) => (
             <Card key={session.id} className="shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800">
               <CardContent className="p-6">
-                <div className="flex gap-6">
+                <div className="flex gap-4">
                   {/* Action buttons - vertical layout on the left */}
                   <div className="flex flex-col gap-2 flex-shrink-0">
                     <Link href={`/chat?session=${session.id}`}>
@@ -328,6 +329,7 @@ export default function ChatHistoryPage() {
                         size="sm"
                         className="w-full bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
                       >
+                        <Eye className="h-4 w-4 ml-2" />
                         פתח שיחה
                       </Button>
                     </Link>
@@ -339,6 +341,7 @@ export default function ChatHistoryPage() {
                       title="ערוך שם"
                       className="w-full"
                     >
+                      <Edit2 className="h-4 w-4 ml-2" />
                       ערוך כותרת
                     </Button>
 
@@ -350,7 +353,8 @@ export default function ChatHistoryPage() {
                       title="צור תקציר AI"
                       className="w-full"
                     >
-                      {isGeneratingSummary === session.id ? <Spinner size="small" /> : "צור תקציר"}
+                      {isGeneratingSummary === session.id ? <Spinner size="small" /> : <Bot className="h-4 w-4 ml-2" />}
+                      צור תקציר
                     </Button>
 
                     <Button
@@ -359,6 +363,7 @@ export default function ChatHistoryPage() {
                       className="w-full bg-red-600 hover:bg-red-700 text-white"
                       title="מחק שיחה"
                     >
+                      <Trash2 className="h-4 w-4 ml-2" />
                       מחק שיחה
                     </Button>
                   </div>
@@ -409,7 +414,7 @@ export default function ChatHistoryPage() {
           ))}
         </div>
       ) : (
-        <Card className="shadow-md dark:bg-gray-800">
+        <Card className="shadow-md dark:bg-gray-800 max-w-4xl mx-auto">
           <CardContent className="p-12 text-center">
             <History className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-2">עדיין לא ניהלת שיחות</h3>
