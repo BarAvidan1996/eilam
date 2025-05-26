@@ -195,22 +195,74 @@ export default function ChatPage() {
                 // הדפסת תחילת הקובץ לבדיקה
                 console.log("🔍 תחילת תוכן הקובץ:", htmlContent.substring(0, 500))
 
-                // חיפוש ה-URL המקורי בהערה - ביטוי רגולרי מתוקן
-                const urlMatch = htmlContent.match(/<!--\s*saved from url=$$\d+$$(https?:\/\/[^\s>]+)\s*-->/i)
-                if (urlMatch && urlMatch[1]) {
-                  originalUrl = urlMatch[1]
-                  console.log("✅ נמצא URL מקורי:", originalUrl)
-                  break
+                // הדפסות מפורטות לדיבוג
+                console.log("🔧 מתחיל תהליך חיפוש URL...")
+
+                // הביטוי הרגולרי שאנחנו משתמשים בו
+                const regexPattern = /<!--\s*saved from url=$$\d+$$(https?:\/\/[^\s>]+)\s*-->/i
+                console.log("🔍 הביטוי הרגולרי:", regexPattern.toString())
+
+                // ביצוע החיפוש
+                console.log("🔍 מבצע match...")
+                const urlMatch = htmlContent.match(regexPattern)
+
+                // הדפסת תוצאת החיפוש
+                console.log("📊 תוצאת match:", urlMatch)
+                console.log("📊 סוג התוצאה:", typeof urlMatch)
+                console.log("📊 האם null?", urlMatch === null)
+
+                if (urlMatch) {
+                  console.log("📊 אורך המערך:", urlMatch.length)
+                  console.log("📊 כל האלמנטים במערך:")
+                  urlMatch.forEach((item, index) => {
+                    console.log(`  [${index}]: "${item}"`)
+                  })
+
+                  if (urlMatch[1]) {
+                    originalUrl = urlMatch[1]
+                    console.log("✅ נמצא URL מקורי:", originalUrl)
+                    console.log("✅ סוג ה-URL:", typeof originalUrl)
+                    console.log("✅ אורך ה-URL:", originalUrl.length)
+                    break
+                  } else {
+                    console.log("❌ urlMatch[1] ריק או undefined")
+                  }
                 } else {
-                  console.log("⚠️ לא נמצא URL מקורי בקובץ")
-                  console.log("🔍 מחפש בכל הקובץ אחר 'saved from url'...")
-                  const savedFromIndex = htmlContent.indexOf("saved from url")
-                  if (savedFromIndex !== -1) {
-                    console.log("📍 נמצא 'saved from url' במיקום:", savedFromIndex)
+                  console.log("❌ לא נמצא match כלל")
+
+                  // בדיקות נוספות לדיבוג
+                  console.log("🔍 בדיקות נוספות:")
+
+                  // בדיקה אם יש את המילים בכלל
+                  const hasSavedFrom = htmlContent.includes("saved from url")
+                  console.log("📍 האם יש 'saved from url':", hasSavedFrom)
+
+                  if (hasSavedFrom) {
+                    const savedFromIndex = htmlContent.indexOf("saved from url")
+                    console.log("📍 מיקום 'saved from url':", savedFromIndex)
                     console.log(
                       "📝 תוכן סביב המיקום:",
                       htmlContent.substring(savedFromIndex - 50, savedFromIndex + 200),
                     )
+
+                    // ננסה ביטויים רגולריים שונים
+                    console.log("🔍 מנסה ביטויים רגולריים שונים:")
+
+                    const regex1 = /saved from url=$$\d+$$(https?:\/\/[^\s>]+)/i
+                    const match1 = htmlContent.match(regex1)
+                    console.log("🔍 ביטוי 1 (ללא <!--):", regex1.toString(), "תוצאה:", match1)
+
+                    const regex2 = /<!--.*saved from url=$$\d+$$(https?:\/\/[^\s>]+).*-->/i
+                    const match2 = htmlContent.match(regex2)
+                    console.log("🔍 ביטוי 2 (עם .*):", regex2.toString(), "תוצאה:", match2)
+
+                    const regex3 = /saved from url=$$(\d+)$$(https?:\/\/[^\s>)]+)/i
+                    const match3 = htmlContent.match(regex3)
+                    console.log("🔍 ביטוי 3 (קבוצות שונות):", regex3.toString(), "תוצאה:", match3)
+
+                    // ננסה לחלץ ידנית
+                    const manualExtract = htmlContent.substring(savedFromIndex, savedFromIndex + 200)
+                    console.log("🔍 חילוץ ידני של 200 תווים:", manualExtract)
                   }
                 }
               }
