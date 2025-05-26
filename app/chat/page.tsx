@@ -198,71 +198,60 @@ export default function ChatPage() {
                 // הדפסות מפורטות לדיבוג
                 console.log("🔧 מתחיל תהליך חיפוש URL...")
 
-                // הביטוי הרגולרי שאנחנו משתמשים בו
+                // נחפש רק ב-1000 התווים הראשונים (ההערה תמיד בתחילת הקובץ)
+                const searchContent = htmlContent.substring(0, 1000)
+                console.log("🔍 מחפש ב-1000 התווים הראשונים:", searchContent)
+
+                // ביטוי רגולרי מתוקן עם escape נכון לסוגריים
                 const regexPattern = /<!--\s*saved from url=$$\d+$$(https?:\/\/[^\s>]+)\s*-->/i
-                console.log("🔍 הביטוי הרגולרי:", regexPattern.toString())
+                console.log("🔍 הביטוי הרגולרי המתוקן:", regexPattern.toString())
 
                 // ביצוע החיפוש
                 console.log("🔍 מבצע match...")
-                const urlMatch = htmlContent.match(regexPattern)
+                const urlMatch = searchContent.match(regexPattern)
 
                 // הדפסת תוצאת החיפוש
                 console.log("📊 תוצאת match:", urlMatch)
-                console.log("📊 סוג התוצאה:", typeof urlMatch)
-                console.log("📊 האם null?", urlMatch === null)
 
-                if (urlMatch) {
-                  console.log("📊 אורך המערך:", urlMatch.length)
-                  console.log("📊 כל האלמנטים במערך:")
-                  urlMatch.forEach((item, index) => {
-                    console.log(`  [${index}]: "${item}"`)
-                  })
+                if (urlMatch && urlMatch[1]) {
+                  originalUrl = urlMatch[1]
+                  console.log("✅ נמצא URL מקורי:", originalUrl)
+                  console.log("✅ סוג ה-URL:", typeof originalUrl)
+                  console.log("✅ אורך ה-URL:", originalUrl.length)
+                  break
+                } else {
+                  console.log("❌ לא נמצא match, מנסה ביטוי פשוט יותר...")
 
-                  if (urlMatch[1]) {
-                    originalUrl = urlMatch[1]
-                    console.log("✅ נמצא URL מקורי:", originalUrl)
-                    console.log("✅ סוג ה-URL:", typeof originalUrl)
-                    console.log("✅ אורך ה-URL:", originalUrl.length)
+                  // ביטוי רגולרי פשוט יותר
+                  const simpleRegex = /saved from url=$$\d+$$(https?:\/\/[^\s)]+)/i
+                  const simpleMatch = searchContent.match(simpleRegex)
+                  console.log("🔍 ביטוי פשוט:", simpleRegex.toString(), "תוצאה:", simpleMatch)
+
+                  if (simpleMatch && simpleMatch[1]) {
+                    originalUrl = simpleMatch[1]
+                    console.log("✅ נמצא URL עם ביטוי פשוט:", originalUrl)
                     break
                   } else {
-                    console.log("❌ urlMatch[1] ריק או undefined")
-                  }
-                } else {
-                  console.log("❌ לא נמצא match כלל")
+                    console.log("❌ גם הביטוי הפשוט לא עבד")
 
-                  // בדיקות נוספות לדיבוג
-                  console.log("🔍 בדיקות נוספות:")
+                    // חילוץ ידני כ-fallback
+                    const savedFromIndex = searchContent.indexOf("saved from url=")
+                    if (savedFromIndex !== -1) {
+                      const afterSavedFrom = searchContent.substring(savedFromIndex + 15) // 15 = length of "saved from url="
+                      console.log("🔍 תוכן אחרי 'saved from url=':", afterSavedFrom.substring(0, 100))
 
-                  // בדיקה אם יש את המילים בכלל
-                  const hasSavedFrom = htmlContent.includes("saved from url")
-                  console.log("📍 האם יש 'saved from url':", hasSavedFrom)
-
-                  if (hasSavedFrom) {
-                    const savedFromIndex = htmlContent.indexOf("saved from url")
-                    console.log("📍 מיקום 'saved from url':", savedFromIndex)
-                    console.log(
-                      "📝 תוכן סביב המיקום:",
-                      htmlContent.substring(savedFromIndex - 50, savedFromIndex + 200),
-                    )
-
-                    // ננסה ביטויים רגולריים שונים
-                    console.log("🔍 מנסה ביטויים רגולריים שונים:")
-
-                    const regex1 = /saved from url=$$\d+$$(https?:\/\/[^\s>]+)/i
-                    const match1 = htmlContent.match(regex1)
-                    console.log("🔍 ביטוי 1 (ללא <!--):", regex1.toString(), "תוצאה:", match1)
-
-                    const regex2 = /<!--.*saved from url=$$\d+$$(https?:\/\/[^\s>]+).*-->/i
-                    const match2 = htmlContent.match(regex2)
-                    console.log("🔍 ביטוי 2 (עם .*):", regex2.toString(), "תוצאה:", match2)
-
-                    const regex3 = /saved from url=$$(\d+)$$(https?:\/\/[^\s>)]+)/i
-                    const match3 = htmlContent.match(regex3)
-                    console.log("🔍 ביטוי 3 (קבוצות שונות):", regex3.toString(), "תוצאה:", match3)
-
-                    // ננסה לחלץ ידנית
-                    const manualExtract = htmlContent.substring(savedFromIndex, savedFromIndex + 200)
-                    console.log("🔍 חילוץ ידני של 200 תווים:", manualExtract)
+                      // חיפוש ידני של URL
+                      const urlStart = afterSavedFrom.indexOf("http")
+                      if (urlStart !== -1) {
+                        const urlPart = afterSavedFrom.substring(urlStart)
+                        const urlEnd = urlPart.search(/[\s>)"]/)
+                        if (urlEnd !== -1) {
+                          originalUrl = urlPart.substring(0, urlEnd)
+                          console.log("✅ נמצא URL בחילוץ ידני:", originalUrl)
+                          break
+                        }
+                      }
+                    }
                   }
                 }
               }
