@@ -199,7 +199,7 @@ export default function ChatPage() {
                 console.log("🔧 מתחיל תהליך חיפוש URL...")
 
                 // הביטוי הרגולרי שאנחנו משתמשים בו
-                const regexPattern = /<!--\s*saved from url=\(\d+\)(https?:\/\/[^\s>]+)\s*-->/i
+                const regexPattern = /<!--\s*saved from url=$$\d+$$(https?:\/\/[^\s>]+)\s*-->/i
                 console.log("🔍 הביטוי הרגולרי:", regexPattern.toString())
 
                 // ביצוע החיפוש
@@ -275,13 +275,27 @@ export default function ChatPage() {
 
         if (originalUrl) {
           console.log("🚀 פותח URL מקורי:", originalUrl)
+          console.log("🔗 סוג ה-URL:", typeof originalUrl)
+          console.log("🔗 אורך ה-URL:", originalUrl.length)
+          console.log("🔗 ה-URL המלא שיפתח:", `"${originalUrl}"`)
+          console.log("🔗 האם ה-URL תקין?", originalUrl.startsWith("http"))
+
+          // בדיקה נוספת של תוכן ה-URL
+          if (originalUrl.includes(" ")) {
+            console.log("⚠️ ה-URL מכיל רווחים!")
+          }
+          if (originalUrl.includes("\n")) {
+            console.log("⚠️ ה-URL מכיל שורות חדשות!")
+          }
+          if (originalUrl.includes("\r")) {
+            console.log("⚠️ ה-URL מכיל carriage return!")
+          }
+
+          console.log("🚀 מנסה לפתוח את ה-URL...")
           window.open(originalUrl, "_blank", "noopener,noreferrer")
+          console.log("✅ פקודת פתיחה נשלחה")
         } else {
-          console.error("❌ לא הצלחתי לחלץ URL מקורי, משתמש ב-fallback")
-          // fallback - ננסה את האתר הרשמי
-          const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
-          console.log("🔄 משתמש ב-fallback URL:", fallbackUrl)
-          window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+          console.error("❌ originalUrl הוא null או undefined")
         }
       } else {
         // fallback - אם אין storage_path, ננסה את האתר הרשמי
