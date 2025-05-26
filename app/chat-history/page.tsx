@@ -295,7 +295,7 @@ export default function ChatHistoryPage() {
   return (
     <div className="max-w-6xl mx-auto p-4 min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-start mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
             <History className="h-8 w-8" />
@@ -307,8 +307,8 @@ export default function ChatHistoryPage() {
         </div>
 
         <Link href="/chat">
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-            <Plus className="h-4 w-4 mr-2" />
+          <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black">
+            <Plus className="h-4 w-4 ml-2" />
             שיחה חדשה
           </Button>
         </Link>
@@ -410,8 +410,8 @@ export default function ChatHistoryPage() {
             <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-2">עדיין לא ניהלת שיחות</h3>
             <p className="text-gray-500 dark:text-gray-400 mb-6">התחל שיחה חדשה עם עיל"ם כדי לקבל עזרה במצבי חירום</p>
             <Link href="/chat">
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                <MessageSquare className="mr-2 h-4 w-4" />
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black">
+                <MessageSquare className="ml-2 h-4 w-4" />
                 התחל שיחה חדשה
               </Button>
             </Link>
