@@ -199,7 +199,8 @@ export default function ChatPage() {
                 console.log("🔧 מתחיל תהליך חיפוש URL...")
 
                 // הביטוי הרגולרי שאנחנו משתמשים בו
-                const regexPattern = /<!--\s*saved from url=$$\d+$$(https?:\/\/[^\s>]+)\s*-->/i
+                const regexPattern = /<!--\s*saved from url=\(\d+\)(https?:\/\/[^\s>]+)\s*-->/i
+
                 console.log("🔍 הביטוי הרגולרי:", regexPattern.toString())
 
                 // ביצוע החיפוש
