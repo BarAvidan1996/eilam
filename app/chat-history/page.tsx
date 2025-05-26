@@ -143,7 +143,12 @@ export default function ChatHistoryPage() {
       )
 
       console.log("✅ שיחות מעובדות:", enrichedSessions.length)
-      setChatSessions(enrichedSessions)
+
+      // סינון שיחות שיש בהן לפחות הודעה אחת
+      const filteredSessions = enrichedSessions.filter((session) => session.message_count > 0)
+      console.log("🔍 שיחות עם הודעות:", filteredSessions.length)
+
+      setChatSessions(filteredSessions)
 
       // יצירת תקציר AI לשיחות ללא כותרת
       for (const session of enrichedSessions) {
