@@ -349,7 +349,7 @@ export default function ChatHistoryPage() {
                           </Button>
                         </div>
                       ) : (
-                        <h2 className="text-xl font-semibold text-[#005C72] dark:text-black dark:bg-[#D3E3FD] dark:px-2 dark:py-1 dark:rounded mb-3">
+                        <h2 className="text-xl font-semibold text-[#005C72] dark:text-[#D3E3FD] mb-3">
                           {session.title ||
                             `שיחה מ-${format(new Date(session.created_at), "d/M/yyyy", { locale: he })}`}
                         </h2>
