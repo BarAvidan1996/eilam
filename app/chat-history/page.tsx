@@ -337,7 +337,11 @@ export default function ChatHistoryPage() {
                               if (e.key === "Escape") cancelEditing()
                             }}
                           />
-                          <Button size="sm" onClick={saveTitle}>
+                          <Button
+                            size="sm"
+                            onClick={saveTitle}
+                            className="bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
+                          >
                             <Save className="h-4 w-4" />
                           </Button>
                           <Button size="sm" variant="outline" onClick={cancelEditing}>
