@@ -198,9 +198,9 @@ export default function ChatPage() {
                 // הדפסות מפורטות לדיבוג
                 console.log("🔧 מתחיל תהליך חיפוש URL...")
 
-                // נחפש רק ב-1000 התווים הראשונים (ההערה תמיד בתחילת הקובץ)
-                const searchContent = htmlContent.substring(0, 1000)
-                console.log("🔍 מחפש ב-1000 התווים הראשונים:", searchContent)
+                // נחפש רק ב-500 התווים הראשונים (ההערה תמיד בתחילת הקובץ)
+                const searchContent = htmlContent.substring(0, 500)
+                console.log("🔍 מחפש ב-500 התווים הראשונים:", searchContent)
 
                 // ביטוי רגולרי מתוקן עם escape נכון לסוגריים
                 const regexPattern = /<!--\s*saved from url=$$\d+$$(https?:\/\/[^\s)]+)\s*-->/i
