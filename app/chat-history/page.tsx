@@ -297,7 +297,7 @@ export default function ChatHistoryPage() {
       {/* Content Container */}
       <div className="max-w-4xl mx-auto">
         {/* Header - aligned to the right within the content area */}
-        <div className="text-left mb-6">
+        <div className="text-right mb-6">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center justify-start gap-2">
             <History className="h-8 w-8" />
             היסטוריית שיחות צ'אט
