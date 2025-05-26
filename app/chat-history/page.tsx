@@ -43,6 +43,7 @@ export default function ChatHistoryPage() {
   const supabase = createClientComponentClient()
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
+  const [pendingAIGeneration, setPendingAIGeneration] = useState<string[]>([])
 
   // טעינת משתמש נוכחי
   const loadCurrentUser = async () => {
@@ -143,7 +144,6 @@ export default function ChatHistoryPage() {
             ...session,
             message_count: messageCount,
             last_message_at: lastMessageAt,
-            // לא שומרים summary במצב המקומי - נייצר אותו בזמן ההצגה
           }
         }),
       )
@@ -156,17 +156,22 @@ export default function ChatHistoryPage() {
 
       setChatSessions(filteredSessions)
 
-      // יצירת תקציר AI לשיחות ללא תקציר ועם לפחות 2 הודעות
-      for (const session of filteredSessions) {
-        if (!session.ai_summary && session.message_count >= 2) {
-          console.log("🤖 יוצר תקציר AI לשיחה:", session.id)
-          await generateAISummary(session.id)
-        }
+      // זיהוי שיחות שצריכות AI generation (אבל לא יצירה מיידית)
+      const sessionsNeedingAI = filteredSessions.filter((session) => {
+        const needsSummary = !session.ai_summary && session.message_count >= 2
+        const needsTitle =
+          (!session.title || session.title === "" || session.title === "שיחה חדשה") && session.message_count >= 2
+        return needsSummary || needsTitle
+      })
 
-        // יצירת כותרת לשיחות ללא כותרת
-        if ((!session.title || session.title === "" || session.title === "שיחה חדשה") && session.message_count >= 2) {
-          console.log("🏷️ יוצר כותרת AI לשיחה:", session.id)
-          await generateAITitle(session.id)
+      if (sessionsNeedingAI.length > 0) {
+        console.log(`🤖 זוהו ${sessionsNeedingAI.length} שיחות שצריכות AI generation`)
+        setPendingAIGeneration(sessionsNeedingAI.map((s) => s.id))
+
+        // יצירה הדרגתית - רק השיחה הראשונה
+        if (sessionsNeedingAI.length > 0) {
+          console.log("🚀 מתחיל יצירת AI לשיחה הראשונה:", sessionsNeedingAI[0].id)
+          await processNextAIGeneration(sessionsNeedingAI[0].id)
         }
       }
     } catch (error) {
@@ -174,6 +179,45 @@ export default function ChatHistoryPage() {
       setChatSessions([])
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // עיבוד הדרגתי של AI generation
+  const processNextAIGeneration = async (sessionId: string) => {
+    try {
+      const session = chatSessions.find((s) => s.id === sessionId)
+      if (!session) return
+
+      // בדיקה אם צריך כותרת
+      if (!session.title || session.title === "" || session.title === "שיחה חדשה") {
+        console.log("🏷️ יוצר כותרת AI לשיחה:", sessionId)
+        await generateAITitle(sessionId)
+      }
+
+      // בדיקה אם צריך תקציר
+      if (!session.ai_summary) {
+        console.log("🤖 יוצר תקציר AI לשיחה:", sessionId)
+        await generateAISummary(sessionId)
+      }
+
+      // הסרה מרשימת הממתינים
+      setPendingAIGeneration((prev) => {
+        const newList = prev.filter((id) => id !== sessionId)
+
+        // אם יש עוד שיחות ממתינות, עבד את הבאה אחרי 2 שניות
+        if (newList.length > 0) {
+          setTimeout(() => {
+            console.log("⏭️ עובר לשיחה הבאה:", newList[0])
+            processNextAIGeneration(newList[0])
+          }, 2000) // המתנה של 2 שניות בין יצירות
+        }
+
+        return newList
+      })
+    } catch (error) {
+      console.error("❌ שגיאה בעיבוד AI generation:", error)
+      // הסרה מהרשימה גם במקרה של שגיאה
+      setPendingAIGeneration((prev) => prev.filter((id) => id !== sessionId))
     }
   }
 
@@ -304,6 +348,13 @@ export default function ChatHistoryPage() {
     }
   }
 
+  // יצירה ידנית של תקציר (כפתור)
+  const manualGenerateAISummary = async (sessionId: string) => {
+    // הסרה מרשימת הממתינים אם קיימת
+    setPendingAIGeneration((prev) => prev.filter((id) => id !== sessionId))
+    await generateAISummary(sessionId)
+  }
+
   // עריכת שם שיחה
   const startEditing = (session: ChatSession) => {
     setEditingId(session.id)
@@ -353,6 +404,9 @@ export default function ChatHistoryPage() {
     try {
       console.log("🗑️ מוחק שיחה:", sessionToDelete)
 
+      // הסרה מרשימת הממתינים
+      setPendingAIGeneration((prev) => prev.filter((id) => id !== sessionToDelete))
+
       // מחיקת הודעות תחילה
       const { error: messagesError } = await supabase.from("chat_messages").delete().eq("session_id", sessionToDelete)
 
@@ -377,22 +431,6 @@ export default function ChatHistoryPage() {
       setIsOpen(false)
       setSessionToDelete(null)
     }
-  }
-
-  // פונקציה לקבלת תקציר להצגה
-  const getDisplaySummary = async (session: ChatSession) => {
-    if (session.ai_summary) {
-      return session.ai_summary
-    }
-
-    // יצירת fallback summary
-    const { data: messagesData } = await supabase
-      .from("chat_messages")
-      .select("role, content")
-      .eq("session_id", session.id)
-      .order("created_at", { ascending: false })
-
-    return createFallbackSummary(messagesData || [])
   }
 
   useEffect(() => {
@@ -422,6 +460,11 @@ export default function ChatHistoryPage() {
           </h1>
           <p className="text-gray-600 dark:text-gray-300 mt-1">
             נהל את השיחות שלך עם עיל"ם ({chatSessions.length} שיחות)
+            {pendingAIGeneration.length > 0 && (
+              <span className="text-blue-600 dark:text-blue-400 mr-2">
+                • מעבד {pendingAIGeneration.length} תקצירים...
+              </span>
+            )}
           </p>
         </div>
 
@@ -467,13 +510,20 @@ export default function ChatHistoryPage() {
                           </Button>
                         </div>
                       ) : (
-                        <h2 className="text-xl font-semibold text-[#005C72] dark:text-[#D3E3FD] mb-3">
+                        <h2 className="text-xl font-semibold text-[#005C72] dark:text-[#D3E3FD] mb-3 flex items-center gap-2">
                           {session.title ||
                             `שיחה מ-${format(new Date(session.created_at), "d/M/yyyy", { locale: he })}`}
+                          {isGeneratingTitle === session.id && <Spinner size="small" className="text-blue-500" />}
                         </h2>
                       )}
 
-                      <SummaryDisplay session={session} supabase={supabase} />
+                      <div className="flex items-center gap-2 mb-4">
+                        <SummaryDisplay session={session} supabase={supabase} />
+                        {isGeneratingSummary === session.id && <Spinner size="small" className="text-blue-500" />}
+                        {pendingAIGeneration.includes(session.id) && (
+                          <span className="text-xs text-blue-600 dark:text-blue-400">ממתין לעיבוד...</span>
+                        )}
+                      </div>
 
                       <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                         <span className="flex items-center gap-1">
@@ -519,8 +569,8 @@ export default function ChatHistoryPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => generateAISummary(session.id)}
-                          disabled={isGeneratingSummary === session.id}
+                          onClick={() => manualGenerateAISummary(session.id)}
+                          disabled={isGeneratingSummary === session.id || pendingAIGeneration.includes(session.id)}
                           title="צור תקציר AI"
                           className="flex-1"
                         >
@@ -631,5 +681,5 @@ function SummaryDisplay({ session, supabase }: { session: ChatSession; supabase:
     loadSummary()
   }, [session, supabase])
 
-  return <p className="text-gray-600 dark:text-gray-300 mb-4">{displaySummary}</p>
+  return <p className="text-gray-600 dark:text-gray-300 flex-1">{displaySummary}</p>
 }
