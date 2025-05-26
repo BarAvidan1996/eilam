@@ -196,7 +196,7 @@ export default function ChatPage() {
                 console.log("🔍 תחילת תוכן הקובץ:", htmlContent.substring(0, 500))
 
                 // חיפוש ה-URL המקורי בהערה - ביטוי רגולרי מתוקן
-                const urlMatch = htmlContent.match(/<!--\s*saved from url=$$\d+$$(https?:\/\/[^>\s]+)\s*-->/i)
+                const urlMatch = htmlContent.match(/<!--\s*saved from url=$$\d+$$(https?:\/\/[^\s>]+)\s*-->/i)
                 if (urlMatch && urlMatch[1]) {
                   originalUrl = urlMatch[1]
                   console.log("✅ נמצא URL מקורי:", originalUrl)
