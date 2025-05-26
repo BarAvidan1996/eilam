@@ -374,17 +374,23 @@ export default function ChatHistoryPage() {
                     <div className="flex flex-col gap-2 flex-shrink-0 justify-center">
                       {/* Top row */}
                       <div className="flex gap-2">
-                        <Link href={`/chat?session=${session.id}`}>
+                        <Link href={`/chat?session=${session.id}`} className="flex-1">
                           <Button
                             size="sm"
-                            className="bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
+                            className="w-full bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
                           >
                             <Eye className="h-4 w-4 ml-2" />
                             פתח שיחה
                           </Button>
                         </Link>
 
-                        <Button size="sm" variant="outline" onClick={() => startEditing(session)} title="ערוך שם">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => startEditing(session)}
+                          title="ערוך שם"
+                          className="flex-1"
+                        >
                           <Edit2 className="h-4 w-4 ml-2" />
                           ערוך כותרת
                         </Button>
@@ -398,6 +404,7 @@ export default function ChatHistoryPage() {
                           onClick={() => generateAISummary(session.id)}
                           disabled={isGeneratingSummary === session.id}
                           title="צור תקציר AI"
+                          className="flex-1"
                         >
                           {isGeneratingSummary === session.id ? (
                             <Spinner size="small" />
@@ -410,7 +417,7 @@ export default function ChatHistoryPage() {
                         <Button
                           size="sm"
                           onClick={() => deleteSession(session.id)}
-                          className="bg-red-600 hover:bg-red-700 text-white"
+                          className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                           title="מחק שיחה"
                         >
                           <Trash2 className="h-4 w-4 ml-2" />
