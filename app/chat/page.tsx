@@ -174,7 +174,14 @@ export default function ChatPage() {
         for (const bucketName of bucketsToTry) {
           try {
             console.log(`🔍 מנסה bucket: ${bucketName}`)
-            const { data } = supabase.storage.from(bucketName).getPublicUrl(source.storage_path)
+
+            // ננקה את הנתיב מכפילות של שם הbucket
+            let cleanStoragePath = source.storage_path
+            if (cleanStoragePath.startsWith(`${bucketName}/`)) {
+              cleanStoragePath = cleanStoragePath.substring(bucketName.length + 1)
+            }
+
+            const { data } = supabase.storage.from(bucketName).getPublicUrl(cleanStoragePath)
 
             if (data?.publicUrl) {
               console.log(`🔗 נוצר URL עבור ${bucketName}:`, data.publicUrl)
