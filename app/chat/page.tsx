@@ -203,7 +203,8 @@ export default function ChatPage() {
                 console.log("🔍 מחפש ב-1000 התווים הראשונים:", searchContent)
 
                 // ביטוי רגולרי מתוקן עם escape נכון לסוגריים
-                const regexPattern = /<!--\s*saved from url=$$\d+$$(https?:\/\/[^\s>]+)\s*-->/i
+                //const regexPattern = /<!--\s*saved from url=$$\d+$$(https?:\/\/[^\s>]+)\s*-->/i
+                const regexPattern = https://www\.oref\.org\.([A-Za-z]+(/[A-Za-z]+)+)-([A-Za-z0-9]+(/[A-Za-z0-9]+)+)
                 console.log("🔍 הביטוי הרגולרי המתוקן:", regexPattern.toString())
 
                 // ביצוע החיפוש
