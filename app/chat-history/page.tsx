@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { History, MessageSquare, Save, X, Plus, Calendar, Eye, Edit2, Bot, Trash2 } from "lucide-react"
+import { History, MessageSquare, Save, X, Plus, Calendar, Edit2, Bot, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { he } from "date-fns/locale"
@@ -239,31 +239,17 @@ export default function ChatHistoryPage() {
 
       if (error) {
         console.error("❌ שגיאה בשמירת כותרת:", error)
-        return
       }
-
-      setChatSessions((prev) =>
-        prev.map((session) => (session.id === editingId ? { ...session, title: editingTitle.trim() } : session)),
-      )
-
-      console.log("✅ כותרת נשמרה")
-    } catch (error) {
-      console.error("❌ שגיאה בשמירת כותרת:", error)
     } finally {
       setEditingId(null)
       setEditingTitle("")
     }
   }
 
-  const cancelEditing = () => {
-    setEditingId(null)
-    setEditingTitle("")
-  }
-
   // מחיקת שיחה
-  const deleteSession = async (sessionId: string) => {
-    setSessionToDelete(sessionId)
+  const handleDeleteSession = async (sessionId: string) => {
     setIsOpen(true)
+    setSessionToDelete(sessionId)
   }
 
   const confirmDeleteSession = async () => {
@@ -272,222 +258,135 @@ export default function ChatHistoryPage() {
     try {
       console.log("🗑️ מוחק שיחה:", sessionToDelete)
 
-      // מחיקת הודעות תחילה
-      const { error: messagesError } = await supabase.from("chat_messages").delete().eq("session_id", sessionToDelete)
+      // מחיקת השיחה מהדטאבייס
+      const { error } = await supabase.from("chat_sessions").delete().eq("id", sessionToDelete)
 
-      if (messagesError) {
-        console.error("❌ שגיאה במחיקת הודעות:", messagesError)
+      if (error) {
+        console.error("❌ שגיאה במחיקת שיחה:", error)
         return
       }
 
-      // מחיקת השיחה
-      const { error: sessionError } = await supabase.from("chat_sessions").delete().eq("id", sessionToDelete)
-
-      if (sessionError) {
-        console.error("❌ שגיאה במחיקת שיחה:", sessionError)
-        return
-      }
-
+      // עדכון המצב המקומי
       setChatSessions((prev) => prev.filter((session) => session.id !== sessionToDelete))
+
       console.log("✅ שיחה נמחקה")
     } catch (error) {
       console.error("❌ שגיאה במחיקת שיחה:", error)
     } finally {
-      setIsOpen(false)
       setSessionToDelete(null)
+      setIsOpen(false)
     }
+  }
+
+  const cancelDeleteSession = () => {
+    setSessionToDelete(null)
+    setIsOpen(false)
   }
 
   useEffect(() => {
     fetchChatSessions()
   }, [])
 
-  if (isLoading) {
-    return (
-      <div className="min-h-full flex items-center justify-center">
-        <div className="text-center">
-          <Spinner size="large" className="mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-300">טוען היסטוריית שיחות...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="container mx-auto py-10">
-      {/* Content Container */}
-      <div className="max-w-4xl mx-auto">
-        {/* Header - aligned to the right within the content area */}
-        <div className="text-right mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center justify-start gap-2">
-            <History className="h-8 w-8" />
-            היסטוריית שיחות צ'אט
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
-            נהל את השיחות שלך עם עיל"ם ({chatSessions.length} שיחות)
-          </p>
-        </div>
-
-        {/* New Chat Button - positioned above the list, aligned to the left within content area */}
-        <div className="flex justify-start mb-4">
-          <Link href="/chat">
-            <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black">
-              <Plus className="h-4 w-4 ml-2" />
-              שיחה חדשה
-            </Button>
-          </Link>
-        </div>
-
-        {/* Sessions List */}
-        {chatSessions.length > 0 ? (
-          <div className="space-y-4">
-            {chatSessions.map((session) => (
-              <Card key={session.id} className="shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800">
-                <CardContent className="p-6">
-                  <div className="flex gap-4">
-                    {/* Chat content */}
-                    <div className="flex-1">
-                      {editingId === session.id ? (
-                        <div className="flex gap-2 mb-4">
-                          <Input
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            className="text-lg font-semibold"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveTitle()
-                              if (e.key === "Escape") cancelEditing()
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            onClick={saveTitle}
-                            className="bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
-                          >
-                            <Save className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={cancelEditing}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <h2 className="text-xl font-semibold text-[#005C72] dark:text-[#D3E3FD] mb-3">
-                          {session.title ||
-                            `שיחה מ-${format(new Date(session.created_at), "d/M/yyyy", { locale: he })}`}
-                        </h2>
-
-                      <p className="text-gray-600 dark:text-gray-300 mb-4">{session.summary}</p>
-
-                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {format(new Date(session.created_at), "d MMMM, yyyy HH:mm", { locale: he })}
-                        </span>
-
-                        <span className="flex items-center gap-1">
-                          <MessageSquare className="h-4 w-4" />
-                          {session.message_count} הודעות
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Action buttons - 2x2 grid layout */}
-                    <div className=\"flex flex-col gap-2 flex-shrink-0 justify-center">
-                      {/* Top row */}
-                      <div className="flex gap-2">
-                        <Link href={`/chat?session=${session.id}`}  className="flex-1">
-                          <Button
-                            size="sm"
-                            className="w-full bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
-                          >
-                            <Eye className="h-4 w-4 ml-2" />
-                            פתח שיחה
-                          </Button>
-                        </Link>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => startEditing(session)}
-                          title="ערוך שם"
-                          className="flex-1"
-                        >
-                          <Edit2 className="h-4 w-4 ml-2" />
-                          ערוך כותרת
-                        </Button>
-                      </div>
-
-                      {/* Bottom row */}
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => generateAISummary(session.id)}
-                          disabled={isGeneratingSummary === session.id}
-                          title="צור תקציר AI"
-                          className="flex-1"
-                        >
-                          {isGeneratingSummary === session.id ? (
-                            <Spinner size="small" />
-                          ) : (
-                            <Bot className="h-4 w-4 ml-2" />
-                          )}
-                          צור תקציר
-                        </Button>
-
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="flex-1"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setSessionToDelete(session.id)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 ml-2" />
-                            מחק שיחה
-                          </Button>
-                        </AlertDialogTrigger>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card className="shadow-md dark:bg-gray-800">
-            <CardContent className="p-12 text-center">
-              <History className="h-16 w-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-2">עדיין לא ניהלת שיחות</h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-6">התחל שיחה חדשה עם עיל"ם כדי לקבל עזרה במצבי חירום</p>
-              <Link href="/chat">
-                <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black">
-                  <MessageSquare className="ml-2 h-4 w-4" />
-                  התחל שיחה חדשה
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        )}
+    <div className="container mx-auto py-8">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">היסטוריית שיחות</h1>
+        <Link href="/chat">
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            שיחה חדשה
+          </Button>
+        </Link>
       </div>
-      <AlertDialog
-  open = { isOpen }
-  onOpenChange =
-    { setIsOpen } >
-    (
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>האם אתה בטוח שברצונך למחוק את השיחה?</AlertDialogTitle>
-          <AlertDialogDescription>פעולה זו תסיר את השיחה ולא ניתן יהיה לשחזר אותה.</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setSessionToDelete(null)}>ביטול</AlertDialogCancel>
-          <AlertDialogAction onClick={confirmDeleteSession}>מחק</AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    )
-  </AlertDialog>
+
+      {isLoading ? (
+        <div className="flex justify-center">
+          <Spinner />
+        </div>
+      ) : chatSessions.length === 0 ? (
+        <Card className="w-full">
+          <CardContent className="py-4">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <History className="h-12 w-12 text-gray-400" />
+              <p className="text-gray-500">אין היסטוריית שיחות</p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {chatSessions.map((session) => (
+            <Card key={session.id} className="w-full">
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                  {editingId === session.id ? (
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        className="w-full"
+                      />
+                      <Button size="icon" onClick={saveTitle} disabled={!editingTitle.trim()}>
+                        <Save className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" onClick={() => setEditingId(null)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col">
+                      <h2 className="text-lg font-semibold truncate">{session.title}</h2>
+                      <p className="text-sm text-gray-500 truncate">{session.summary}</p>
+                    </div>
+                  )}
+                  <div className="flex space-x-2">
+                    <Link href={`/chat?session_id=${session.id}`}>
+                      <Button size="icon">
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    {editingId !== session.id && (
+                      <Button size="icon" onClick={() => startEditing(session)}>
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="icon" variant="destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            פעולה זו תמחק את השיחה לצמיתות ולא ניתן יהיה לשחזר אותה.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel onClick={cancelDeleteSession}>ביטול</AlertDialogCancel>
+                          <AlertDialogAction onClick={confirmDeleteSession}>מחיקה</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <Calendar className="h-4 w-4" />
+                  <span>{format(new Date(session.created_at), "dd/MM/yyyy HH:mm", { locale: he })}</span>
+                  <Bot className="h-4 w-4" />
+                  <span>{session.message_count} הודעות</span>
+                </div>
+                {isGeneratingSummary === session.id && (
+                  <div className="flex justify-center mt-2">
+                    <Spinner size="sm" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
