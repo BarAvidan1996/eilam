@@ -19,7 +19,14 @@ export default function ChatHistory() {
   return (
     <div className="container mx-auto py-10">
       {/* Header */}
-      <div className="flex justify-between items-start mb-6">
+      <div className="flex flex-row-reverse justify-end items-start mb-6 gap-6">
+        <Link href="/chat">
+          <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black">
+            <Plus className="h-4 w-4 ml-2" />
+            שיחה חדשה
+          </Button>
+        </Link>
+
         <div className="flex-1">
           <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
             <History className="h-8 w-8" />
@@ -28,15 +35,6 @@ export default function ChatHistory() {
           <p className="text-gray-600 dark:text-gray-300 mt-1">
             נהל את השיחות שלך עם עיל"ם ({chatSessions.length} שיחות)
           </p>
-        </div>
-
-        <div className="flex-shrink-0">
-          <Link href="/chat">
-            <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black">
-              <Plus className="h-4 w-4 mr-2" />
-              שיחה חדשה
-            </Button>
-          </Link>
         </div>
       </div>
 
