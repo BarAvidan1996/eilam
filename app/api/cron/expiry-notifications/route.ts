@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       try {
         // Get user data from private.users table
         const { data: userData, error: userError } = await supabase
-          .from("users")
+          .from("private.users")
           .select("phone")
           .eq("id", item.equipment_lists.user_id)
           .single()
