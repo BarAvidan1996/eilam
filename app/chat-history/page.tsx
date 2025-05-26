@@ -10,6 +10,17 @@ import { format } from "date-fns"
 import { he } from "date-fns/locale"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Spinner } from "@/components/ui/spinner"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export const dynamic = "force-dynamic"
 
@@ -30,6 +41,8 @@ export default function ChatHistoryPage() {
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const supabase = createClientComponentClient()
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
+  const [isOpen, setIsOpen] = useState(false)
 
   // טעינת משתמש נוכחי
   const loadCurrentUser = async () => {
@@ -249,13 +262,18 @@ export default function ChatHistoryPage() {
 
   // מחיקת שיחה
   const deleteSession = async (sessionId: string) => {
-    if (!confirm("האם אתה בטוח שברצונך למחוק את השיחה?")) return
+    setSessionToDelete(sessionId)
+    setIsOpen(true)
+  }
+
+  const confirmDeleteSession = async () => {
+    if (!sessionToDelete) return
 
     try {
-      console.log("🗑️ מוחק שיחה:", sessionId)
+      console.log("🗑️ מוחק שיחה:", sessionToDelete)
 
       // מחיקת הודעות תחילה
-      const { error: messagesError } = await supabase.from("chat_messages").delete().eq("session_id", sessionId)
+      const { error: messagesError } = await supabase.from("chat_messages").delete().eq("session_id", sessionToDelete)
 
       if (messagesError) {
         console.error("❌ שגיאה במחיקת הודעות:", messagesError)
@@ -263,17 +281,20 @@ export default function ChatHistoryPage() {
       }
 
       // מחיקת השיחה
-      const { error: sessionError } = await supabase.from("chat_sessions").delete().eq("id", sessionId)
+      const { error: sessionError } = await supabase.from("chat_sessions").delete().eq("id", sessionToDelete)
 
       if (sessionError) {
         console.error("❌ שגיאה במחיקת שיחה:", sessionError)
         return
       }
 
-      setChatSessions((prev) => prev.filter((session) => session.id !== sessionId))
+      setChatSessions((prev) => prev.filter((session) => session.id !== sessionToDelete))
       console.log("✅ שיחה נמחקה")
     } catch (error) {
       console.error("❌ שגיאה במחיקת שיחה:", error)
+    } finally {
+      setIsOpen(false)
+      setSessionToDelete(null)
     }
   }
 
@@ -353,7 +374,6 @@ export default function ChatHistoryPage() {
                           {session.title ||
                             `שיחה מ-${format(new Date(session.created_at), "d/M/yyyy", { locale: he })}`}
                         </h2>
-                      )}
 
                       <p className="text-gray-600 dark:text-gray-300 mb-4">{session.summary}</p>
 
@@ -371,11 +391,10 @@ export default function ChatHistoryPage() {
                     </div>
 
                     {/* Action buttons - 2x2 grid layout */}
-                    <div className="flex flex-col gap-2 flex-shrink-0 justify-center">
+                    <div className=\"flex flex-col gap-2 flex-shrink-0 justify-center">
                       {/* Top row */}
                       <div className="flex gap-2">
-                        <Link href={`/chat?session=${session.id}`} className="flex-1">
-                          <Button
+                        <Link href={`/chat?session=${session.id}`} className="flex-1">       <Button
                             size="sm"
                             className="w-full bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
                           >
@@ -414,15 +433,20 @@ export default function ChatHistoryPage() {
                           צור תקציר
                         </Button>
 
-                        <Button
-                          size="sm"
-                          onClick={() => deleteSession(session.id)}
-                          className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                          title="מחק שיחה"
-                        >
-                          <Trash2 className="h-4 w-4 ml-2" />
-                          מחק שיחה
-                        </Button>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="flex-1"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSessionToDelete(session.id)
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 ml-2" />
+                            מחק שיחה
+                          </Button>
+                        </AlertDialogTrigger>
                       </div>
                     </div>
                   </div>
@@ -446,6 +470,23 @@ export default function ChatHistoryPage() {
           </Card>
         )}
       </div>
+      <AlertDialog
+  open = { isOpen }
+  onOpenChange =
+    { setIsOpen } >
+    (
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>האם אתה בטוח שברצונך למחוק את השיחה?</AlertDialogTitle>
+          <AlertDialogDescription>פעולה זו תסיר את השיחה ולא ניתן יהיה לשחזר אותה.</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setSessionToDelete(null)}>ביטול</AlertDialogCancel>
+          <AlertDialogAction onClick={confirmDeleteSession}>מחק</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    )
+  </AlertDialog>
     </div>
   )
 }
