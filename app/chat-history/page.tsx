@@ -304,8 +304,8 @@ export default function ChatHistoryPage() {
           נהל את השיחות שלך עם עיל"ם ({chatSessions.length} שיחות)
         </p>
 
-        {/* New Chat Button - positioned below header, aligned to the right */}
-        <div className="flex justify-end mt-4">
+        {/* New Chat Button - positioned below header, aligned to the left */}
+        <div className="flex justify-start mt-4">
           <Link href="/chat">
             <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:text-black">
               <Plus className="h-4 w-4 ml-2" />
@@ -322,7 +322,48 @@ export default function ChatHistoryPage() {
             <Card key={session.id} className="shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800">
               <CardContent className="p-6">
                 <div className="flex gap-4">
-                  {/* Action buttons - vertical layout on the left */}
+                  {/* Chat content */}
+                  <div className="flex-1">
+                    {editingId === session.id ? (
+                      <div className="flex gap-2 mb-4">
+                        <Input
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          className="text-lg font-semibold"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveTitle()
+                            if (e.key === "Escape") cancelEditing()
+                          }}
+                        />
+                        <Button size="sm" onClick={saveTitle}>
+                          <Save className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={cancelEditing}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <h2 className="text-xl font-semibold text-purple-700 dark:text-purple-400 mb-3">
+                        {session.title || `שיחה מ-${format(new Date(session.created_at), "d/M/yyyy", { locale: he })}`}
+                      </h2>
+                    )}
+
+                    <p className="text-gray-600 dark:text-gray-300 mb-4">{session.summary}</p>
+
+                    <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        {format(new Date(session.created_at), "d MMMM, yyyy HH:mm", { locale: he })}
+                      </span>
+
+                      <span className="flex items-center gap-1">
+                        <MessageSquare className="h-4 w-4" />
+                        {session.message_count} הודעות
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Action buttons - vertical layout on the right */}
                   <div className="flex flex-col gap-2 flex-shrink-0">
                     <Link href={`/chat?session=${session.id}`}>
                       <Button
@@ -366,47 +407,6 @@ export default function ChatHistoryPage() {
                       <Trash2 className="h-4 w-4 ml-2" />
                       מחק שיחה
                     </Button>
-                  </div>
-
-                  {/* Chat content */}
-                  <div className="flex-1">
-                    {editingId === session.id ? (
-                      <div className="flex gap-2 mb-4">
-                        <Input
-                          value={editingTitle}
-                          onChange={(e) => setEditingTitle(e.target.value)}
-                          className="text-lg font-semibold"
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveTitle()
-                            if (e.key === "Escape") cancelEditing()
-                          }}
-                        />
-                        <Button size="sm" onClick={saveTitle}>
-                          <Save className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={cancelEditing}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <h2 className="text-xl font-semibold text-purple-700 dark:text-purple-400 mb-3">
-                        {session.title || `שיחה מ-${format(new Date(session.created_at), "d/M/yyyy", { locale: he })}`}
-                      </h2>
-                    )}
-
-                    <p className="text-gray-600 dark:text-gray-300 mb-4">{session.summary}</p>
-
-                    <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {format(new Date(session.created_at), "d MMMM, yyyy HH:mm", { locale: he })}
-                      </span>
-
-                      <span className="flex items-center gap-1">
-                        <MessageSquare className="h-4 w-4" />
-                        {session.message_count} הודעות
-                      </span>
-                    </div>
                   </div>
                 </div>
               </CardContent>
