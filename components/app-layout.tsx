@@ -334,7 +334,7 @@ export default function AppLayout({ children }) {
   ]
 
   const newActionItems = [
-    { name: t.newChat, path: "/chat", icon: MessageSquare },
+    { name: t.newChat, path: "/chat?new=true", icon: MessageSquare }, // הוספת פרמטר new=true
     { name: t.findShelter, path: "/shelters", icon: MapPin },
     { name: t.createEquipmentList, path: "/equipment", icon: ListChecks },
     {
