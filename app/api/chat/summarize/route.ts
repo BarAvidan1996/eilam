@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No messages provided" }, { status: 400 })
     }
 
-    console.log("📨 מעבד", messages.length, "הודעות")
+    console.log("📨 מעבד", messages.length, "הודעות ליצירת תקציר")
 
-    // יצירת תקציר מההודעות
+    // יצירת טקסט שיחה
     const conversationText = messages
       .map((msg: any) => `${msg.role === "user" ? "משתמש" : 'עיל"ם'}: ${msg.content}`)
       .join("\n")
@@ -30,21 +30,21 @@ export async function POST(request: NextRequest) {
       messages: [
         {
           role: "system",
-          content: `אתה עוזר שיוצר כותרות קצרות ותמציתיות לשיחות צ'אט עם עיל"ם - עוזר החירום הישראלי. 
-          צור כותרת בעברית של עד 50 תווים שמתארת את הנושא המרכזי של השיחה.
-          הכותרת צריכה להיות ברורה ומועילה למשתמש.
-          דוגמאות טובות: "הנחיות לרעידת אדמה", "הכנת ערכת חירום", "מקלטים באזור תל אביב"`,
+          content: `אתה עוזר שיוצר תקצירים מפורטים לשיחות צ'אט עם עיל"ם - עוזר החירום הישראלי. 
+          צור תקציר מפורט בעברית של 2-3 משפטים (עד 200 תווים) שמתאר את הנושאים המרכזיים של השיחה ואת העזרה שניתנה.
+          התקציר צריך להיות מועיל למשתמש להבין במהירות על מה הייתה השיחה.
+          דוגמאות טובות: "המשתמש שאל על הכנת ערכת חירום לבית. ניתנו הנחיות מפורטות על פריטים חיוניים כמו מים, מזון ותרופות לשבוע.", "נדונו הנחיות בטיחות לרעידת אדמה, כולל מקומות מחסה בבית ופעולות מיידיות בזמן הרעידה."`,
         },
         {
           role: "user",
-          content: `צור כותרת קצרה ורלוונטית לשיחה הבאה:\n\n${conversationText}`,
+          content: `צור תקציר מפורט לשיחה הבאה:\n\n${conversationText}`,
         },
       ],
       temperature: 0.3,
-      max_tokens: 100,
+      max_tokens: 150,
     })
 
-    const summary = response.choices[0]?.message?.content || 'שיחה עם עיל"ם'
+    const summary = response.choices[0]?.message?.content || "תקציר לא זמין"
 
     console.log("✅ תקציר נוצר:", summary)
 

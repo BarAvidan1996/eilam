@@ -27,7 +27,7 @@ interface ChatSession {
   id: string
   title: string
   created_at: string
-  summary?: string
+  ai_summary?: string
   message_count?: number
   last_message_at?: string
 }
@@ -38,6 +38,7 @@ export default function ChatHistoryPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState("")
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<string | null>(null)
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const supabase = createClientComponentClient()
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
@@ -65,6 +66,21 @@ export default function ChatHistoryPage() {
     }
   }
 
+  // יצירת תקציר fallback מההודעה הראשונה
+  const createFallbackSummary = (messagesData: any[]) => {
+    if (!messagesData || messagesData.length === 0) {
+      return "שיחה ללא הודעות"
+    }
+
+    const userMessages = messagesData.filter((m) => m.role === "user")
+    if (userMessages.length === 0) {
+      return "שיחה ללא שאלות"
+    }
+
+    const firstUserMessage = userMessages[userMessages.length - 1]?.content || ""
+    return firstUserMessage.length > 100 ? firstUserMessage.substring(0, 100) + "..." : firstUserMessage
+  }
+
   // טעינת שיחות מהדטאבייס
   const fetchChatSessions = async () => {
     setIsLoading(true)
@@ -83,7 +99,7 @@ export default function ChatHistoryPage() {
       // שאילתה לטבלת chat_sessions
       const { data: sessionsData, error: sessionsError } = await supabase
         .from("chat_sessions")
-        .select("*")
+        .select("*, ai_summary")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
 
@@ -123,21 +139,11 @@ export default function ChatHistoryPage() {
 
           console.log(`📊 שיחה ${session.id}: ${messageCount} הודעות`)
 
-          // יצירת תקציר מההודעה הראשונה של המשתמש
-          let summary = "שיחה ללא הודעות"
-          if (messagesData && messagesData.length > 0) {
-            const userMessages = messagesData.filter((m) => m.role === "user")
-            if (userMessages.length > 0) {
-              const firstUserMessage = userMessages[userMessages.length - 1]?.content || ""
-              summary = firstUserMessage.length > 100 ? firstUserMessage.substring(0, 100) + "..." : firstUserMessage
-            }
-          }
-
           return {
             ...session,
             message_count: messageCount,
             last_message_at: lastMessageAt,
-            summary,
+            // לא שומרים summary במצב המקומי - נייצר אותו בזמן ההצגה
           }
         }),
       )
@@ -150,11 +156,17 @@ export default function ChatHistoryPage() {
 
       setChatSessions(filteredSessions)
 
-      // יצירת תקציר AI לשיחות ללא כותרת
-      for (const session of enrichedSessions) {
-        if (!session.title || session.title === "" || session.title === "שיחה חדשה") {
+      // יצירת תקציר AI לשיחות ללא תקציר ועם לפחות 2 הודעות
+      for (const session of filteredSessions) {
+        if (!session.ai_summary && session.message_count >= 2) {
           console.log("🤖 יוצר תקציר AI לשיחה:", session.id)
           await generateAISummary(session.id)
+        }
+
+        // יצירת כותרת לשיחות ללא כותרת
+        if ((!session.title || session.title === "" || session.title === "שיחה חדשה") && session.message_count >= 2) {
+          console.log("🏷️ יוצר כותרת AI לשיחה:", session.id)
+          await generateAITitle(session.id)
         }
       }
     } catch (error) {
@@ -207,7 +219,10 @@ export default function ChatHistoryPage() {
       console.log("✅ תקציר נוצר:", summary)
 
       // עדכון התקציר בטבלה
-      const { error: updateError } = await supabase.from("chat_sessions").update({ title: summary }).eq("id", sessionId)
+      const { error: updateError } = await supabase
+        .from("chat_sessions")
+        .update({ ai_summary: summary })
+        .eq("id", sessionId)
 
       if (updateError) {
         console.error("❌ שגיאה בעדכון תקציר:", updateError)
@@ -216,7 +231,7 @@ export default function ChatHistoryPage() {
 
       // עדכון המצב המקומי
       setChatSessions((prev) =>
-        prev.map((session) => (session.id === sessionId ? { ...session, title: summary } : session)),
+        prev.map((session) => (session.id === sessionId ? { ...session, ai_summary: summary } : session)),
       )
 
       console.log("✅ תקציר עודכן בהצלחה")
@@ -224,6 +239,68 @@ export default function ChatHistoryPage() {
       console.error("❌ שגיאה ביצירת תקציר:", error)
     } finally {
       setIsGeneratingSummary(null)
+    }
+  }
+
+  // יצירת כותרת AI
+  const generateAITitle = async (sessionId: string) => {
+    setIsGeneratingTitle(sessionId)
+
+    try {
+      console.log("🏷️ מתחיל יצירת כותרת לשיחה:", sessionId)
+
+      // קבלת הודעות השיחה
+      const { data: messages, error } = await supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true })
+
+      if (error) {
+        console.error("❌ שגיאה בקבלת הודעות:", error)
+        return
+      }
+
+      if (!messages || messages.length === 0) {
+        console.log("❌ אין הודעות לשיחה")
+        return
+      }
+
+      console.log("📨 נמצאו הודעות:", messages.length)
+
+      // שליחה ל-API לכותרת
+      const response = await fetch("/api/chat/title", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      })
+
+      if (!response.ok) {
+        console.error("❌ שגיאה בקריאה ל-API:", response.status)
+        return
+      }
+
+      const { title } = await response.json()
+      console.log("✅ כותרת נוצרה:", title)
+
+      // עדכון הכותרת בטבלה
+      const { error: updateError } = await supabase.from("chat_sessions").update({ title: title }).eq("id", sessionId)
+
+      if (updateError) {
+        console.error("❌ שגיאה בעדכון כותרת:", updateError)
+        return
+      }
+
+      // עדכון המצב המקומי
+      setChatSessions((prev) =>
+        prev.map((session) => (session.id === sessionId ? { ...session, title: title } : session)),
+      )
+
+      console.log("✅ כותרת עודכנה בהצלחה")
+    } catch (error) {
+      console.error("❌ שגיאה ביצירת כותרת:", error)
+    } finally {
+      setIsGeneratingTitle(null)
     }
   }
 
@@ -300,6 +377,22 @@ export default function ChatHistoryPage() {
       setIsOpen(false)
       setSessionToDelete(null)
     }
+  }
+
+  // פונקציה לקבלת תקציר להצגה
+  const getDisplaySummary = async (session: ChatSession) => {
+    if (session.ai_summary) {
+      return session.ai_summary
+    }
+
+    // יצירת fallback summary
+    const { data: messagesData } = await supabase
+      .from("chat_messages")
+      .select("role, content")
+      .eq("session_id", session.id)
+      .order("created_at", { ascending: false })
+
+    return createFallbackSummary(messagesData || [])
   }
 
   useEffect(() => {
@@ -380,7 +473,7 @@ export default function ChatHistoryPage() {
                         </h2>
                       )}
 
-                      <p className="text-gray-600 dark:text-gray-300 mb-4">{session.summary}</p>
+                      <SummaryDisplay session={session} supabase={supabase} />
 
                       <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                         <span className="flex items-center gap-1">
@@ -436,7 +529,7 @@ export default function ChatHistoryPage() {
                           ) : (
                             <Bot className="h-4 w-4 ml-2" />
                           )}
-                          צור תקציר
+                          עדכן תקציר
                         </Button>
                         <Button
                           size="sm"
@@ -498,4 +591,45 @@ export default function ChatHistoryPage() {
       </AlertDialog>
     </div>
   )
+}
+
+// קומפוננט נפרד להצגת תקציר
+function SummaryDisplay({ session, supabase }: { session: ChatSession; supabase: any }) {
+  const [displaySummary, setDisplaySummary] = useState<string>("")
+
+  useEffect(() => {
+    const loadSummary = async () => {
+      if (session.ai_summary) {
+        setDisplaySummary(session.ai_summary)
+        return
+      }
+
+      // יצירת fallback summary
+      const { data: messagesData } = await supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("session_id", session.id)
+        .order("created_at", { ascending: false })
+
+      if (!messagesData || messagesData.length === 0) {
+        setDisplaySummary("שיחה ללא הודעות")
+        return
+      }
+
+      const userMessages = messagesData.filter((m: any) => m.role === "user")
+      if (userMessages.length === 0) {
+        setDisplaySummary("שיחה ללא שאלות")
+        return
+      }
+
+      const firstUserMessage = userMessages[userMessages.length - 1]?.content || ""
+      const fallbackSummary =
+        firstUserMessage.length > 100 ? firstUserMessage.substring(0, 100) + "..." : firstUserMessage
+      setDisplaySummary(fallbackSummary)
+    }
+
+    loadSummary()
+  }, [session, supabase])
+
+  return <p className="text-gray-600 dark:text-gray-300 mb-4">{displaySummary}</p>
 }
