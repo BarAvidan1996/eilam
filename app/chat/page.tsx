@@ -162,15 +162,73 @@ export default function ChatPage() {
   // פונקציה לפתיחת מקור מה-storage
   const openSource = async (source: { title: string; file_name: string; storage_path?: string }) => {
     try {
-      // במקום לנסות לפתוח מה-storage, נפתח ישירות את הקישור המקורי
-      const originalUrl = `https://www.oref.org.il/heb/articles/earthquake/preparation-coping/2501`
+      if (source.storage_path) {
+        console.log("🔍 מנסה לחלץ URL מקורי מקובץ HTML:", source.storage_path)
 
-      console.log("🚀 פותח URL מקורי:", originalUrl)
-      window.open(originalUrl, "_blank", "noopener,noreferrer")
+        // רשימת buckets אפשריים לנסות
+        const bucketsToTry = ["html-docs", "documents", "files", "rag-documents", "storage"]
+
+        let originalUrl = null
+
+        // ננסה כל bucket עד שנמצא אחד שעובד
+        for (const bucketName of bucketsToTry) {
+          try {
+            console.log(`🔍 מנסה bucket: ${bucketName}`)
+
+            // ננקה את הנתיב מכפילות של שם הbucket
+            let cleanStoragePath = source.storage_path
+            if (cleanStoragePath.startsWith(`${bucketName}/`)) {
+              cleanStoragePath = cleanStoragePath.substring(bucketName.length + 1)
+            }
+
+            const { data } = supabase.storage.from(bucketName).getPublicUrl(cleanStoragePath)
+
+            if (data?.publicUrl) {
+              console.log(`🔗 מנסה לקרוא קובץ מ-${bucketName}:`, data.publicUrl)
+
+              // קריאת תוכן הקובץ HTML
+              const response = await fetch(data.publicUrl)
+              if (response.ok) {
+                const htmlContent = await response.text()
+                console.log("📄 קובץ HTML נקרא בהצלחה, מחפש URL מקורי...")
+
+                // חיפוש ה-URL המקורי בהערה
+                const urlMatch = htmlContent.match(/<!-- saved from url=$$\d+$$(https?:\/\/[^">\s]+)/)
+                if (urlMatch && urlMatch[1]) {
+                  originalUrl = urlMatch[1]
+                  console.log("✅ נמצא URL מקורי:", originalUrl)
+                  break
+                } else {
+                  console.log("⚠️ לא נמצא URL מקורי בקובץ")
+                }
+              }
+            }
+          } catch (e) {
+            console.log(`❌ Bucket ${bucketName} לא עובד:`, e)
+            continue
+          }
+        }
+
+        if (originalUrl) {
+          console.log("🚀 פותח URL מקורי:", originalUrl)
+          window.open(originalUrl, "_blank", "noopener,noreferrer")
+        } else {
+          console.error("❌ לא הצלחתי לחלץ URL מקורי, משתמש ב-fallback")
+          // fallback - ננסה את האתר הרשמי
+          const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
+          console.log("🔄 משתמש ב-fallback URL:", fallbackUrl)
+          window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+        }
+      } else {
+        // fallback - אם אין storage_path, ננסה את האתר הרשמי
+        console.log("⚠️ אין storage_path, משתמש ב-fallback")
+        const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
+        window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+      }
     } catch (error) {
       console.error("❌ שגיאה בפתיחת מקור:", error)
-      // fallback - ננסה את האתר הרשמי
-      const fallbackUrl = `https://www.oref.org.il/heb`
+      // fallback אחרון
+      const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
       window.open(fallbackUrl, "_blank", "noopener,noreferrer")
     }
   }
