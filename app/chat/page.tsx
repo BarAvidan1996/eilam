@@ -200,7 +200,6 @@ export default function ChatPage() {
 
                 // הביטוי הרגולרי שאנחנו משתמשים בו
                 const regexPattern = /<!--\s*saved from url=\(\d+\)(https?:\/\/[^\s>]+)\s*-->/i
-
                 console.log("🔍 הביטוי הרגולרי:", regexPattern.toString())
 
                 // ביצוע החיפוש
