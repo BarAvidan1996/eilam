@@ -141,18 +141,38 @@ export default function ChatPage() {
       if (!error && data && data.length > 0) {
         console.log(`📜 נמצאו ${data.length} הודעות בהיסטוריה`)
 
-        const chatMessages: Message[] = data.map((msg) => ({
-          id: msg.id,
-          text: msg.message,
-          sender: msg.is_user ? "user" : "bot",
-          timestamp: new Date(msg.created_at),
-          sources: msg.sources || [],
-        }))
+        // הוסף debug לבדיקת המבנה של הנתונים
+        console.log("🔍 דוגמה של הודעה ראשונה:", data[0])
+        console.log("🔍 כל השדות הזמינים:", Object.keys(data[0]))
+
+        const chatMessages: Message[] = data.map((msg, index) => {
+          console.log(`📝 הודעה ${index + 1}:`, {
+            id: msg.id,
+            message: msg.message,
+            content: msg.content, // אולי השדה נקרא content?
+            text: msg.text, // או text?
+            is_user: msg.is_user,
+            sources: msg.sources,
+          })
+
+          return {
+            id: msg.id,
+            text: msg.message || msg.content || msg.text || "", // ננסה כמה אפשרויות
+            sender: msg.is_user ? "user" : "bot",
+            timestamp: new Date(msg.created_at),
+            sources: msg.sources || [],
+          }
+        })
+
+        console.log("✅ הודעות לאחר מיפוי:", chatMessages)
 
         // החלפת ההודעות הראשוניות בהיסטוריה
         setMessages(chatMessages)
       } else {
         console.log("📭 אין הודעות בהיסטוריה, משאיר הודעות ראשוניות")
+        if (error) {
+          console.error("❌ שגיאה בטעינת היסטוריה:", error)
+        }
       }
     } catch (error) {
       console.error("❌ שגיאה בטעינת היסטוריה:", error)
