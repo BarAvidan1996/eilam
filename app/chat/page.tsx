@@ -196,29 +196,21 @@ export default function ChatPage() {
                 console.log("🔍 תחילת תוכן הקובץ:", htmlContent.substring(0, 500))
 
                 // חיפוש ה-URL המקורי בהערה - ביטוי רגולרי מתוקן
-                const urlMatch = htmlContent.match(/<!-- saved from url=$$\d+$$(https?:\/\/[^"\s>]+)/)
+                const urlMatch = htmlContent.match(/<!--\s*saved from url=$$\d+$$(https?:\/\/[^>\s]+)\s*-->/i)
                 if (urlMatch && urlMatch[1]) {
                   originalUrl = urlMatch[1]
                   console.log("✅ נמצא URL מקורי:", originalUrl)
                   break
                 } else {
-                  // ננסה ביטוי רגולרי אחר
-                  const urlMatch2 = htmlContent.match(/saved from url=$$\d+$$(https?:\/\/[^"\s>]+)/)
-                  if (urlMatch2 && urlMatch2[1]) {
-                    originalUrl = urlMatch2[1]
-                    console.log("✅ נמצא URL מקורי (ביטוי 2):", originalUrl)
-                    break
-                  } else {
-                    console.log("⚠️ לא נמצא URL מקורי בקובץ")
-                    console.log("🔍 מחפש בכל הקובץ אחר 'saved from url'...")
-                    const savedFromIndex = htmlContent.indexOf("saved from url")
-                    if (savedFromIndex !== -1) {
-                      console.log("📍 נמצא 'saved from url' במיקום:", savedFromIndex)
-                      console.log(
-                        "📝 תוכן סביב המיקום:",
-                        htmlContent.substring(savedFromIndex - 50, savedFromIndex + 200),
-                      )
-                    }
+                  console.log("⚠️ לא נמצא URL מקורי בקובץ")
+                  console.log("🔍 מחפש בכל הקובץ אחר 'saved from url'...")
+                  const savedFromIndex = htmlContent.indexOf("saved from url")
+                  if (savedFromIndex !== -1) {
+                    console.log("📍 נמצא 'saved from url' במיקום:", savedFromIndex)
+                    console.log(
+                      "📝 תוכן סביב המיקום:",
+                      htmlContent.substring(savedFromIndex - 50, savedFromIndex + 200),
+                    )
                   }
                 }
               }
