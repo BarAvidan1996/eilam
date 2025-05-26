@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { History, MessageSquare, Save, X, Plus, Calendar, Edit2, Bot, Trash2 } from "lucide-react"
+import { History, MessageSquare, Save, X, Plus, Calendar, Edit2, Bot } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { he } from "date-fns/locale"
@@ -19,7 +19,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 export const dynamic = "force-dynamic"
@@ -350,22 +349,17 @@ export default function ChatHistoryPage() {
                         <Edit2 className="h-4 w-4" />
                       </Button>
                     )}
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="icon" variant="destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
+                    <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+                          <AlertDialogTitle>האם אתה בטוח שברצונך למחוק את השיחה?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            פעולה זו תמחק את השיחה לצמיתות ולא ניתן יהיה לשחזר אותה.
+                            פעולה זו תסיר את השיחה ולא ניתן יהיה לשחזר אותה.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel onClick={cancelDeleteSession}>ביטול</AlertDialogCancel>
-                          <AlertDialogAction onClick={confirmDeleteSession}>מחיקה</AlertDialogAction>
+                          <AlertDialogCancel onClick={() => setSessionToDelete(null)}>ביטול</AlertDialogCancel>
+                          <AlertDialogAction onClick={confirmDeleteSession}>מחק</AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
