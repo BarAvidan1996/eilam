@@ -322,12 +322,12 @@ export default function ChatHistoryPage() {
           <div className="space-y-4">
             {chatSessions.map((session) => (
               <Card key={session.id} className="shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800">
-                <CardContent className="p-4">
+                <CardContent className="p-6">
                   <div className="flex gap-4">
                     {/* Chat content */}
                     <div className="flex-1">
                       {editingId === session.id ? (
-                        <div className="flex gap-2 mb-3">
+                        <div className="flex gap-2 mb-4">
                           <Input
                             value={editingTitle}
                             onChange={(e) => setEditingTitle(e.target.value)}
@@ -345,49 +345,43 @@ export default function ChatHistoryPage() {
                           </Button>
                         </div>
                       ) : (
-                        <h2 className="text-xl font-semibold text-purple-700 dark:text-purple-400 mb-2">
+                        <h2 className="text-xl font-semibold text-purple-700 dark:text-purple-400 mb-3">
                           {session.title ||
                             `שיחה מ-${format(new Date(session.created_at), "d/M/yyyy", { locale: he })}`}
                         </h2>
                       )}
 
-                      <p className="text-gray-600 dark:text-gray-300 mb-3 text-sm">{session.summary}</p>
+                      <p className="text-gray-600 dark:text-gray-300 mb-4">{session.summary}</p>
 
-                      <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
                         <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
+                          <Calendar className="h-4 w-4" />
                           {format(new Date(session.created_at), "d MMMM, yyyy HH:mm", { locale: he })}
                         </span>
 
                         <span className="flex items-center gap-1">
-                          <MessageSquare className="h-3 w-3" />
+                          <MessageSquare className="h-4 w-4" />
                           {session.message_count} הודעות
                         </span>
                       </div>
                     </div>
 
                     {/* Action buttons - 2x2 grid layout */}
-                    <div className="flex flex-col gap-2 flex-shrink-0 w-48">
+                    <div className="flex flex-col gap-2 flex-shrink-0">
                       {/* Top row */}
                       <div className="flex gap-2">
-                        <Link href={`/chat?session=${session.id}`} className="flex-1">
+                        <Link href={`/chat?session=${session.id}`}>
                           <Button
                             size="sm"
-                            className="w-full bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black text-xs"
+                            className="bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
                           >
-                            <Eye className="h-3 w-3 ml-1" />
+                            <Eye className="h-4 w-4 ml-2" />
                             פתח שיחה
                           </Button>
                         </Link>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => startEditing(session)}
-                          title="ערוך שם"
-                          className="flex-1 text-xs"
-                        >
-                          <Edit2 className="h-3 w-3 ml-1" />
+                        <Button size="sm" variant="outline" onClick={() => startEditing(session)} title="ערוך שם">
+                          <Edit2 className="h-4 w-4 ml-2" />
                           ערוך כותרת
                         </Button>
                       </div>
@@ -400,12 +394,11 @@ export default function ChatHistoryPage() {
                           onClick={() => generateAISummary(session.id)}
                           disabled={isGeneratingSummary === session.id}
                           title="צור תקציר AI"
-                          className="flex-1 text-xs"
                         >
                           {isGeneratingSummary === session.id ? (
                             <Spinner size="small" />
                           ) : (
-                            <Bot className="h-3 w-3 ml-1" />
+                            <Bot className="h-4 w-4 ml-2" />
                           )}
                           צור תקציר
                         </Button>
@@ -413,10 +406,10 @@ export default function ChatHistoryPage() {
                         <Button
                           size="sm"
                           onClick={() => deleteSession(session.id)}
-                          className="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs"
+                          className="bg-red-600 hover:bg-red-700 text-white"
                           title="מחק שיחה"
                         >
-                          <Trash2 className="h-3 w-3 ml-1" />
+                          <Trash2 className="h-4 w-4 ml-2" />
                           מחק שיחה
                         </Button>
                       </div>
