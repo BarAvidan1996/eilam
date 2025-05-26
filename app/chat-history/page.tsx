@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { History, MessageSquare, Save, X, Plus, Calendar, Eye, Edit2, Bot, Trash2 } from "lucide-react"
+import { History, MessageSquare, Save, X, Plus, Calendar, Eye, Edit2, Bot, Trash2, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { he } from "date-fns/locale"
@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export const dynamic = "force-dynamic"
 
@@ -30,6 +31,12 @@ interface ChatSession {
   ai_summary?: string
   message_count?: number
   last_message_at?: string
+}
+
+interface AIGenerationError {
+  sessionId: string
+  error: string
+  timestamp: Date
 }
 
 export default function ChatHistoryPage() {
@@ -44,6 +51,8 @@ export default function ChatHistoryPage() {
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [pendingAIGeneration, setPendingAIGeneration] = useState<string[]>([])
+  const [aiGenerationErrors, setAIGenerationErrors] = useState<AIGenerationError[]>([])
+  const [currentlyProcessing, setCurrentlyProcessing] = useState<string | null>(null)
 
   // טעינת משתמש נוכחי
   const loadCurrentUser = async () => {
@@ -80,6 +89,20 @@ export default function ChatHistoryPage() {
 
     const firstUserMessage = userMessages[userMessages.length - 1]?.content || ""
     return firstUserMessage.length > 100 ? firstUserMessage.substring(0, 100) + "..." : firstUserMessage
+  }
+
+  // הוספת שגיאה לרשימה
+  const addAIGenerationError = (sessionId: string, error: string) => {
+    console.error(`❌ שגיאה ביצירת AI לשיחה ${sessionId}:`, error)
+    setAIGenerationErrors((prev) => [
+      ...prev.filter((e) => e.sessionId !== sessionId), // הסרת שגיאות קודמות לאותה שיחה
+      { sessionId, error, timestamp: new Date() },
+    ])
+  }
+
+  // הסרת שגיאה
+  const removeAIGenerationError = (sessionId: string) => {
+    setAIGenerationErrors((prev) => prev.filter((e) => e.sessionId !== sessionId))
   }
 
   // טעינת שיחות מהדטאבייס
@@ -184,21 +207,71 @@ export default function ChatHistoryPage() {
 
   // עיבוד הדרגתי של AI generation
   const processNextAIGeneration = async (sessionId: string) => {
+    const startTime = Date.now()
+    console.log(`🚀 מתחיל עיבוד AI לשיחה ${sessionId} בשעה ${new Date().toLocaleTimeString()}`)
+
+    setCurrentlyProcessing(sessionId)
+
+    // טיימר לזיהוי תקיעות (60 שניות)
+    const timeoutId = setTimeout(() => {
+      console.error(`⏰ TIMEOUT: עיבוד AI לשיחה ${sessionId} נתקע למעלה מ-60 שניות`)
+      addAIGenerationError(sessionId, "הזמן הקצוב לעיבוד עבר - נסה שוב מאוחר יותר")
+      setCurrentlyProcessing(null)
+
+      // המשך לשיחה הבאה
+      setPendingAIGeneration((prev) => {
+        const newList = prev.filter((id) => id !== sessionId)
+        if (newList.length > 0) {
+          setTimeout(() => processNextAIGeneration(newList[0]), 1000)
+        }
+        return newList
+      })
+    }, 60000) // 60 שניות
+
     try {
       const session = chatSessions.find((s) => s.id === sessionId)
-      if (!session) return
+      if (!session) {
+        console.error(`❌ לא נמצאה שיחה עם ID: ${sessionId}`)
+        addAIGenerationError(sessionId, "שיחה לא נמצאה")
+        clearTimeout(timeoutId)
+        setCurrentlyProcessing(null)
+        return
+      }
+
+      console.log(`📊 שיחה ${sessionId}: ${session.message_count} הודעות`)
 
       // בדיקה אם צריך כותרת
       if (!session.title || session.title === "" || session.title === "שיחה חדשה") {
-        console.log("🏷️ יוצר כותרת AI לשיחה:", sessionId)
-        await generateAITitle(sessionId)
+        console.log(`🏷️ יוצר כותרת AI לשיחה ${sessionId}`)
+        const titleSuccess = await generateAITitle(sessionId)
+        if (!titleSuccess) {
+          addAIGenerationError(sessionId, "נכשל ביצירת כותרת")
+          clearTimeout(timeoutId)
+          setCurrentlyProcessing(null)
+          return
+        }
       }
 
       // בדיקה אם צריך תקציר
       if (!session.ai_summary) {
-        console.log("🤖 יוצר תקציר AI לשיחה:", sessionId)
-        await generateAISummary(sessionId)
+        console.log(`🤖 יוצר תקציר AI לשיחה ${sessionId}`)
+        const summarySuccess = await generateAISummary(sessionId)
+        if (!summarySuccess) {
+          addAIGenerationError(sessionId, "נכשל ביצירת תקציר")
+          clearTimeout(timeoutId)
+          setCurrentlyProcessing(null)
+          return
+        }
       }
+
+      // הצלחה!
+      clearTimeout(timeoutId)
+      setCurrentlyProcessing(null)
+      removeAIGenerationError(sessionId)
+
+      const endTime = Date.now()
+      const duration = ((endTime - startTime) / 1000).toFixed(1)
+      console.log(`✅ סיים עיבוד AI לשיחה ${sessionId} תוך ${duration} שניות`)
 
       // הסרה מרשימת הממתינים
       setPendingAIGeneration((prev) => {
@@ -206,27 +279,39 @@ export default function ChatHistoryPage() {
 
         // אם יש עוד שיחות ממתינות, עבד את הבאה אחרי 2 שניות
         if (newList.length > 0) {
+          console.log(`⏭️ עובר לשיחה הבאה: ${newList[0]} (נותרו ${newList.length})`)
           setTimeout(() => {
-            console.log("⏭️ עובר לשיחה הבאה:", newList[0])
             processNextAIGeneration(newList[0])
           }, 2000) // המתנה של 2 שניות בין יצירות
+        } else {
+          console.log("🎉 סיים עיבוד כל השיחות!")
         }
 
         return newList
       })
     } catch (error) {
-      console.error("❌ שגיאה בעיבוד AI generation:", error)
-      // הסרה מהרשימה גם במקרה של שגיאה
-      setPendingAIGeneration((prev) => prev.filter((id) => id !== sessionId))
+      clearTimeout(timeoutId)
+      setCurrentlyProcessing(null)
+      console.error(`❌ שגיאה כללית בעיבוד AI לשיחה ${sessionId}:`, error)
+      addAIGenerationError(sessionId, `שגיאה כללית: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`)
+
+      // הסרה מהרשימה גם במקרה של שגיאה והמשך לבאה
+      setPendingAIGeneration((prev) => {
+        const newList = prev.filter((id) => id !== sessionId)
+        if (newList.length > 0) {
+          setTimeout(() => processNextAIGeneration(newList[0]), 3000) // המתנה ארוכה יותר אחרי שגיאה
+        }
+        return newList
+      })
     }
   }
 
   // יצירת תקציר AI
-  const generateAISummary = async (sessionId: string) => {
+  const generateAISummary = async (sessionId: string): Promise<boolean> => {
     setIsGeneratingSummary(sessionId)
 
     try {
-      console.log("🤖 מתחיל יצירת תקציר לשיחה:", sessionId)
+      console.log(`🤖 מתחיל יצירת תקציר לשיחה: ${sessionId}`)
 
       // קבלת הודעות השיחה
       const { data: messages, error } = await supabase
@@ -236,18 +321,19 @@ export default function ChatHistoryPage() {
         .order("created_at", { ascending: true })
 
       if (error) {
-        console.error("❌ שגיאה בקבלת הודעות:", error)
-        return
+        console.error(`❌ שגיאה בקבלת הודעות לשיחה ${sessionId}:`, error)
+        return false
       }
 
       if (!messages || messages.length === 0) {
-        console.log("❌ אין הודעות לשיחה")
-        return
+        console.log(`❌ אין הודעות לשיחה ${sessionId}`)
+        return false
       }
 
-      console.log("📨 נמצאו הודעות:", messages.length)
+      console.log(`📨 נמצאו ${messages.length} הודעות לשיחה ${sessionId}`)
 
       // שליחה ל-API לתקציר
+      console.log(`🌐 שולח בקשה ל-API summarize עבור שיחה ${sessionId}`)
       const response = await fetch("/api/chat/summarize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -255,22 +341,24 @@ export default function ChatHistoryPage() {
       })
 
       if (!response.ok) {
-        console.error("❌ שגיאה בקריאה ל-API:", response.status)
-        return
+        const errorText = await response.text()
+        console.error(`❌ שגיאה בקריאה ל-API summarize (${response.status}):`, errorText)
+        return false
       }
 
       const { summary } = await response.json()
-      console.log("✅ תקציר נוצר:", summary)
+      console.log(`✅ תקציר נוצר לשיחה ${sessionId}:`, summary)
 
       // עדכון התקציר בטבלה
+      console.log(`💾 מעדכן תקציר בדטאבייס לשיחה ${sessionId}`)
       const { error: updateError } = await supabase
         .from("chat_sessions")
         .update({ ai_summary: summary })
         .eq("id", sessionId)
 
       if (updateError) {
-        console.error("❌ שגיאה בעדכון תקציר:", updateError)
-        return
+        console.error(`❌ שגיאה בעדכון תקציר בדטאבייס לשיחה ${sessionId}:`, updateError)
+        return false
       }
 
       // עדכון המצב המקומי
@@ -278,20 +366,22 @@ export default function ChatHistoryPage() {
         prev.map((session) => (session.id === sessionId ? { ...session, ai_summary: summary } : session)),
       )
 
-      console.log("✅ תקציר עודכן בהצלחה")
+      console.log(`✅ תקציר עודכן בהצלחה לשיחה ${sessionId}`)
+      return true
     } catch (error) {
-      console.error("❌ שגיאה ביצירת תקציר:", error)
+      console.error(`❌ שגיאה ביצירת תקציר לשיחה ${sessionId}:`, error)
+      return false
     } finally {
       setIsGeneratingSummary(null)
     }
   }
 
   // יצירת כותרת AI
-  const generateAITitle = async (sessionId: string) => {
+  const generateAITitle = async (sessionId: string): Promise<boolean> => {
     setIsGeneratingTitle(sessionId)
 
     try {
-      console.log("🏷️ מתחיל יצירת כותרת לשיחה:", sessionId)
+      console.log(`🏷️ מתחיל יצירת כותרת לשיחה: ${sessionId}`)
 
       // קבלת הודעות השיחה
       const { data: messages, error } = await supabase
@@ -301,18 +391,19 @@ export default function ChatHistoryPage() {
         .order("created_at", { ascending: true })
 
       if (error) {
-        console.error("❌ שגיאה בקבלת הודעות:", error)
-        return
+        console.error(`❌ שגיאה בקבלת הודעות לשיחה ${sessionId}:`, error)
+        return false
       }
 
       if (!messages || messages.length === 0) {
-        console.log("❌ אין הודעות לשיחה")
-        return
+        console.log(`❌ אין הודעות לשיחה ${sessionId}`)
+        return false
       }
 
-      console.log("📨 נמצאו הודעות:", messages.length)
+      console.log(`📨 נמצאו ${messages.length} הודעות לשיחה ${sessionId}`)
 
       // שליחה ל-API לכותרת
+      console.log(`🌐 שולח בקשה ל-API title עבור שיחה ${sessionId}`)
       const response = await fetch("/api/chat/title", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -320,19 +411,21 @@ export default function ChatHistoryPage() {
       })
 
       if (!response.ok) {
-        console.error("❌ שגיאה בקריאה ל-API:", response.status)
-        return
+        const errorText = await response.text()
+        console.error(`❌ שגיאה בקריאה ל-API title (${response.status}):`, errorText)
+        return false
       }
 
       const { title } = await response.json()
-      console.log("✅ כותרת נוצרה:", title)
+      console.log(`✅ כותרת נוצרה לשיחה ${sessionId}:`, title)
 
       // עדכון הכותרת בטבלה
+      console.log(`💾 מעדכן כותרת בדטאבייס לשיחה ${sessionId}`)
       const { error: updateError } = await supabase.from("chat_sessions").update({ title: title }).eq("id", sessionId)
 
       if (updateError) {
-        console.error("❌ שגיאה בעדכון כותרת:", updateError)
-        return
+        console.error(`❌ שגיאה בעדכון כותרת בדטאבייס לשיחה ${sessionId}:`, updateError)
+        return false
       }
 
       // עדכון המצב המקומי
@@ -340,9 +433,11 @@ export default function ChatHistoryPage() {
         prev.map((session) => (session.id === sessionId ? { ...session, title: title } : session)),
       )
 
-      console.log("✅ כותרת עודכנה בהצלחה")
+      console.log(`✅ כותרת עודכנה בהצלחה לשיחה ${sessionId}`)
+      return true
     } catch (error) {
-      console.error("❌ שגיאה ביצירת כותרת:", error)
+      console.error(`❌ שגיאה ביצירת כותרת לשיחה ${sessionId}:`, error)
+      return false
     } finally {
       setIsGeneratingTitle(null)
     }
@@ -350,9 +445,23 @@ export default function ChatHistoryPage() {
 
   // יצירה ידנית של תקציר (כפתור)
   const manualGenerateAISummary = async (sessionId: string) => {
+    console.log(`🖱️ יצירה ידנית של תקציר לשיחה ${sessionId}`)
     // הסרה מרשימת הממתינים אם קיימת
     setPendingAIGeneration((prev) => prev.filter((id) => id !== sessionId))
-    await generateAISummary(sessionId)
+    removeAIGenerationError(sessionId)
+
+    const success = await generateAISummary(sessionId)
+    if (!success) {
+      addAIGenerationError(sessionId, "נכשל ביצירת תקציר ידני")
+    }
+  }
+
+  // ניסיון חוזר לשיחה עם שגיאה
+  const retryAIGeneration = async (sessionId: string) => {
+    console.log(`🔄 ניסיון חוזר לשיחה ${sessionId}`)
+    removeAIGenerationError(sessionId)
+    setPendingAIGeneration((prev) => [...prev, sessionId])
+    await processNextAIGeneration(sessionId)
   }
 
   // עריכת שם שיחה
@@ -404,8 +513,9 @@ export default function ChatHistoryPage() {
     try {
       console.log("🗑️ מוחק שיחה:", sessionToDelete)
 
-      // הסרה מרשימת הממתינים
+      // הסרה מרשימת הממתינים ושגיאות
       setPendingAIGeneration((prev) => prev.filter((id) => id !== sessionToDelete))
+      removeAIGenerationError(sessionToDelete)
 
       // מחיקת הודעות תחילה
       const { error: messagesError } = await supabase.from("chat_messages").delete().eq("session_id", sessionToDelete)
@@ -463,10 +573,40 @@ export default function ChatHistoryPage() {
             {pendingAIGeneration.length > 0 && (
               <span className="text-blue-600 dark:text-blue-400 mr-2">
                 • מעבד {pendingAIGeneration.length} תקצירים...
+                {currentlyProcessing && (
+                  <span className="text-sm"> (כרגע: {currentlyProcessing.substring(0, 8)}...)</span>
+                )}
               </span>
+            )}
+            {aiGenerationErrors.length > 0 && (
+              <span className="text-red-600 dark:text-red-400 mr-2">• {aiGenerationErrors.length} שגיאות</span>
             )}
           </p>
         </div>
+
+        {/* Error Messages */}
+        {aiGenerationErrors.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {aiGenerationErrors.map((error) => (
+              <Alert key={error.sessionId} variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="flex items-center justify-between">
+                  <span>
+                    שגיאה בעיבוד שיחה {error.sessionId.substring(0, 8)}...: {error.error}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => retryAIGeneration(error.sessionId)}
+                    className="mr-2"
+                  >
+                    נסה שוב
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ))}
+          </div>
+        )}
 
         {/* New Chat Button - positioned above the list, aligned to the left within content area */}
         <div className="flex justify-start mb-4">
@@ -481,121 +621,148 @@ export default function ChatHistoryPage() {
         {/* Sessions List */}
         {chatSessions.length > 0 ? (
           <div className="space-y-4">
-            {chatSessions.map((session) => (
-              <Card key={session.id} className="shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800">
-                <CardContent className="p-6">
-                  <div className="flex gap-4">
-                    {/* Chat content */}
-                    <div className="flex-1">
-                      {editingId === session.id ? (
-                        <div className="flex gap-2 mb-4">
-                          <Input
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            className="text-lg font-semibold"
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") saveTitle()
-                              if (e.key === "Escape") cancelEditing()
-                            }}
-                          />
+            {chatSessions.map((session) => {
+              const hasError = aiGenerationErrors.some((e) => e.sessionId === session.id)
+              const isPending = pendingAIGeneration.includes(session.id)
+              const isCurrentlyProcessing = currentlyProcessing === session.id
+
+              return (
+                <Card
+                  key={session.id}
+                  className={`shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800 ${
+                    hasError
+                      ? "border-red-300 dark:border-red-600"
+                      : isCurrentlyProcessing
+                        ? "border-blue-300 dark:border-blue-600"
+                        : ""
+                  }`}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex gap-4">
+                      {/* Chat content */}
+                      <div className="flex-1">
+                        {editingId === session.id ? (
+                          <div className="flex gap-2 mb-4">
+                            <Input
+                              value={editingTitle}
+                              onChange={(e) => setEditingTitle(e.target.value)}
+                              className="text-lg font-semibold"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveTitle()
+                                if (e.key === "Escape") cancelEditing()
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              onClick={saveTitle}
+                              className="bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
+                            >
+                              <Save className="h-4 w-4" />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={cancelEditing}>
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <h2 className="text-xl font-semibold text-[#005C72] dark:text-[#D3E3FD] mb-3 flex items-center gap-2">
+                            {session.title ||
+                              `שיחה מ-${format(new Date(session.created_at), "d/M/yyyy", { locale: he })}`}
+                            {isGeneratingTitle === session.id && <Spinner size="small" className="text-blue-500" />}
+                          </h2>
+                        )}
+
+                        <div className="flex items-center gap-2 mb-4">
+                          <SummaryDisplay session={session} supabase={supabase} />
+                          {isGeneratingSummary === session.id && <Spinner size="small" className="text-blue-500" />}
+                          {isPending && !isCurrentlyProcessing && (
+                            <span className="text-xs text-blue-600 dark:text-blue-400">ממתין לעיבוד...</span>
+                          )}
+                          {isCurrentlyProcessing && (
+                            <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                              <Spinner size="small" />
+                              מעבד כרגע...
+                            </span>
+                          )}
+                          {hasError && (
+                            <span className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              שגיאה
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            {format(new Date(session.created_at), "d MMMM, yyyy HH:mm", { locale: he })}
+                          </span>
+
+                          <span className="flex items-center gap-1">
+                            <MessageSquare className="h-4 w-4" />
+                            {session.message_count} הודעות
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action buttons - 2x2 grid layout */}
+                      <div className="flex flex-col gap-2 flex-shrink-0 justify-center">
+                        {/* Top row */}
+                        <div className="flex gap-2">
+                          <Link href={`/chat?session=${session.id}`} className="flex-1">
+                            <Button
+                              size="sm"
+                              className="w-full bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
+                            >
+                              <Eye className="h-4 w-4 ml-2" />
+                              פתח שיחה
+                            </Button>
+                          </Link>
+
                           <Button
                             size="sm"
-                            onClick={saveTitle}
-                            className="bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
+                            variant="outline"
+                            onClick={() => startEditing(session)}
+                            title="ערוך שם"
+                            className="flex-1"
                           >
-                            <Save className="h-4 w-4" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={cancelEditing}>
-                            <X className="h-4 w-4" />
+                            <Edit2 className="h-4 w-4 ml-2" />
+                            ערוך כותרת
                           </Button>
                         </div>
-                      ) : (
-                        <h2 className="text-xl font-semibold text-[#005C72] dark:text-[#D3E3FD] mb-3 flex items-center gap-2">
-                          {session.title ||
-                            `שיחה מ-${format(new Date(session.created_at), "d/M/yyyy", { locale: he })}`}
-                          {isGeneratingTitle === session.id && <Spinner size="small" className="text-blue-500" />}
-                        </h2>
-                      )}
 
-                      <div className="flex items-center gap-2 mb-4">
-                        <SummaryDisplay session={session} supabase={supabase} />
-                        {isGeneratingSummary === session.id && <Spinner size="small" className="text-blue-500" />}
-                        {pendingAIGeneration.includes(session.id) && (
-                          <span className="text-xs text-blue-600 dark:text-blue-400">ממתין לעיבוד...</span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          {format(new Date(session.created_at), "d MMMM, yyyy HH:mm", { locale: he })}
-                        </span>
-
-                        <span className="flex items-center gap-1">
-                          <MessageSquare className="h-4 w-4" />
-                          {session.message_count} הודעות
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Action buttons - 2x2 grid layout */}
-                    <div className="flex flex-col gap-2 flex-shrink-0 justify-center">
-                      {/* Top row */}
-                      <div className="flex gap-2">
-                        <Link href={`/chat?session=${session.id}`} className="flex-1">
+                        {/* Bottom row */}
+                        <div className="flex gap-2">
                           <Button
                             size="sm"
-                            className="w-full bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
+                            variant="outline"
+                            onClick={() => manualGenerateAISummary(session.id)}
+                            disabled={isGeneratingSummary === session.id || isCurrentlyProcessing}
+                            title="צור תקציר AI"
+                            className="flex-1"
                           >
-                            <Eye className="h-4 w-4 ml-2" />
-                            פתח שיחה
+                            {isGeneratingSummary === session.id ? (
+                              <Spinner size="small" />
+                            ) : (
+                              <Bot className="h-4 w-4 ml-2" />
+                            )}
+                            עדכן תקציר
                           </Button>
-                        </Link>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => startEditing(session)}
-                          title="ערוך שם"
-                          className="flex-1"
-                        >
-                          <Edit2 className="h-4 w-4 ml-2" />
-                          ערוך כותרת
-                        </Button>
-                      </div>
-
-                      {/* Bottom row */}
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => manualGenerateAISummary(session.id)}
-                          disabled={isGeneratingSummary === session.id || pendingAIGeneration.includes(session.id)}
-                          title="צור תקציר AI"
-                          className="flex-1"
-                        >
-                          {isGeneratingSummary === session.id ? (
-                            <Spinner size="small" />
-                          ) : (
-                            <Bot className="h-4 w-4 ml-2" />
-                          )}
-                          עדכן תקציר
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                          title="מחק שיחה"
-                          onClick={() => deleteSession(session.id)}
-                        >
-                          <Trash2 className="h-4 w-4 ml-2" />
-                          מחק שיחה
-                        </Button>
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                            title="מחק שיחה"
+                            onClick={() => deleteSession(session.id)}
+                          >
+                            <Trash2 className="h-4 w-4 ml-2" />
+                            מחק שיחה
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         ) : (
           <Card className="shadow-md dark:bg-gray-800">
