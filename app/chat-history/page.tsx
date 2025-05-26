@@ -395,7 +395,8 @@ export default function ChatHistoryPage() {
                       {/* Top row */}
                       <div className="flex gap-2">
                         <Link href={`/chat?session=${session.id}`} className="flex-1">
-                          <Button                       size="sm"
+                          <Button
+                            size="sm"
                             className="w-full bg-[#005C72] hover:bg-[#004A5C] text-white dark:bg-[#D3E3FD] dark:hover:bg-[#C1D7FB] dark:text-black"
                           >
                             <Eye className="h-4 w-4 ml-2" />
