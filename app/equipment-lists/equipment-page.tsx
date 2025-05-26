@@ -1685,7 +1685,7 @@ export default function EquipmentPage() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
             <h2 className="text-xl font-semibold mb-2">{t.removeItemConfirm}</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">{t.removeItemDescription}</p>
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => setIsConfirmDialogOpen(false)}
                 className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"

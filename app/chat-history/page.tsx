@@ -473,7 +473,7 @@ export default function ChatHistoryPage() {
               פעולה זו תסיר את השיחה ואת כל ההודעות שבה. לא ניתן לבטל פעולה זו.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="gap-3">
             <AlertDialogCancel
               onClick={() => {
                 setSessionToDelete(null)
@@ -482,7 +482,12 @@ export default function ChatHistoryPage() {
             >
               ביטול
             </AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteSession}>מחק</AlertDialogAction>
+            <AlertDialogAction
+              onClick={confirmDeleteSession}
+              className="bg-red-600 hover:bg-red-700 text-white dark:bg-red-600 dark:hover:bg-red-700 dark:text-white"
+            >
+              מחק
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
