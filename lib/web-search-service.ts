@@ -1,20 +1,25 @@
-interface TavilySearchResult {
+import OpenAI from "openai"
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY!,
+})
+
+export interface WebSearchResult {
   title: string
-  url: string
   content: string
+  url: string
   score: number
 }
 
-interface TavilyResponse {
+export async function searchWebViaTavily(query: string): Promise<{
   success: boolean
-  results: TavilySearchResult[]
-  error?: string
-}
-
-// חיפוש אינטרנטי עם Tavily
-export async function searchWeb(question: string): Promise<TavilyResponse> {
+  results: WebSearchResult[]
+}> {
   try {
-    console.log("🌐 מבצע חיפוש אינטרנטי עם Tavily:", question)
+    if (!process.env.TAVILY_API_KEY) {
+      console.warn("⚠️ אין TAVILY_API_KEY - מדלג על חיפוש אינטרנטי")
+      return { success: false, results: [] }
+    }
 
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
@@ -23,93 +28,59 @@ export async function searchWeb(question: string): Promise<TavilyResponse> {
         Authorization: `Bearer ${process.env.TAVILY_API_KEY}`,
       },
       body: JSON.stringify({
-        query: `${question} site:oref.org.il OR site:gov.il OR פיקוד העורף ישראל`,
+        query,
         search_depth: "basic",
         include_answer: false,
-        include_images: false,
         include_raw_content: false,
-        max_results: 5,
-        include_domains: ["oref.org.il", "gov.il", "idf.il"],
+        max_results: 3,
+        include_domains: ["oref.org.il", "gov.il"],
       }),
     })
 
     if (!response.ok) {
-      throw new Error(`Tavily API error: ${response.status}`)
+      throw new Error(`Tavily error ${response.status}`)
     }
 
     const data = await response.json()
+    const results = (data.results || []).map((r: any) => ({
+      title: r.title || "",
+      content: r.content || "",
+      url: r.url || "",
+      score: r.score || 0,
+    }))
 
-    console.log(`✅ נמצאו ${data.results?.length || 0} תוצאות מהאינטרנט`)
-
-    return {
-      success: true,
-      results: data.results || [],
-    }
-  } catch (error) {
-    console.error("❌ שגיאה בחיפוש אינטרנטי:", error)
-    return {
-      success: false,
-      results: [],
-      error: error instanceof Error ? error.message : "שגיאה לא ידועה",
-    }
+    return { success: true, results }
+  } catch (err) {
+    console.error("❌ שגיאה ב-searchWebViaTavily:", err)
+    return { success: false, results: [] }
   }
 }
 
-// יצירת תשובה מתוצאות חיפוש אינטרנטי
-export async function generateWebAnswer(
+export async function generateAnswerFromWeb(
   question: string,
-  searchResults: TavilySearchResult[],
+  results: WebSearchResult[],
   language: "he" | "en",
 ): Promise<string> {
-  try {
-    console.log("🤖 יוצר תשובה מתוצאות חיפוש אינטרנטי...")
+  const context = results.map((r, i) => `(${i + 1}) ${r.title}\n${r.content.slice(0, 300)}\nURL: ${r.url}`).join("\n\n")
 
-    const context = searchResults
-      .slice(0, 3)
-      .map((result, index) => `(${index + 1}) מקור: ${result.title}\nתוכן: ${result.content.slice(0, 400)}`)
-      .join("\n\n")
+  const prompt =
+    language === "he"
+      ? `ענה על השאלה על בסיס המידע הבא מהאינטרנט. ציין מקורות.\n\n${context}\n\nשאלה: ${question}`
+      : `Answer the question based on the following web data. Include sources.\n\n${context}\n\nQuestion: ${question}`
 
-    const prompt =
-      language === "he"
-        ? `על בסיס המידע הבא מאתרים רשמיים, ענה על השאלה בעברית:
+  const response = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: 600,
+    temperature: 0.3,
+  })
 
-${context}
+  const answer = response.choices[0]?.message?.content || ""
 
-שאלה: ${question}
-
-תשובה (ציין שהמידע מבוסס על מקורות אינטרנטיים רשמיים):`
-        : `Based on the following information from official websites, answer the question in English:
-
-${context}
-
-Question: ${question}
-
-Answer (mention that the information is based on official online sources):`
-
-    const response = await fetch("/api/openai/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [{ role: "user", content: prompt }],
-        model: "gpt-4",
-        temperature: 0.3,
-        max_tokens: 600,
-      }),
-    })
-
-    const data = await response.json()
-    const answer = data.choices?.[0]?.message?.content || ""
-
-    // הוספת תווית מקור אינטרנטי
-    const labeledAnswer =
-      language === "he"
-        ? `${answer}\n\n🌐 (מידע זה נשלף מאתרים רשמיים באינטרנט)`
-        : `${answer}\n\n🌐 (This information was retrieved from official websites)`
-
-    console.log("✅ תשובה מחיפוש אינטרנטי נוצרה בהצלחה")
-    return labeledAnswer
-  } catch (error) {
-    console.error("❌ שגיאה ביצירת תשובה מחיפוש אינטרנטי:", error)
-    throw error
-  }
+  return (
+    answer +
+    (language === "he"
+      ? "\n\n🌐 (תשובה זו מבוססת על מידע מהאינטרנט ולא ממסמכים פנימיים)"
+      : "\n\n🌐 (This answer is based on web information, not internal documents)")
+  )
 }

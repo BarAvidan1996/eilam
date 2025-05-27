@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+console.log("🔴 [RAG Service] Loaded from: lib/services/rag-service.ts")
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -128,6 +129,7 @@ async function generateAnswer(question: string, documents: any[], useStepback = 
 // הפונקציה הראשית של RAG
 export async function processRAGQuery(question: string) {
   try {
+      console.log("🔴 [RAG Service] Executing processRAGQuery from: lib/services/rag-service.ts")
     console.log("Processing RAG query:", question)
 
     // שלב 1: זיהוי שפה

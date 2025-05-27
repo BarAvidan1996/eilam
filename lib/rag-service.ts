@@ -1,11 +1,5 @@
-// הוסף את הייבואים הנכונים בתחילת הקובץ
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
-import { estimateTokens } from "./token-estimator"
-// הוסף את הייבוא בתחילת הקובץ
-import { searchWeb, generateWebAnswer } from "./web-search-service"
-import { detectLanguage } from "./language-detector"
-import { createEmbedding, searchSimilarDocuments } from "./vector-search"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
@@ -13,7 +7,103 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
 })
 
-// יצירת תשובה עם prompt מחוזק ושימוש במידע בלבד
+// זיהוי שפה
+export function detectLanguage(text: string): "he" | "en" {
+  const hebrewPattern = /[\u0590-\u05FF]/
+  return hebrewPattern.test(text) ? "he" : "en"
+}
+
+// פונקציה לחיתוך טקסט חכם
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+
+  // חיתוך במשפט שלם אם אפשר
+  const truncated = text.substring(0, maxLength)
+  const lastSentence = truncated.lastIndexOf(".")
+  const lastQuestion = truncated.lastIndexOf("?")
+  const lastExclamation = truncated.lastIndexOf("!")
+
+  const lastPunctuation = Math.max(lastSentence, lastQuestion, lastExclamation)
+
+  if (lastPunctuation > maxLength * 0.7) {
+    return truncated.substring(0, lastPunctuation + 1)
+  }
+
+  return truncated + "..."
+}
+
+// חישוב מספר טוקנים משוער (4 תווים = 1 טוקן בממוצע)
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4)
+}
+
+// יצירת embedding
+export async function createEmbedding(text: string): Promise<number[]> {
+  try {
+    console.log("🔄 יוצר embedding עבור:", text.substring(0, 100) + "...")
+
+    const response = await openai.embeddings.create({
+      model: "text-embedding-ada-002",
+      input: text,
+    })
+
+    console.log("✅ Embedding נוצר בהצלחה, אורך:", response.data[0].embedding.length)
+    return response.data[0].embedding
+  } catch (error) {
+    console.error("❌ שגיאה ביצירת embedding:", error)
+    throw new Error(`שגיאה ביצירת embedding: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`)
+  }
+}
+
+// חיפוש מסמכים דומים
+export async function searchSimilarDocuments(
+  embedding: number[],
+  language: "he" | "en",
+  limit = 3, // הקטנתי מ-5 ל-3 כדי לחסוך טוקנים
+): Promise<
+  Array<{
+    plain_text: string
+    title: string
+    file_name: string
+    storage_path: string
+    similarity: number
+  }>
+> {
+  try {
+    console.log(`🔍 מחפש מסמכים בשפה: ${language}, limit: ${limit}`)
+    console.log("📊 Embedding length:", embedding.length)
+
+    const { data: functions, error: functionsError } = await supabase.rpc("match_documents", {
+      query_embedding: embedding,
+      match_threshold: 0.8, // העליתי את הסף לקבל מסמכים רלוונטיים יותר
+      match_count: limit,
+      filter_language: language,
+    })
+
+    if (functionsError) {
+      console.error("❌ שגיאה בקריאה ל-RPC match_documents:", functionsError)
+      throw new Error(`שגיאה בחיפוש מסמכים: ${functionsError.message}`)
+    }
+
+    console.log(`✅ נמצאו ${functions?.length || 0} מסמכים`)
+    console.log(
+      "📄 מסמכים שנמצאו:",
+      functions?.map((doc) => ({
+        title: doc.title,
+        similarity: doc.similarity,
+        storage_path: doc.storage_path,
+        text_preview: doc.plain_text?.substring(0, 100) + "...",
+      })),
+    )
+
+    return functions || []
+  } catch (error) {
+    console.error("❌ שגיאה בחיפוש מסמכים:", error)
+    throw error
+  }
+}
+
+// יצירת תשובה עם step-back prompting וניהול טוקנים חכם
 export async function generateAnswer(
   question: string,
   documents: Array<{
@@ -34,45 +124,65 @@ export async function generateAnswer(
       return await generateFallbackAnswer(question, language)
     }
 
-    // הכנת הקשר מחוזק - רק 3 המסמכים הכי דומים, 400 תווים לכל אחד
-    const context = documents
-      .slice(0, 3)
-      .map((doc, index) => `(${index + 1}) מקור: ${doc.title}\nתוכן: ${doc.plain_text.slice(0, 400)}`)
-      .join("\n\n")
+    // הכנת הקשר עם ניהול טוקנים חכם
+    const maxContextLength = 2000 // מקסימום תווים להקשר
+    let context = ""
+    let currentLength = 0
 
-    console.log(`📊 אורך הקשר סופי: ${context.length} תווים`)
+    for (const doc of documents) {
+      const docText = `מקור: ${doc.title}\nתוכן: ${doc.plain_text}\n\n`
 
-    // Prompt מחוזק שדורש שימוש במידע בלבד
-    const STEPBACK_PROMPT =
+      if (currentLength + docText.length > maxContextLength) {
+        // אם המסמך גדול מדי, חותכים אותו
+        const remainingSpace = maxContextLength - currentLength
+        if (remainingSpace > 200) {
+          // רק אם יש מספיק מקום למשהו משמעותי
+          const truncatedText = truncateText(doc.plain_text, remainingSpace - doc.title.length - 20)
+          context += `מקור: ${doc.title}\nתוכן: ${truncatedText}\n\n`
+        }
+        break
+      }
+
+      context += docText
+      currentLength += docText.length
+    }
+
+    console.log(`📊 אורך הקשר סופי: ${context.length} תווים (${estimateTokens(context)} טוקנים משוערים)`)
+
+    // Step-back prompting מקוצר
+    const stepBackPrompt =
+      language === "he" ? `עקרונות כלליים לשאלה: "${question}"` : `General principles for: "${question}"`
+
+    const systemPrompt =
       language === "he"
-        ? `אתה עוזר חכם של פיקוד העורף בישראל. אתה חייב לענות **רק** על בסיס המידע הבא.
+        ? `אתה עוזר AI של פיקוד העורף. השתמש במידע המסופק ותן תשובה קצרה ומדויקת. ציין מקורות.`
+        : `You are an Israeli Home Front Command AI assistant. Use the provided information for a concise, accurate answer. Cite sources.`
 
-אם אין מידע רלוונטי בשום קטע, ענה "לא נמצא מידע מדויק בקבצים, נא לפנות לאתר פיקוד העורף."
+    const userPrompt =
+      language === "he"
+        ? `רקע: ${stepBackPrompt}
 
-הקשר:
+שאלה: ${question}
+
+מידע:
 ${context}
 
-שאלה:
-${question}
+תן תשובה קצרה ומדויקת בעברית.`
+        : `Background: ${stepBackPrompt}
 
-תשובה:`
-        : `You are a smart assistant for the Israeli Home Front Command. You must answer **only** based on the following information.
+Question: ${question}
 
-If there is no relevant information in any section, answer "No accurate information found in files, please refer to the Home Front Command website."
-
-Context:
+Information:
 ${context}
 
-Question:
-${question}
-
-Answer:`
+Provide a concise, accurate answer in English.`
 
     // חישוב טוקנים משוער
-    const totalTokens = estimateTokens(STEPBACK_PROMPT)
+    const totalTokens = estimateTokens(systemPrompt + userPrompt)
     console.log(`📊 טוקנים משוערים לבקשה: ${totalTokens}`)
 
     if (totalTokens > 3500) {
+      // השארתי מרווח בטיחות
       console.log("⚠️ יותר מדי טוקנים, עובר ל-fallback")
       return await generateFallbackAnswer(question, language)
     }
@@ -81,9 +191,12 @@ Answer:`
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
-      messages: [{ role: "user", content: STEPBACK_PROMPT }],
-      temperature: 0.2, // הקטנתי מ-0.3 ל-0.2 לדיוק גבוה יותר
-      max_tokens: 600,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.3,
+      max_tokens: 800, // הקטנתי מ-1000 ל-800
     })
 
     const answer = completion.choices[0]?.message?.content || ""
@@ -95,8 +208,8 @@ Answer:`
 
     // אם זו שגיאת טוקנים, ננסה עם פחות מסמכים
     if (error instanceof Error && error.message.includes("maximum context")) {
-      console.log("🔄 ניסיון חוזר עם מסמך אחד בלבד...")
-      const reducedDocuments = documents.slice(0, 1)
+      console.log("🔄 ניסיון חוזר עם פחות מסמכים...")
+      const reducedDocuments = documents.slice(0, 1) // רק המסמך הכי רלוונטי
       return await generateAnswer(question, reducedDocuments, language)
     }
 
@@ -104,7 +217,7 @@ Answer:`
   }
 }
 
-// תשובת fallback עם תווית ברורה
+// תשובת fallback מקוצרת
 async function generateFallbackAnswer(
   question: string,
   language: "he" | "en",
@@ -114,8 +227,8 @@ async function generateFallbackAnswer(
 
     const systemPrompt =
       language === "he"
-        ? `תן תשובה קצרה ומועילה בנושא חירום וביטחון. היה זהיר ומדויק.`
-        : `Provide a brief, helpful answer about emergency and security topics. Be careful and accurate.`
+        ? `תן תשובה קצרה ומועילה. ציין שהמידע אינו מבוסס על מסמכים רשמיים של פיקוד העורף.`
+        : `Provide a brief, helpful answer. Mention that information is not based on official Home Front Command documents.`
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
@@ -123,60 +236,21 @@ async function generateFallbackAnswer(
         { role: "system", content: systemPrompt },
         { role: "user", content: question },
       ],
-      temperature: 0.3,
-      max_tokens: 250,
+      temperature: 0.5,
+      max_tokens: 300, // הקטנתי מ-500 ל-300
     })
 
-    const baseAnswer = completion.choices[0]?.message?.content || ""
-
-    // הוספת תווית ברורה לתשובת fallback
-    const labeledAnswer =
-      language === "he"
-        ? `${baseAnswer}\n\n⚠️ (הערה: תשובה זו נכתבה ללא מידע שנשלף ממסמכים של פיקוד העורף)`
-        : `${baseAnswer}\n\n⚠️ (Note: This answer was written without information extracted from Home Front Command documents)`
-
+    const answer = completion.choices[0]?.message?.content || ""
     console.log("✅ תשובת fallback נוצרה בהצלחה")
 
-    return { answer: labeledAnswer, usedFallback: true }
+    return { answer, usedFallback: true }
   } catch (error) {
     console.error("❌ שגיאה ביצירת תשובת fallback:", error)
     throw error
   }
 }
 
-// הוסף את פונקציית הערכת איכות התשובה
-async function evaluateAnswerQuality(question: string, answer: string): Promise<boolean> {
-  try {
-    const prompt = `
-שאלה:
-${question}
-
-תשובה מוצעת:
-${answer}
-
-האם התשובה מספקת מענה מדויק, ברור ורלוונטי לשאלה?
-ענה רק "כן" או "לא". אין צורך בנימוק.
-`
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo", // גרסה חסכונית
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 10,
-      temperature: 0,
-    })
-
-    const content = response.choices?.[0]?.message?.content?.toLowerCase() || ""
-    const isGoodQuality = content.includes("כן")
-
-    console.log(`🔍 הערכת איכות התשובה: ${isGoodQuality ? "טובה" : "לא מספקת"}`)
-    return isGoodQuality
-  } catch (error) {
-    console.error("❌ שגיאה בהערכת איכות התשובה:", error)
-    return false // במקרה של שגיאה, נניח שהתשובה לא טובה
-  }
-}
-
-// החלף את הפונקציה processRAGQuery הקיימת בזו החדשה
+// הפונקציה הראשית
 export async function processRAGQuery(question: string): Promise<{
   answer: string
   sources: Array<{
@@ -186,156 +260,50 @@ export async function processRAGQuery(question: string): Promise<{
     similarity: number
   }>
   usedFallback: boolean
-  usedWebSearch: boolean
   error?: string
 }> {
   try {
-    console.log("🚀 מתחיל עיבוד שאלה עם שכבת החלטה חכמה:", question)
+    console.log("🚀 מתחיל עיבוד שאלה:", question)
 
     // זיהוי שפה
     const language = detectLanguage(question)
     console.log("🌐 שפה שזוהתה:", language)
 
-    // שלב 1: ניסיון RAG רגיל
-    console.log("📚 שלב 1: חיפוש במסמכים פנימיים...")
-
+    // יצירת embedding
     const embedding = await createEmbedding(question)
+
+    // חיפוש מסמכים
     const documents = await searchSimilarDocuments(embedding, language)
 
-    // אם לא נמצאו מסמכים כלל - עבור ישר לחיפוש אינטרנטי
-    if (documents.length === 0) {
-      console.log("⚠️ לא נמצאו מסמכים רלוונטיים, עובר לחיפוש אינטרנטי...")
-      return await performWebSearchFallback(question, language)
-    }
+    // יצירת תשובה
+    const { answer, usedFallback } = await generateAnswer(question, documents, language)
 
-    // שלב 2: יצירת תשובה מהמסמכים
-    console.log("🤖 שלב 2: יצירת תשובה מהמסמכים...")
-    const { answer: ragAnswer, usedFallback } = await generateAnswer(question, documents, language)
+    // הכנת מקורות
+    const sources = documents.map((doc) => ({
+      title: doc.title,
+      file_name: doc.file_name,
+      storage_path: doc.storage_path,
+      similarity: Math.round(doc.similarity * 100),
+    }))
 
-    // אם השתמשנו ב-fallback כבר בשלב הזה, לא נבדוק איכות
-    if (usedFallback) {
-      console.log("⚠️ נעשה שימוש ב-fallback פנימי, מחזיר תשובה...")
-      return {
-        answer: ragAnswer,
-        sources: [],
-        usedFallback: true,
-        usedWebSearch: false,
-      }
-    }
+    console.log("✅ עיבוד הושלם בהצלחה")
 
-    // שלב 3: הערכת איכות התשובה
-    console.log("🔍 שלב 3: הערכת איכות התשובה...")
-    const isQualityGood = await evaluateAnswerQuality(question, ragAnswer)
-
-    if (isQualityGood) {
-      // התשובה טובה - מחזירים אותה עם המקורות
-      console.log("✅ התשובה איכותית, מחזיר תשובה מהמסמכים")
-
-      const sources = documents.map((doc) => ({
-        title: doc.title,
-        file_name: doc.file_name,
-        storage_path: doc.storage_path,
-        similarity: Math.round(doc.similarity * 100),
-      }))
-
-      return {
-        answer: ragAnswer,
-        sources,
-        usedFallback: false,
-        usedWebSearch: false,
-      }
-    } else {
-      // התשובה לא מספקת - עובר לחיפוש אינטרנטי
-      console.log("⚠️ התשובה לא מספקת, עובר לחיפוש אינטרנטי...")
-      return await performWebSearchFallback(question, language)
+    return {
+      answer,
+      sources,
+      usedFallback,
     }
   } catch (error) {
     console.error("❌ שגיאה כללית בעיבוד:", error)
 
-    // במקרה של שגיאה, ננסה חיפוש אינטרנטי כ-fallback אחרון
-    try {
-      console.log("🔄 ניסיון fallback עם חיפוש אינטרנטי...")
-      const language = detectLanguage(question)
-      return await performWebSearchFallback(question, language)
-    } catch (fallbackError) {
-      console.error("❌ גם חיפוש אינטרנטי נכשל:", fallbackError)
-
-      return {
-        answer: "מצטער, אירעה שגיאה בעיבוד השאלה שלך. אנא נסה שוב או פנה לאתר פיקוד העורף.",
-        sources: [],
-        usedFallback: true,
-        usedWebSearch: false,
-        error: error instanceof Error ? error.message : JSON.stringify(error),
-      }
-    }
-  }
-}
-
-// פונקציה עזר לביצוע חיפוש אינטרנטי
-async function performWebSearchFallback(
-  question: string,
-  language: "he" | "en",
-): Promise<{
-  answer: string
-  sources: Array<{
-    title: string
-    file_name: string
-    storage_path: string
-    similarity: number
-  }>
-  usedFallback: boolean
-  usedWebSearch: boolean
-}> {
-  try {
-    console.log("🌐 מבצע חיפוש אינטרנטי...")
-
-    const searchResults = await searchWeb(question)
-
-    if (searchResults.success && searchResults.results.length > 0) {
-      const webAnswer = await generateWebAnswer(question, searchResults.results, language)
-
-      // הוסף מיפוי המקורות מתוצאות החיפוש
-      const webSources = searchResults.results.map((res, i) => ({
-        title: res.title,
-        file_name: `web_result_${i + 1}`,
-        storage_path: res.url,
-        similarity: Math.round(res.score * 100),
-      }))
-
-      return {
-        answer: webAnswer,
-        sources: webSources, // במקום מערך ריק
-        usedFallback: false,
-        usedWebSearch: true,
-      }
-    } else {
-      // גם חיפוש אינטרנטי נכשל - fallback סופי
-      console.log("⚠️ גם חיפוש אינטרנטי נכשל, משתמש ב-fallback סופי...")
-      const { answer } = await generateFallbackAnswer(question, language)
-
-      return {
-        answer,
-        sources: [],
-        usedFallback: true,
-        usedWebSearch: false,
-      }
-    }
-  } catch (error) {
-    console.error("❌ שגיאה בחיפוש אינטרנטי:", error)
-
-    // fallback סופי
-    const { answer } = await generateFallbackAnswer(question, language)
-
     return {
-      answer,
+      answer: "מצטער, אירעה שגיאה בעיבוד השאלה שלך. אנא נסה שוב.",
       sources: [],
       usedFallback: true,
-      usedWebSearch: false,
+      error: error instanceof Error ? error.message : JSON.stringify(error),
     }
   }
 }
-
-// הוסף את הפונקציות החסרות בסוף הקובץ:
 
 // ניהול שיחות - יצירת session חדש עם user_id
 export async function createChatSession(userId?: string): Promise<string> {
