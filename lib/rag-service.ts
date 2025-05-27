@@ -290,9 +290,17 @@ async function performWebSearchFallback(
     if (searchResults.success && searchResults.results.length > 0) {
       const webAnswer = await generateWebAnswer(question, searchResults.results, language)
 
+      // הוסף מיפוי המקורות מתוצאות החיפוש
+      const webSources = searchResults.results.map((res, i) => ({
+        title: res.title,
+        file_name: `web_result_${i + 1}`,
+        storage_path: res.url,
+        similarity: Math.round(res.score * 100),
+      }))
+
       return {
         answer: webAnswer,
-        sources: [], // אין מקורות פנימיים
+        sources: webSources, // במקום מערך ריק
         usedFallback: false,
         usedWebSearch: true,
       }
