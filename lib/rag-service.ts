@@ -74,7 +74,7 @@ Answer:`
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [{ role: "user", content: STEPBACK_PROMPT }],
-      temperature: 0.1, // הקטנתי מ-0.3 ל-0.1 לדיוק גבוה יותר
+      temperature: 0.2, // הקטנתי מ-0.3 ל-0.2 לדיוק גבוה יותר
       max_tokens: 600,
     })
 
