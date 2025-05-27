@@ -1,5 +1,9 @@
 import OpenAI from "openai"
 import { estimateTokens } from "./token-estimator"
+// הוסף את הייבוא בתחילת הקובץ
+import { searchWeb, generateWebAnswer } from "./web-search-service"
+import { detectLanguage } from "./language-detector"
+import { createEmbedding, searchSimilarDocuments } from "./vector-search"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -133,5 +137,188 @@ async function generateFallbackAnswer(
   } catch (error) {
     console.error("❌ שגיאה ביצירת תשובת fallback:", error)
     throw error
+  }
+}
+
+// הוסף את פונקציית הערכת איכות התשובה
+async function evaluateAnswerQuality(question: string, answer: string): Promise<boolean> {
+  try {
+    const prompt = `
+שאלה:
+${question}
+
+תשובה מוצעת:
+${answer}
+
+האם התשובה מספקת מענה מדויק, ברור ורלוונטי לשאלה?
+ענה רק "כן" או "לא". אין צורך בנימוק.
+`
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo", // גרסה חסכונית
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 10,
+      temperature: 0,
+    })
+
+    const content = response.choices?.[0]?.message?.content?.toLowerCase() || ""
+    const isGoodQuality = content.includes("כן")
+
+    console.log(`🔍 הערכת איכות התשובה: ${isGoodQuality ? "טובה" : "לא מספקת"}`)
+    return isGoodQuality
+  } catch (error) {
+    console.error("❌ שגיאה בהערכת איכות התשובה:", error)
+    return false // במקרה של שגיאה, נניח שהתשובה לא טובה
+  }
+}
+
+// החלף את הפונקציה processRAGQuery הקיימת בזו החדשה
+export async function processRAGQuery(question: string): Promise<{
+  answer: string
+  sources: Array<{
+    title: string
+    file_name: string
+    storage_path: string
+    similarity: number
+  }>
+  usedFallback: boolean
+  usedWebSearch: boolean
+  error?: string
+}> {
+  try {
+    console.log("🚀 מתחיל עיבוד שאלה עם שכבת החלטה חכמה:", question)
+
+    // זיהוי שפה
+    const language = detectLanguage(question)
+    console.log("🌐 שפה שזוהתה:", language)
+
+    // שלב 1: ניסיון RAG רגיל
+    console.log("📚 שלב 1: חיפוש במסמכים פנימיים...")
+
+    const embedding = await createEmbedding(question)
+    const documents = await searchSimilarDocuments(embedding, language)
+
+    // אם לא נמצאו מסמכים כלל - עבור ישר לחיפוש אינטרנטי
+    if (documents.length === 0) {
+      console.log("⚠️ לא נמצאו מסמכים רלוונטיים, עובר לחיפוש אינטרנטי...")
+      return await performWebSearchFallback(question, language)
+    }
+
+    // שלב 2: יצירת תשובה מהמסמכים
+    console.log("🤖 שלב 2: יצירת תשובה מהמסמכים...")
+    const { answer: ragAnswer, usedFallback } = await generateAnswer(question, documents, language)
+
+    // אם השתמשנו ב-fallback כבר בשלב הזה, לא נבדוק איכות
+    if (usedFallback) {
+      console.log("⚠️ נעשה שימוש ב-fallback פנימי, מחזיר תשובה...")
+      return {
+        answer: ragAnswer,
+        sources: [],
+        usedFallback: true,
+        usedWebSearch: false,
+      }
+    }
+
+    // שלב 3: הערכת איכות התשובה
+    console.log("🔍 שלב 3: הערכת איכות התשובה...")
+    const isQualityGood = await evaluateAnswerQuality(question, ragAnswer)
+
+    if (isQualityGood) {
+      // התשובה טובה - מחזירים אותה עם המקורות
+      console.log("✅ התשובה איכותית, מחזיר תשובה מהמסמכים")
+
+      const sources = documents.map((doc) => ({
+        title: doc.title,
+        file_name: doc.file_name,
+        storage_path: doc.storage_path,
+        similarity: Math.round(doc.similarity * 100),
+      }))
+
+      return {
+        answer: ragAnswer,
+        sources,
+        usedFallback: false,
+        usedWebSearch: false,
+      }
+    } else {
+      // התשובה לא מספקת - עובר לחיפוש אינטרנטי
+      console.log("⚠️ התשובה לא מספקת, עובר לחיפוש אינטרנטי...")
+      return await performWebSearchFallback(question, language)
+    }
+  } catch (error) {
+    console.error("❌ שגיאה כללית בעיבוד:", error)
+
+    // במקרה של שגיאה, ננסה חיפוש אינטרנטי כ-fallback אחרון
+    try {
+      console.log("🔄 ניסיון fallback עם חיפוש אינטרנטי...")
+      const language = detectLanguage(question)
+      return await performWebSearchFallback(question, language)
+    } catch (fallbackError) {
+      console.error("❌ גם חיפוש אינטרנטי נכשל:", fallbackError)
+
+      return {
+        answer: "מצטער, אירעה שגיאה בעיבוד השאלה שלך. אנא נסה שוב או פנה לאתר פיקוד העורף.",
+        sources: [],
+        usedFallback: true,
+        usedWebSearch: false,
+        error: error instanceof Error ? error.message : JSON.stringify(error),
+      }
+    }
+  }
+}
+
+// פונקציה עזר לביצוע חיפוש אינטרנטי
+async function performWebSearchFallback(
+  question: string,
+  language: "he" | "en",
+): Promise<{
+  answer: string
+  sources: Array<{
+    title: string
+    file_name: string
+    storage_path: string
+    similarity: number
+  }>
+  usedFallback: boolean
+  usedWebSearch: boolean
+}> {
+  try {
+    console.log("🌐 מבצע חיפוש אינטרנטי...")
+
+    const searchResults = await searchWeb(question)
+
+    if (searchResults.success && searchResults.results.length > 0) {
+      const webAnswer = await generateWebAnswer(question, searchResults.results, language)
+
+      return {
+        answer: webAnswer,
+        sources: [], // אין מקורות פנימיים
+        usedFallback: false,
+        usedWebSearch: true,
+      }
+    } else {
+      // גם חיפוש אינטרנטי נכשל - fallback סופי
+      console.log("⚠️ גם חיפוש אינטרנטי נכשל, משתמש ב-fallback סופי...")
+      const { answer } = await generateFallbackAnswer(question, language)
+
+      return {
+        answer,
+        sources: [],
+        usedFallback: true,
+        usedWebSearch: false,
+      }
+    }
+  } catch (error) {
+    console.error("❌ שגיאה בחיפוש אינטרנטי:", error)
+
+    // fallback סופי
+    const { answer } = await generateFallbackAnswer(question, language)
+
+    return {
+      answer,
+      sources: [],
+      usedFallback: true,
+      usedWebSearch: false,
+    }
   }
 }
