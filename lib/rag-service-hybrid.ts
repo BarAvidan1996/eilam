@@ -151,7 +151,9 @@ async function routeQuery(question: string): Promise<"documents" | "tavily"> {
   console.log("🧭 Router - מחליט על מסלול עבור:", question)
 
   const prompt = `
-אתה עוזר של פיקוד העורף. האם השאלה הבאה דורשת מידע עדכני מהאינטרנט או שניתן לענות עליה ממסמכי הדרכה קיימים?
+אתה עוזר חכם של פיקוד העורף.
+מטרתך היא להחליט אם השאלה של המשתמש דורשת מידע עדכני מהאינטרנט או שאפשר להשיב עליה ממסמכי הדרכה קיימים.
+
 
 שאלות שדורשות אינטרנט (כתוב: tavily):
 - שאלות על מצב נוכחי, אירועים אחרונים, זמנים ספציפיים
