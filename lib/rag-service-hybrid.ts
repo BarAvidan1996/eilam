@@ -7,7 +7,8 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 
 // Utility: detect language
 export function detectLanguage(text: string): "he" | "en" {
-  return /[\u0590-\u05FF]/.test(text) ? "he" : "en"
+  const hebrewPattern = /[\u0590-\u05FF]/
+  return hebrewPattern.test(text) ? "he" : "en"
 }
 
 // Utility: estimate tokens
@@ -42,6 +43,10 @@ export async function searchSimilarDocuments(embedding: number[], language: "he"
 
 // Step 3: Generate answer from documents
 async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" | "en") {
+  console.log("🤖 generateAnswerFromDocs - התחלה")
+  console.log("  - שאלה:", question)
+  console.log("  - מסמכים:", docs.length)
+
   let context = ""
   let len = 0
   for (const doc of docs) {
@@ -55,26 +60,49 @@ async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" 
     len += txt.length
   }
 
+  console.log("📊 הקשר:", context.substring(0, 200) + "...")
+
   const prompt =
     lang === "he"
-      ? `אתה עוזר AI של פיקוד העורף. תשתמש רק במידע הבא.
+      ? `אתה עוזר חכם של פיקוד העורף בישראל. תפקידך לספק תשובות מדויקות, אמינות ועדכניות לשאלות הקשורות למצבי חירום בישראל.
+
+לפני מתן התשובה, קח צעד אחורה וחשב מה המידע המרכזי הנדרש כדי לענות על השאלה בצורה מדויקת ובטוחה.
+
+חשיבה מופשטת:
+- על מה השאלה הזו עוסקת ביסודה?
+- איזה סוג תשובה צריך לתת (פרוצדורלית, עובדתית, מבוססת בטיחות)?
+
+השתמש רק במידע הבא כדי לענות בעברית ברורה וידידותית לציבור:
+
+הקשר רלוונטי:
 ${context}
-שאלה: ${question}
-ענה בעברית מדויקת וציין מקורות.`
+
+שאלה:
+${question}
+
+תשובה:`
       : `You are an AI assistant. Use only the following information.
 ${context}
 Question: ${question}
 Answer in English with sources.`
 
+  console.log("📝 פרומפט סופי:", prompt.substring(0, 200) + "...")
+
   const totalTokens = estimateTokens(prompt)
   if (totalTokens > 3500) throw new Error("Too many tokens")
+
+  console.log("🔄 שולח בקשה ל-OpenAI...")
 
   const res = await openai.chat.completions.create({
     model: "gpt-4",
     messages: [{ role: "user", content: prompt }],
-    temperature: 0.3,
-    max_tokens: 800,
+    temperature: 0.1,
+    max_tokens: 500,
   })
+
+  const answer = res.choices[0]?.message?.content || ""
+  console.log("✅ תשובה התקבלה:", answer.substring(0, 200) + "...")
+  console.log("🏁 generateAnswerFromDocs - סיום")
 
   return res.choices[0]?.message?.content || ""
 }
