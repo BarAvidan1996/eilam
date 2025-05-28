@@ -19,6 +19,7 @@ interface Message {
     file_name: string
     similarity: number
     storage_path?: string
+    url?: string // הוספת שדה URL למקורות web
   }>
 }
 
@@ -193,9 +194,30 @@ export default function ChatPage() {
     return finalUrl.startsWith("http") ? finalUrl : null
   }
 
-  // פונקציה לפתיחת מקור מה-storage
-  const openSource = async (source: { title: string; file_name: string; storage_path?: string }) => {
+  // פונקציה לפתיחת מקור מה-storage או מ-web
+  const openSource = async (source: {
+    title: string
+    file_name: string
+    similarity: number
+    storage_path?: string
+    url?: string
+  }) => {
     try {
+      // אם יש URL ישיר (ממקורות web), פותח אותו ישירות
+      if (source.url) {
+        console.log("🌐 פותח מקור web:", source.url)
+        window.open(source.url, "_blank", "noopener,noreferrer")
+        return
+      }
+
+      // אם אין URL אבל יש file_name שמתחיל ב-http, זה כנראה URL
+      if (source.file_name && source.file_name.startsWith("http")) {
+        console.log("🌐 פותח URL מ-file_name:", source.file_name)
+        window.open(source.file_name, "_blank", "noopener,noreferrer")
+        return
+      }
+
+      // אחרת, זה מקור RAG - ממשיך עם הלוגיקה הקיימת
       if (source.storage_path) {
         console.log("🔍 מנסה לחלץ URL מקורי מקובץ HTML:", source.storage_path)
 

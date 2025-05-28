@@ -29,11 +29,10 @@ export async function searchWebViaTavily(query: string): Promise<{
       },
       body: JSON.stringify({
         query,
-        search_depth: "advanced",
+        search_depth: "basic",
         include_answer: false,
         include_raw_content: false,
-        max_results: 4,
-        time_range: "month",
+        max_results: 3,
         //include_domains: ["oref.org.il", "gov.il"],
       }),
     })
@@ -76,10 +75,7 @@ export async function generateAnswerFromWeb(
     temperature: 0.3,
   })
 
-  let answer = response.choices[0]?.message?.content || ""
-  // הסרת הקישור מהתשובה
-  answer = answer.replace(/$$מקור:.*$$/g, "")
-  answer = answer.replace(/\$$מקור:.*\$$/g, "")
+  const answer = response.choices[0]?.message?.content || ""
 
   return (
     answer +
