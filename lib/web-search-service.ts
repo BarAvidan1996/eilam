@@ -29,7 +29,7 @@ export async function searchWebViaTavily(query: string): Promise<{
       },
       body: JSON.stringify({
         query,
-        search_depth: "basic",
+        search_depth: "advanced",
         include_answer: false,
         include_raw_content: false,
         max_results: 5,
