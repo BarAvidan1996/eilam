@@ -1,5 +1,4 @@
 import OpenAI from "openai"
-import type { TimeEntity } from "./time-entity-extractor"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -12,10 +11,7 @@ export interface WebSearchResult {
   score: number
 }
 
-export async function searchWebViaTavily(
-  query: string,
-  timeEntity?: TimeEntity,
-): Promise<{
+export async function searchWebViaTavily(query: string): Promise<{
   success: boolean
   results: WebSearchResult[]
 }> {
@@ -25,64 +21,27 @@ export async function searchWebViaTavily(
       return { success: false, results: [] }
     }
 
-    console.log("🌐 מבצע חיפוש Tavily:", query)
-    console.log("🕐 ישויות זמן:", timeEntity)
-
-    // בניית payload עם ישויות זמן
-    const payload: any = {
-      query,
-      topic: "general",
-      search_depth: "basic",
-      chunks_per_source: 3,
-      max_results: 3,
-      include_answer: false,
-      include_raw_content: false,
-      include_images: false,
-      include_image_descriptions: false,
-      include_domains: ["oref.org.il", "news.walla.co.il", "ynet.co.il", "mako.co.il", "kan.org.il"],
-      exclude_domains: [],
-    }
-
-    // הוספת פרמטרי זמן בהתבסס על ישויות שחולצו
-    if (timeEntity) {
-      if (timeEntity.days) {
-        payload.days = timeEntity.days
-        console.log(`🕐 מחפש ב-${timeEntity.days} ימים אחרונים`)
-      }
-
-      if (timeEntity.timeRange) {
-        payload.time_range = timeEntity.timeRange
-        console.log(`🕐 מחפש בטווח זמן: ${timeEntity.timeRange}`)
-      }
-
-      if (timeEntity.isRecent && !timeEntity.days) {
-        payload.days = 7 // ברירת מחדל לחיפוש עדכני
-        console.log("🕐 חיפוש עדכני - 7 ימים אחרונים")
-      }
-    }
-
-    console.log("📦 Payload שנשלח ל-Tavily:", JSON.stringify(payload, null, 2))
-
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${process.env.TAVILY_API_KEY}`,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        query,
+        search_depth: "basic",
+        include_answer: false,
+        include_raw_content: false,
+        max_results: 3,
+        //include_domains: ["oref.org.il", "gov.il"],
+      }),
     })
 
-    console.log("📡 תגובת Tavily - Status:", response.status)
-
     if (!response.ok) {
-      const errorText = await response.text()
-      console.error("❌ Tavily error response:", errorText)
-      throw new Error(`Tavily error ${response.status}: ${errorText}`)
+      throw new Error(`Tavily error ${response.status}`)
     }
 
     const data = await response.json()
-    console.log("📄 תגובת Tavily מלאה:", JSON.stringify(data, null, 2))
-
     const results = (data.results || []).map((r: any) => ({
       title: r.title || "",
       content: r.content || "",
@@ -90,16 +49,9 @@ export async function searchWebViaTavily(
       score: r.score || 0,
     }))
 
-    console.log("✅ Tavily החזיר תוצאות:", results.length)
-    results.forEach((result, i) => {
-      console.log(`  ${i + 1}. ${result.title} (${result.score})`)
-      console.log(`     URL: ${result.url}`)
-      console.log(`     Content: ${result.content.substring(0, 100)}...`)
-    })
-
     return { success: true, results }
   } catch (err) {
-    console.error("❌ שגיאה ב-Tavily:", err)
+    console.error("❌ שגיאה ב-searchWebViaTavily:", err)
     return { success: false, results: [] }
   }
 }
@@ -111,35 +63,10 @@ export async function generateAnswerFromWeb(
 ): Promise<string> {
   const context = results.map((r, i) => `(${i + 1}) ${r.title}\n${r.content.slice(0, 300)}\nURL: ${r.url}`).join("\n\n")
 
-  const now = new Date()
-  const currentDate = now.toLocaleDateString("he-IL", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
-
   const prompt =
     language === "he"
-      ? `ענה על השאלה על בסיס המידע הבא מהאינטרנט. ציין מקורות ותאריכים מדויקים.
-
-התאריך הנוכחי: ${currentDate}
-
-מידע מהאינטרנט:
-${context}
-
-שאלה: ${question}
-
-תשובה מפורטת עם תאריכים מדויקים:`
-      : `Answer the question based on the following web data. Include sources and exact dates.
-
-Current date: ${currentDate}
-
-Web information:
-${context}
-
-Question: ${question}
-
-Detailed answer with exact dates:`
+      ? `ענה על השאלה על בסיס המידע הבא מהאינטרנט. ציין מקורות.\n\n${context}\n\nשאלה: ${question}`
+      : `Answer the question based on the following web data. Include sources.\n\n${context}\n\nQuestion: ${question}`
 
   const response = await openai.chat.completions.create({
     model: "gpt-4",
@@ -153,7 +80,7 @@ Detailed answer with exact dates:`
   return (
     answer +
     (language === "he"
-      ? `\n\n🌐 (מידע זה נמצא באמצעות חיפוש אינטרנטי נכון ל-${currentDate})`
-      : `\n\n🌐 (This information was retrieved from web search as of ${currentDate})`)
+      ? "\n\n🌐 (תשובה זו מבוססת על מידע מהאינטרנט ולא ממסמכים פנימיים)"
+      : "\n\n🌐 (This answer is based on web information, not internal documents)")
   )
 }

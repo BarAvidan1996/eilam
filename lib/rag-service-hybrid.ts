@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 import { searchWebViaTavily, generateAnswerFromWeb } from "./web-search-service"
-import { extractTimeEntities, type TimeEntity } from "./time-entity-extractor"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
@@ -31,10 +30,10 @@ export async function createEmbedding(text: string): Promise<number[]> {
 }
 
 // Step 2: Search in internal documents (Supabase RAG)
-export async function searchSimilarDocuments(embedding: number[], language: "he" | "en", limit = 5) {
+export async function searchSimilarDocuments(embedding: number[], language: "he" | "en", limit = 3) {
   const { data, error } = await supabase.rpc("match_documents", {
     query_embedding: embedding,
-    match_threshold: 0.7,
+    match_threshold: 0.8,
     match_count: limit,
     filter_language: language,
   })
@@ -56,10 +55,10 @@ async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" 
   let context = ""
   let len = 0
   for (const doc of docs) {
-    const txt = `מסמך ${docs.indexOf(doc) + 1}:\n${doc.plain_text}\n\n---\n\n`
-    if (len + txt.length > 3000) {
-      const short = truncateText(doc.plain_text, 3000 - len - 50)
-      context += `מסמך ${docs.indexOf(doc) + 1}:\n${short}\n\n---\n\n`
+    const txt = `מקור: ${doc.title}\nתוכן: ${doc.plain_text}\n\n`
+    if (len + txt.length > 2000) {
+      const short = truncateText(doc.plain_text, 2000 - len - doc.title.length - 20)
+      context += `מקור: ${doc.title}\nתוכן: ${short}\n\n`
       break
     }
     context += txt
@@ -72,31 +71,30 @@ async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" 
     lang === "he"
       ? `אתה עוזר חכם של פיקוד העורף בישראל. תפקידך לספק תשובות מדויקות, אמינות ועדכניות לשאלות הקשורות למצבי חירום בישראל.
 
-ענה על השאלה בהתבסס על המידע הבא. אם המידע לא מספיק מדויק, השתמש בידע הכללי שלך בנושאי חירום והיערכות, אבל ציין זאת.
+לפני מתן התשובה, קח צעד אחורה וחשב מה המידע המרכזי הנדרש כדי לענות על השאלה בצורה מדויקת ובטוחה.
 
-מידע רלוונטי:
+חשיבה מופשטת:
+- על מה השאלה הזו עוסקת ביסודה?
+- איזה סוג תשובה צריך לתת (פרוצדורלית, עובדתית, מבוססת בטיחות)?
+
+תשתמש קודם כל במידע הבא כדי לענות בעברית ברורה וידידותית לציבור:
+
+הקשר רלוונטי:
 ${context}
 
 שאלה:
 ${question}
 
-תשובה מפורטת ומועילה:`
-      : `You are a Home Front Command assistant. Answer based on the following information, and use your general emergency knowledge if needed.
-
-Relevant information:
+תשובה:`
+      : `You are an AI assistant. Use only the following information.
 ${context}
-
 Question: ${question}
+Answer in English with sources.`
 
-Detailed answer:`
-
-  console.log("📝 פרומפט סופי:", prompt.substring(0, 300) + "...")
+  console.log("📝 פרומפט סופי:", prompt.substring(0, 200) + "...")
 
   const totalTokens = estimateTokens(prompt)
-  if (totalTokens > 4000) {
-    console.log("⚠️ יותר מדי טוקנים, מקצר הקשר")
-    context = context.substring(0, 2000) + "..."
-  }
+  if (totalTokens > 3500) throw new Error("Too many tokens")
 
   console.log("🔄 שולח בקשה ל-OpenAI...")
 
@@ -104,7 +102,7 @@ Detailed answer:`
     model: "gpt-4",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.1,
-    max_tokens: 600,
+    max_tokens: 500,
   })
 
   const answer = res.choices[0]?.message?.content || ""
@@ -120,86 +118,50 @@ async function generateFallbackAnswer(question: string, lang: "he" | "en") {
 
   const prompt =
     lang === "he"
-      ? `אתה עוזר חכם של פיקוד העורף בישראל. ענה על השאלה הבאה בהתבסס על הידע הכללי שלך בנושאי חירום והיערכות:
+      ? `אתה עוזר חכם של פיקוד העורף. ענה על השאלה הבאה בהתבסס על הידע הכללי שלך:
 
 שאלה: ${question}
 
-תשובה מפורטת ומועילה:`
-      : `You are a Home Front Command assistant. Answer the following question based on your general knowledge of emergency preparedness:
+תשובה:`
+      : `You are a Home Front Command assistant. Answer the following question based on your general knowledge:
 
 Question: ${question}
 
-Detailed answer:`
+Answer:`
 
   const res = await openai.chat.completions.create({
     model: "gpt-4",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.1,
-    max_tokens: 600,
+    max_tokens: 500,
   })
 
   const answer = res.choices[0]?.message?.content || ""
   const fallbackNote =
     lang === "he"
-      ? "\n\n(הערה: תשובה זו ניתנה בהתבסס על ידע כללי במצבי חירום, מומלץ לוודא באתר פיקוד העורף)"
-      : "\n\n(Note: This answer is based on general emergency knowledge, please verify on the Home Front Command website)"
+      ? "\n\n(הערה: תשובה זו ניתנה באופן כללי לפי הבנת המערכת, ללא הסתמכות על מסמך מאומת.)"
+      : "\n\n(Note: This answer was provided generally based on the system's understanding, without reliance on verified documents.)"
 
   console.log("✅ Fallback answer generated")
   return answer + fallbackNote
 }
 
 // Step 5: Router - decide between 'documents' and 'tavily'
-async function routeQuery(question: string): Promise<{ route: "documents" | "tavily"; timeEntity?: TimeEntity }> {
+async function routeQuery(question: string): Promise<"documents" | "tavily"> {
   console.log("🧭 Router - מחליט על מסלול עבור:", question)
 
-  // בדיקה פשוטה למילות מפתח שמצביעות על חיפוש עדכני
-  const webKeywords = [
-    "היום",
-    "השבוע",
-    "החודש",
-    "לאחרונה",
-    "עכשיו",
-    "נכון להיום",
-    "מתי הפעם האחרונה",
-    "מה המצב הנוכחי",
-    "חדשות",
-    "עדכני",
-    "אחרון",
-    "האחרונה",
-  ]
-
-  const hasWebKeywords = webKeywords.some((keyword) => question.includes(keyword))
-
-  if (hasWebKeywords) {
-    console.log(
-      "🧭 Router זיהה מילות מפתח לחיפוש אינטרנטי:",
-      webKeywords.filter((k) => question.includes(k)),
-    )
-    const timeEntity = await extractTimeEntities(question)
-    return { route: "tavily", timeEntity }
-  }
-
-  // אם אין מילות מפתח ברורות, שאל את GPT
   const prompt = `
-אתה עוזר של פיקוד העורף. האם השאלה הבאה דורשת מידע עדכני מהאינטרנט או שניתן לענות עליה ממסמכי הדרכה קיימים?
+אתה עוזר של פיקוד העורף. האם השאלה הבאה דורשת מידע עדכני מהאינטרנט (כמו חדשות, מצב נוכחי, אירועים אחרונים) או שניתן לענות עליה ממסמכי הדרכה קיימים?
 
-שאלות שדורשות אינטרנט - רק אם הן על:
-- מידע עדכני/חדשותי
-- אירועים ספציפיים שקרו
-- מצב נוכחי
-- זמנים ספציפיים ("מתי", "היום", "השבוע")
+דוגמאות לשאלות שדורשות אינטרנט:
+- "מה המצב הנוכחי בעזה?"
+- "מתי הייתה האזעקה האחרונה?"
+- "מה החדשות היום?"
 
-שאלות שלא דורשות אינטרנט - כל השאר:
-- הוראות כלליות ("מה עושים ב...")
-- הסברים ("מה זה...")
-- הנחיות בטיחות
-- הכנות לחירום
-
-דוגמאות:
-"יש אזעקה ואני לא יודעת לאן ללכת" → documents (הוראות כלליות)
-"מה עושים באזעקה" → documents (הוראות כלליות)
-"מתי הייתה האזעקה האחרונה בתל אביב" → tavily (מידע עדכני)
-"מה המצב הנוכחי בעזה" → tavily (מידע עדכני)
+דוגמאות לשאלות שלא דורשות אינטרנט:
+- "מה עושים באזעקה?"
+- "איך מתכוננים לרעידת אדמה?"
+- "מה זה מקלט?"
 
 אם השאלה דורשת מידע עדכני מהאינטרנט, כתוב רק: tavily
 אם השאלה לא דורשת מידע עדכני, כתוב רק: documents
@@ -215,17 +177,10 @@ ${question}`
   })
 
   const content = res.choices[0]?.message?.content?.toLowerCase().trim()
-  const route = content?.includes("tavily") ? "tavily" : "documents"
+  const decision = content?.includes("tavily") ? "tavily" : "documents"
 
-  console.log("🧭 Router החליט:", route, "עבור תוכן:", content)
-
-  // אם נבחר tavily, חלץ ישויות זמן
-  let timeEntity: TimeEntity | undefined
-  if (route === "tavily") {
-    timeEntity = await extractTimeEntities(question)
-  }
-
-  return { route, timeEntity }
+  console.log("🧭 Router החליט:", decision, "עבור תוכן:", content)
+  return decision
 }
 
 // Step 6: Hybrid process
@@ -246,7 +201,7 @@ export async function processRAGQuery(question: string): Promise<{
   const language = detectLanguage(question)
   console.log("🌐 שפה מזוהה:", language)
 
-  const { route, timeEntity } = await routeQuery(question)
+  const route = await routeQuery(question)
   console.log("📍 מסלול שנבחר:", route)
 
   try {
@@ -268,7 +223,7 @@ export async function processRAGQuery(question: string): Promise<{
 
       const answer = await generateAnswerFromDocs(question, documents, language)
 
-      if (!answer || answer.length < 50) {
+      if (!answer || answer.length < 20) {
         console.log("⚠️ תשובה חלשה ממסמכים, עובר ל-fallback כללי")
         const fallbackAnswer = await generateFallbackAnswer(question, language)
         return {
@@ -292,13 +247,15 @@ export async function processRAGQuery(question: string): Promise<{
       }
     } else {
       console.log("🌐 מעבד דרך חיפוש אינטרנטי")
-      return await processViaTavily(question, language, timeEntity)
+      return await processViaTavily(question, language)
     }
   } catch (err) {
     console.error("❌ שגיאה כללית בתהליך RAG:", err)
-    const fallbackAnswer = await generateFallbackAnswer(question, language)
     return {
-      answer: fallbackAnswer,
+      answer:
+        language === "he"
+          ? "מצטער, לא הצלחתי למצוא תשובה מהימנה לשאלה זו. מומלץ לבדוק באתר פיקוד העורף או לפנות לרשות מוסמכת."
+          : "Sorry, I couldn't find a reliable answer. Please check the Home Front Command website.",
       sources: [],
       usedFallback: true,
       usedWebSearch: false,
@@ -308,10 +265,10 @@ export async function processRAGQuery(question: string): Promise<{
 }
 
 // Step 7: Tavily-based Web Answer
-async function processViaTavily(question: string, language: "he" | "en", timeEntity?: TimeEntity) {
+async function processViaTavily(question: string, language: "he" | "en") {
   console.log("🌐 processViaTavily - התחלה")
 
-  const searchResults = await searchWebViaTavily(question, timeEntity)
+  const searchResults = await searchWebViaTavily(question)
   if (!searchResults.success || searchResults.results.length === 0) {
     console.log("⚠️ Tavily לא מצא תוצאות, עובר ל-fallback כללי")
     const fallbackAnswer = await generateFallbackAnswer(question, language)
