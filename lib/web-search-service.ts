@@ -16,67 +16,42 @@ export async function searchWebViaTavily(query: string): Promise<{
   results: WebSearchResult[]
 }> {
   try {
-    console.log("🌐 מבצע חיפוש אינטרנטי עם OpenAI Search:", query)
+    if (!process.env.TAVILY_API_KEY) {
+      console.warn("⚠️ אין TAVILY_API_KEY - מדלג על חיפוש אינטרנטי")
+      return { success: false, results: [] }
+    }
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-search-preview",
-      web_search_options: {
-        search_context_size: "low",
-        user_location: {
-          type: "approximate",
-          approximate: {
-            country: "IL",
-            city: "Tel Aviv",
-            region: "Tel Aviv",
-          },
-        },
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.TAVILY_API_KEY}`,
       },
-      messages: [
-        {
-          role: "system",
-          content: `אתה עוזר AI של פיקוד העורף הישראלי. 
-          
-תפקידך:
-1. לחפש מידע עדכני ומדויק באינטרנט
-2. לענות בעברית בצורה ברורה ומועילה
-3. להתמקד במידע רלוונטי לחירום והיערכות בישראל
-4. לציין אם המידע עדכני או לא
-
-הנחיות:
-- תן תשובה מפורטת ומעשית
-- אם השאלה קשורה לפיקוד העורף או חירום בישראל, חפש מידע ספציפי
-- ציין תאריכים אם רלוונטי
-- אם לא מוצא מידע עדכני, ציין זאת בבירור`,
-        },
-        {
-          role: "user",
-          content: query,
-        },
-      ],
-      max_tokens: 1000,
-      temperature: 0.3,
+      body: JSON.stringify({
+        query,
+        search_depth: "basic",
+        include_answer: false,
+        include_raw_content: false,
+        max_results: 3,
+        //include_domains: ["oref.org.il", "gov.il"],
+      }),
     })
 
-    const answer = completion.choices[0]?.message?.content || ""
-
-    console.log("✅ קיבלתי תגובה מ-OpenAI Search")
-    console.log("📊 Usage:", completion.usage)
-    console.log("🔍 Model used:", completion.model)
-
-    // יצירת תוצאה מדומה בפורמט של Tavily
-    const mockResult: WebSearchResult = {
-      title: "מידע עדכני מהאינטרנט - OpenAI Search",
-      content: answer,
-      url: "https://openai-search-result",
-      score: 1.0,
+    if (!response.ok) {
+      throw new Error(`Tavily error ${response.status}`)
     }
 
-    return {
-      success: true,
-      results: [mockResult],
-    }
+    const data = await response.json()
+    const results = (data.results || []).map((r: any) => ({
+      title: r.title || "",
+      content: r.content || "",
+      url: r.url || "",
+      score: r.score || 0,
+    }))
+
+    return { success: true, results }
   } catch (err) {
-    console.error("❌ שגיאה ב-OpenAI Search:", err)
+    console.error("❌ שגיאה ב-searchWebViaTavily:", err)
     return { success: false, results: [] }
   }
 }
@@ -86,14 +61,26 @@ export async function generateAnswerFromWeb(
   results: WebSearchResult[],
   language: "he" | "en",
 ): Promise<string> {
-  // עם OpenAI Search, התשובה כבר מוכנה ומעוצבת
-  const answer = results[0]?.content || ""
+  const context = results.map((r, i) => `(${i + 1}) ${r.title}\n${r.content.slice(0, 300)}\nURL: ${r.url}`).join("\n\n")
 
-  // הוספת תווית מקור אינטרנטי
-  const webNote =
+  const prompt =
     language === "he"
-      ? "\n\n🌐 (מידע זה נמצא באמצעות חיפוש אינטרנטי עדכני)"
-      : "\n\n🌐 (This information was retrieved from current web search)"
+      ? `ענה על השאלה על בסיס המידע הבא מהאינטרנט. ציין מקורות.\n\n${context}\n\nשאלה: ${question}`
+      : `Answer the question based on the following web data. Include sources.\n\n${context}\n\nQuestion: ${question}`
 
-  return answer + webNote
+  const response = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: 600,
+    temperature: 0.3,
+  })
+
+  const answer = response.choices[0]?.message?.content || ""
+
+  return (
+    answer +
+    (language === "he"
+      ? "\n\n🌐 (תשובה זו מבוססת על מידע מהאינטרנט ולא ממסמכים פנימיים)"
+      : "\n\n🌐 (This answer is based on web information, not internal documents)")
+  )
 }
