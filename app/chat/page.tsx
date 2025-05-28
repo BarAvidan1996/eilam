@@ -198,214 +198,220 @@ export default function ChatPage() {
 
   // פונקציה לפתיחת מקור מה-storage או מ-web
   const openSource = async (source: any) => {
-    try {
-      // לוג מפורט של המקור לצורכי דיבאג
-      console.log("🔍 מקור שהתקבל:", JSON.stringify(source, null, 2))
+    // לוג מפורט של המקור לצורכי דיבאג
+    console.log("🔍 מקור שהתקבל:", JSON.stringify(source, null, 2))
 
-      // בדיקה של כל השדות האפשריים שיכולים להכיל URL
-      if (source.url) {
-        console.log("🌐 פותח URL ישיר:", source.url)
-        window.open(source.url, "_blank", "noopener,noreferrer")
-        return
-      }
-
-      if (source.source) {
-        console.log("🌐 פותח URL משדה source:", source.source)
-        window.open(source.source, "_blank", "noopener,noreferrer")
-        return
-      }
-
-      if (source.link) {
-        console.log("🌐 פותח URL משדה link:", source.link)
-        window.open(source.link, "_blank", "noopener,noreferrer")
-        return
-      }
-
-      // בדיקה אם title או file_name מכילים URL
-      if (source.title && (source.title.startsWith("http://") || source.title.startsWith("https://"))) {
-        console.log("🌐 פותח URL מהכותרת:", source.title)
-        window.open(source.title, "_blank", "noopener,noreferrer")
-        return
-      }
-
-      if (source.file_name && (source.file_name.startsWith("http://") || source.file_name.startsWith("https://"))) {
-        console.log("🌐 פותח URL מ-file_name:", source.file_name)
-        window.open(source.file_name, "_blank", "noopener,noreferrer")
-        return
-      }
-
-      // אם הגענו לכאן, זה כנראה מקור RAG - ממשיך עם הלוגיקה הקיימת
-      if (source.storage_path) {
-        console.log("🔍 מנסה לחלץ URL מקורי מקובץ HTML:", source.storage_path)
-
-        // רשימת buckets אפשריים לנסות
-        const bucketsToTry = ["html-docs", "documents", "files", "rag-documents", "storage"]
-
-        let originalUrl = null
-
-        // ננסה כל bucket עד שנמצא אחד שעובד
-        for (const bucketName of bucketsToTry) {
-          try {
-            console.log(`🔍 מנסה bucket: ${bucketName}`)
-
-            // ננקה את הנתיב מכפילות של שם הbucket
-            let cleanStoragePath = source.storage_path
-            if (cleanStoragePath.startsWith(`${bucketName}/`)) {
-              cleanStoragePath = cleanStoragePath.substring(bucketName.length + 1)
-            }
-
-            const { data } = supabase.storage.from(bucketName).getPublicUrl(cleanStoragePath)
-
-            if (data?.publicUrl) {
-              console.log(`🔗 מנסה לקרוא קובץ מ-${bucketName}:`, data.publicUrl)
-
-              // קריאת תוכן הקובץ HTML
-              const response = await fetch(data.publicUrl)
-              if (response.ok) {
-                const htmlContent = await response.text()
-                console.log("📄 קובץ HTML נקרא בהצלחה, מחפש URL מקורי...")
-
-                // נחפש רק ב-1000 התווים הראשונים (ההערה תמיד בתחילת הקובץ)
-                const searchContent = htmlContent.substring(0, 1000)
-
-                // חילוץ URL פשוט ללא regex
-                originalUrl = extractSavedFromUrlPlain(searchContent)
-
-                if (originalUrl) {
-                  console.log("✅ נמצא URL מקורי:", originalUrl)
-                  break
-                } else {
-                  console.log("❌ לא נמצא URL בקובץ")
-                }
-              }
-            }
-          } catch (e) {
-            console.log(`❌ Bucket ${bucketName} לא עובד:`, e)
-            continue
-          }
-        }
-
-        if (originalUrl) {
-          console.log("🚀 פותח URL מקורי:", originalUrl)
-          window.open(originalUrl, "_blank", "noopener,noreferrer")
-        } else {
-          console.error("❌ לא הצלחתי לחלץ URL מקורי, משתמש ב-fallback")
-          // fallback - ננסה את האתר הרשמי
-          const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
-          console.log("🔄 משתמש ב-fallback URL:", fallbackUrl)
-          window.open(fallbackUrl, "_blank", "noopener,noreferrer")
-        }
-      } else {
-        // אם אין לנו שום URL או storage_path, ננסה להשתמש בכותרת כ-URL
-        if (source.title) {
-          // בדיקה אם הכותרת מכילה URL חלקי
-          if (
-            source.title.includes("www.") ||
-            source.title.includes(".com") ||
-            source.title.includes(".co.il") ||
-            source.title.includes(".org")
-          ) {
-            let url = source.title
-            if (!url.startsWith("http")) {
-              url = "https://" + url
-            }
-            console.log("🔄 מנסה לפתוח כותרת כ-URL:", url)
-            window.open(url, "_blank", "noopener,noreferrer")
-            return
-          }
-        }
-
-        // fallback אחרון - אם אין שום דבר אחר, ננסה לחפש את הכותרת בגוגל
-        const searchQuery = encodeURIComponent(source.title || "פיקוד העורף")
-        const googleUrl = `https://www.google.com/search?q=${searchQuery}`
-        console.log("🔍 מחפש בגוגל:", googleUrl)
-        window.open(googleUrl, "_blank", "noopener,noreferrer")
-      }
-    } catch (error) {
-      console.error("❌ שגיאה בפתיחת מקור:", error)
-      // fallback אחרון - חיפוש בגוגל
-      const searchQuery = encodeURIComponent(source.title || "פיקוד העורף")
-      const googleUrl = `https://www.google.com/search?q=${searchQuery}`
-      console.log("🔍 מחפש בגוגל אחרי שגיאה:", googleUrl)
-      window.open(googleUrl, "_blank", "noopener,noreferrer")
-    }
-  }
-
-  const handleSendMessage = async () => {
-    if (inputValue.trim() === "" || isTyping || isInitializing || !sessionId) {
+    // בדיקה אם זה מקור web (מ-Tavily) - אם ה-storage_path מתחיל ב-http
+    if (
+      source.storage_path &&
+      (source.storage_path.startsWith("http://") || source.storage_path.startsWith("https://"))
+    ) {
+      console.log("🌐 זה מקור web מ-Tavily, פותח ישירות:", source.storage_path)
+      window.open(source.storage_path, "_blank", "noopener,noreferrer")
       return
     }
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputValue,
-      sender: "user",
-      timestamp: new Date(),
+    // בדיקה של שדות URL ישירים
+    if (source.url) {
+      console.log("🌐 פותח URL ישיר:", source.url)
+      window.open(source.url, "_blank", "noopener,noreferrer")
+      return
     }
 
-    setMessages((prev) => [...prev, userMessage])
-    const currentQuestion = inputValue.trim()
+    if (source.source) {
+      console.log("🌐 פותח URL משדה source:", source.source)
+      window.open(source.source, "_blank", "noopener,noreferrer")
+      return
+    }
 
-    setInputValue("")
-    setIsTyping(true)
+    if (source.link) {
+      console.log("🌐 פותח URL משדה link:", source.link)
+      window.open(source.link, "_blank", "noopener,noreferrer")
+      return
+    }
 
-    try {
-      // הכנת הגוף לשליחה
-      const requestBody = {
-        message: currentQuestion,
-        sessionId: sessionId,
-      }
+    // בדיקה אם file_name מכיל URL
+    if (source.file_name && (source.file_name.startsWith("http://") || source.file_name.startsWith("https://"))) {
+      console.log("🌐 פותח URL מ-file_name:", source.file_name)
+      window.open(source.file_name, "_blank", "noopener,noreferrer")
+      return
+    }
 
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
-      })
+    // אם הגענו לכאן, זה מקור RAG אמיתי - ממשיך עם הלוגיקה הקיימת
+    if (source.storage_path) {
+      console.log("📁 זה מקור RAG, מנסה לחלץ URL מקורי מקובץ HTML:", source.storage_path)
 
-      if (!response.ok) {
-        // ננסה לקרוא את תוכן השגיאה
-        let errorText = ""
+      // רשימת buckets אפשריים לנסות
+      const bucketsToTry = ["html-docs", "documents", "files", "rag-documents", "storage"]
+
+      let originalUrl = null
+
+      // ננסה כל bucket עד שנמצא אחד שעובד
+      for (const bucketName of bucketsToTry) {
         try {
-          const errorData = await response.json()
-          errorText = errorData.error || `HTTP ${response.status}`
+          console.log(`🔍 מנסה bucket: ${bucketName}`)
+
+          // ננקה את הנתיב מכפילות של שם הbucket
+          let cleanStoragePath = source.storage_path
+          if (cleanStoragePath.startsWith(`${bucketName}/`)) {
+            cleanStoragePath = cleanStoragePath.substring(bucketName.length + 1)
+          }
+
+          const { data } = supabase.storage.from(bucketName).getPublicUrl(cleanStoragePath)
+
+          if (data?.publicUrl) {
+            console.log(`🔗 מנסה לקרוא קובץ מ-${bucketName}:`, data.publicUrl)
+
+            // קריאת תוכן הקובץ HTML
+            const response = await fetch(data.publicUrl)
+            if (response.ok) {
+              const htmlContent = await response.text()
+              console.log("📄 קובץ HTML נקרא בהצלחה, מחפש URL מקורי...")
+
+              // נחפש רק ב-1000 התווים הראשונים (ההערה תמיד בתחילת הקובץ)
+              const searchContent = htmlContent.substring(0, 1000)
+
+              // חילוץ URL פשוט ללא regex
+              originalUrl = extractSavedFromUrlPlain(searchContent)
+
+              if (originalUrl) {
+                console.log("✅ נמצא URL מקורי:", originalUrl)
+                break
+              } else {
+                console.log("❌ לא נמצא URL בקובץ")
+              }
+            }
+          }
         } catch (e) {
-          errorText = `HTTP error! status: ${response.status}`
+          console.log(`❌ Bucket ${bucketName} לא עובד:`, e)
+          continue
         }
-        throw new Error(errorText)
       }
 
-      const data = await response.json()
-      console.log("📊 תשובה מה-API:", JSON.stringify(data, null, 2))
-
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: data.answer || "מצטער, לא הצלחתי לייצר תשובה.",
-        sender: "bot",
-        timestamp: new Date(),
-        sources: data.sources,
+      if (originalUrl) {
+        console.log("🚀 פותח URL מקורי:", originalUrl)
+        window.open(originalUrl, "_blank", "noopener,noreferrer")
+      } else {
+        console.error("❌ לא הצלחתי לחלץ URL מקורי, משתמש ב-fallback")
+        // fallback - ננסה את האתר הרשמי
+        const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
+        console.log("🔄 משתמש ב-fallback URL:", fallbackUrl)
+        window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+      }
+    } else {
+      // אם אין לנו שום URL או storage_path, ננסה להשתמש בכותרת כ-URL
+      if (source.title) {
+        // בדיקה אם הכותרת מכילה URL חלקי
+        if (
+          source.title.includes("www.") ||
+          source.title.includes(".com") ||
+          source.title.includes(".co.il") ||
+          source.title.includes(".org")
+        ) {
+          let url = source.title
+          if (!url.startsWith("http")) {
+            url = "https://" + url
+          }
+          console.log("🔄 מנסה לפתוח כותרת כ-URL:", url)
+          window.open(url, "_blank", "noopener,noreferrer")
+          return
+        }
       }
 
-      setMessages((prev) => [...prev, botMessage])
-    } catch (error) {
-      console.error("💥 שגיאה בשליחת הודעה:", error)
-
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: `מצטער, אירעה שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
-        sender: "bot",
-        timestamp: new Date(),
-      }
-      setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setIsTyping(false)
+      // fallback אחרון - אם אין שום דבר אחר, ננסה לחפש את הכותרת בגוגל
+      const searchQuery = encodeURIComponent(source.title || "פיקוד העורף")
+      const googleUrl = `https://www.google.com/search?q=${searchQuery}`
+      console.log("🔍 מחפש בגוגל:", googleUrl)
+      window.open(googleUrl, "_blank", "noopener,noreferrer")
     }
   }
+  catch (error)
+  {
+    console.error("❌ שגיאה בפתיחת מקור:", error)
+    // fallback אחרון - חיפוש בגוגל
+    const searchQuery = encodeURIComponent(source.title || "פיקוד העורף")
+    const googleUrl = `https://www.google.com/search?q=${searchQuery}`
+    console.log("🔍 מחפש בגוגל אחרי שגיאה:", googleUrl)
+    window.open(googleUrl, "_blank", "noopener,noreferrer")
+  }
+}
 
-  // הצגת מסך טעינה בזמן אתחול
-  if (isInitializing) {
-    return (
+const handleSendMessage = async () => {
+  if (inputValue.trim() === "" || isTyping || isInitializing || !sessionId) {
+    return
+  }
+
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    text: inputValue,
+    sender: "user",
+    timestamp: new Date(),
+  }
+
+  setMessages((prev) => [...prev, userMessage])
+  const currentQuestion = inputValue.trim()
+
+  setInputValue("")
+  setIsTyping(true)
+
+  try {
+    // הכנת הגוף לשליחה
+    const requestBody = {
+      message: currentQuestion,
+      sessionId: sessionId,
+    }
+
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    })
+
+    if (!response.ok) {
+      // ננסה לקרוא את תוכן השגיאה
+      let errorText = ""
+      try {
+        \
+        const errorData = await response.json()
+        errorText = errorData.error || `HTTP ${response.status}`
+      } catch (e) {
+        errorText = `HTTP error! status: ${response.status}`
+      }
+      throw new Error(errorText)
+    }
+
+    const data = await response.json()
+    console.log("📊 תשובה מה-API:", JSON.stringify(data, null, 2))
+
+    const botMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      text: data.answer || "מצטער, לא הצלחתי לייצר תשובה.",
+      sender: "bot",
+      timestamp: new Date(),
+      sources: data.sources,
+    }
+
+    setMessages((prev) => [...prev, botMessage])
+  } catch (error) {
+    console.error("💥 שגיאה בשליחת הודעה:", error)
+
+    const errorMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      text: `מצטער, אירעה שגיאה: ${error instanceof Error ? error.message : "שגיאה לא ידועה"}`,
+      sender: "bot",
+      timestamp: new Date(),
+    }
+    setMessages((prev) => [...prev, errorMessage])
+  } finally {
+    setIsTyping(false)
+  }
+}
+
+// הצגת מסך טעינה בזמן אתחול
+if (isInitializing) {
+  return (
       <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
         <div className="bg-[#005C72] dark:bg-[#D3E3FD] text-white dark:text-gray-900 p-4">
           <h1 className="text-xl font-semibold">צ'אט חירום - עיל"ם</h1>
@@ -419,9 +425,9 @@ export default function ChatPage() {
         </div>
       </div>
     )
-  }
+}
 
-  return (
+return (
     <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
       {/* Header */}
       <div className="bg-[#005C72] dark:bg-[#D3E3FD] text-white dark:text-gray-900 p-4">
