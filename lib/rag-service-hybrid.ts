@@ -47,6 +47,11 @@ async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" 
   console.log("  - שאלה:", question)
   console.log("  - מסמכים:", docs.length)
 
+  if (docs.length === 0) {
+    console.log("❌ אין מסמכים - מחזיר null")
+    return null
+  }
+
   let context = ""
   let len = 0
   for (const doc of docs) {
@@ -104,31 +109,62 @@ Answer in English with sources.`
   console.log("✅ תשובה התקבלה:", answer.substring(0, 200) + "...")
   console.log("🏁 generateAnswerFromDocs - סיום")
 
-  return res.choices[0]?.message?.content || ""
+  return answer
 }
 
 // Step 4: Fallback general GPT-only
 async function generateFallbackAnswer(question: string, lang: "he" | "en") {
-  const sys = lang === "he" ? "ענה תשובה כללית לפי ידע כללי בלבד." : "Answer generally using public knowledge."
+  console.log("🔄 generateFallbackAnswer - התחלה")
+
+  const prompt =
+    lang === "he"
+      ? `אתה עוזר חכם של פיקוד העורף. ענה על השאלה הבאה בהתבסס על הידע הכללי שלך:
+
+שאלה: ${question}
+
+תשובה:`
+      : `You are a Home Front Command assistant. Answer the following question based on your general knowledge:
+
+Question: ${question}
+
+Answer:`
+
   const res = await openai.chat.completions.create({
     model: "gpt-4",
-    messages: [
-      { role: "system", content: sys },
-      { role: "user", content: question },
-    ],
-    temperature: 0.5,
-    max_tokens: 300,
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.1,
+    max_tokens: 500,
   })
-  return res.choices[0]?.message?.content || ""
+
+  const answer = res.choices[0]?.message?.content || ""
+  const fallbackNote =
+    lang === "he"
+      ? "\n\n(הערה: תשובה זו ניתנה באופן כללי לפי הבנת המערכת, ללא הסתמכות על מסמך מאומת.)"
+      : "\n\n(Note: This answer was provided generally based on the system's understanding, without reliance on verified documents.)"
+
+  console.log("✅ Fallback answer generated")
+  return answer + fallbackNote
 }
 
 // Step 5: Router - decide between 'documents' and 'tavily'
 async function routeQuery(question: string): Promise<"documents" | "tavily"> {
-  const prompt = `
-אתה עוזר של פיקוד העורף. האם יש צורך במידע עדכני מהאינטרנט כדי לענות על השאלה הבאה?
+  console.log("🧭 Router - מחליט על מסלול עבור:", question)
 
-אם כן, כתוב רק: tavily
-אם לא, כתוב רק: documents
+  const prompt = `
+אתה עוזר של פיקוד העורף. האם השאלה הבאה דורשת מידע עדכני מהאינטרנט (כמו חדשות, מצב נוכחי, אירועים אחרונים) או שניתן לענות עליה ממסמכי הדרכה קיימים?
+
+דוגמאות לשאלות שדורשות אינטרנט:
+- "מה המצב הנוכחי בעזה?"
+- "מתי הייתה האזעקה האחרונה?"
+- "מה החדשות היום?"
+
+דוגמאות לשאלות שלא דורשות אינטרנט:
+- "מה עושים באזעקה?"
+- "איך מתכוננים לרעידת אדמה?"
+- "מה זה מקלט?"
+
+אם השאלה דורשת מידע עדכני מהאינטרנט, כתוב רק: tavily
+אם השאלה לא דורשת מידע עדכני, כתוב רק: documents
 
 שאלה:
 ${question}`
@@ -136,10 +172,15 @@ ${question}`
   const res = await openai.chat.completions.create({
     model: "gpt-3.5-turbo",
     messages: [{ role: "user", content: prompt }],
-    max_tokens: 5,
+    max_tokens: 10,
+    temperature: 0,
   })
+
   const content = res.choices[0]?.message?.content?.toLowerCase().trim()
-  return content?.includes("tavily") ? "tavily" : "documents"
+  const decision = content?.includes("tavily") ? "tavily" : "documents"
+
+  console.log("🧭 Router החליט:", decision, "עבור תוכן:", content)
+  return decision
 }
 
 // Step 6: Hybrid process
@@ -155,19 +196,42 @@ export async function processRAGQuery(question: string): Promise<{
   usedWebSearch: boolean
   error?: string
 }> {
+  console.log("🚀 processRAGQuery - התחלה עבור:", question)
+
   const language = detectLanguage(question)
+  console.log("🌐 שפה מזוהה:", language)
+
   const route = await routeQuery(question)
   console.log("📍 מסלול שנבחר:", route)
 
   try {
     if (route === "documents") {
+      console.log("📚 מעבד דרך מסמכים פנימיים")
+
       const embedding = await createEmbedding(question)
+      console.log("🔍 Embedding נוצר, אורך:", embedding.length)
+
       const documents = await searchSimilarDocuments(embedding, language)
+      console.log("📄 מסמכים נמצאו:", documents.length)
+
+      if (documents.length > 0) {
+        console.log("📊 מסמכים עם דמיון:")
+        documents.forEach((doc, i) => {
+          console.log(`  ${i + 1}. ${doc.title} (${Math.round(doc.similarity * 100)}%)`)
+        })
+      }
+
       const answer = await generateAnswerFromDocs(question, documents, language)
 
       if (!answer || answer.length < 20) {
-        console.log("🔄 תשובה חלשה ממסמכים, עובר ל-Tavily")
-        return await processViaTavily(question, language)
+        console.log("⚠️ תשובה חלשה ממסמכים, עובר ל-fallback כללי")
+        const fallbackAnswer = await generateFallbackAnswer(question, language)
+        return {
+          answer: fallbackAnswer,
+          sources: [],
+          usedFallback: true,
+          usedWebSearch: false,
+        }
       }
 
       return {
@@ -182,6 +246,7 @@ export async function processRAGQuery(question: string): Promise<{
         usedWebSearch: false,
       }
     } else {
+      console.log("🌐 מעבד דרך חיפוש אינטרנטי")
       return await processViaTavily(question, language)
     }
   } catch (err) {
@@ -201,6 +266,8 @@ export async function processRAGQuery(question: string): Promise<{
 
 // Step 7: Tavily-based Web Answer
 async function processViaTavily(question: string, language: "he" | "en") {
+  console.log("🌐 processViaTavily - התחלה")
+
   const searchResults = await searchWebViaTavily(question)
   if (!searchResults.success || searchResults.results.length === 0) {
     console.log("⚠️ Tavily לא מצא תוצאות, עובר ל-fallback כללי")
@@ -212,6 +279,8 @@ async function processViaTavily(question: string, language: "he" | "en") {
       usedWebSearch: true,
     }
   }
+
+  console.log("✅ Tavily מצא תוצאות:", searchResults.results.length)
 
   const webAnswer = await generateAnswerFromWeb(question, searchResults.results, language)
   return {
