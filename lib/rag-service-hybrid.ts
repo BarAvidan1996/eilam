@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 import { searchWebViaTavily, generateAnswerFromWeb } from "./web-search-service"
+import { extractTimeEntities, type TimeEntity } from "./time-entity-extractor"
 
 const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
@@ -148,7 +149,7 @@ Detailed answer:`
 }
 
 // Step 5: Router - decide between 'documents' and 'tavily'
-async function routeQuery(question: string): Promise<"documents" | "tavily"> {
+async function routeQuery(question: string): Promise<{ route: "documents" | "tavily"; timeEntity?: TimeEntity }> {
   console.log("🧭 Router - מחליט על מסלול עבור:", question)
 
   const prompt = `
@@ -184,10 +185,17 @@ ${question}`
   })
 
   const content = res.choices[0]?.message?.content?.toLowerCase().trim()
-  const decision = content?.includes("tavily") ? "tavily" : "documents"
+  const route = content?.includes("tavily") ? "tavily" : "documents"
 
-  console.log("🧭 Router החליט:", decision, "עבור תוכן:", content)
-  return decision
+  console.log("🧭 Router החליט:", route, "עבור תוכן:", content)
+
+  // אם נבחר tavily, חלץ ישויות זמן
+  let timeEntity: TimeEntity | undefined
+  if (route === "tavily") {
+    timeEntity = await extractTimeEntities(question)
+  }
+
+  return { route, timeEntity }
 }
 
 // Step 6: Hybrid process
@@ -208,7 +216,7 @@ export async function processRAGQuery(question: string): Promise<{
   const language = detectLanguage(question)
   console.log("🌐 שפה מזוהה:", language)
 
-  const route = await routeQuery(question)
+  const { route, timeEntity } = await routeQuery(question)
   console.log("📍 מסלול שנבחר:", route)
 
   try {
@@ -254,7 +262,7 @@ export async function processRAGQuery(question: string): Promise<{
       }
     } else {
       console.log("🌐 מעבד דרך חיפוש אינטרנטי")
-      return await processViaTavily(question, language)
+      return await processViaTavily(question, language, timeEntity)
     }
   } catch (err) {
     console.error("❌ שגיאה כללית בתהליך RAG:", err)
@@ -270,10 +278,10 @@ export async function processRAGQuery(question: string): Promise<{
 }
 
 // Step 7: Tavily-based Web Answer
-async function processViaTavily(question: string, language: "he" | "en") {
+async function processViaTavily(question: string, language: "he" | "en", timeEntity?: TimeEntity) {
   console.log("🌐 processViaTavily - התחלה")
 
-  const searchResults = await searchWebViaTavily(question)
+  const searchResults = await searchWebViaTavily(question, timeEntity)
   if (!searchResults.success || searchResults.results.length === 0) {
     console.log("⚠️ Tavily לא מצא תוצאות, עובר ל-fallback כללי")
     const fallbackAnswer = await generateFallbackAnswer(question, language)

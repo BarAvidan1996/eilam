@@ -1,4 +1,5 @@
 import OpenAI from "openai"
+import type { TimeEntity } from "./time-entity-extractor"
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY!,
@@ -11,94 +12,80 @@ export interface WebSearchResult {
   score: number
 }
 
-export async function searchWebViaTavily(query: string): Promise<{
+export async function searchWebViaTavily(
+  query: string,
+  timeEntity?: TimeEntity,
+): Promise<{
   success: boolean
   results: WebSearchResult[]
 }> {
   try {
-    // הוספת מידע זמן נוכחי לשאילתה
-    const now = new Date()
-    const currentDate = now.toLocaleDateString("he-IL", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-    })
-    const currentTime = now.toLocaleTimeString("he-IL", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
+    if (!process.env.TAVILY_API_KEY) {
+      console.warn("⚠️ אין TAVILY_API_KEY - מדלג על חיפוש אינטרנטי")
+      return { success: false, results: [] }
+    }
 
-    console.log("🌐 מבצע חיפוש אינטרנטי עם OpenAI Search:", query)
-    console.log("📅 תאריך נוכחי:", currentDate, currentTime)
+    console.log("🌐 מבצע חיפוש Tavily:", query)
+    console.log("🕐 ישויות זמן:", timeEntity)
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-search-preview",
-      web_search_options: {
-        search_context_size: "low",
-        user_location: {
-          type: "approximate",
-          approximate: {
-            country: "IL",
-            city: "Tel Aviv",
-            region: "Tel Aviv",
-          },
-        },
+    // בניית payload עם ישויות זמן
+    const payload: any = {
+      query,
+      topic: "general",
+      search_depth: "basic",
+      chunks_per_source: 3,
+      max_results: 3,
+      include_answer: false,
+      include_raw_content: false,
+      include_images: false,
+      include_image_descriptions: false,
+      include_domains: ["oref.org.il", "news.walla.co.il", "ynet.co.il", "mako.co.il"],
+      exclude_domains: [],
+    }
+
+    // הוספת פרמטרי זמן בהתבסס על ישויות שחולצו
+    if (timeEntity) {
+      if (timeEntity.days) {
+        payload.days = timeEntity.days
+        console.log(`🕐 מחפש ב-${timeEntity.days} ימים אחרונים`)
+      }
+
+      if (timeEntity.timeRange) {
+        payload.time_range = timeEntity.timeRange
+        console.log(`🕐 מחפש בטווח זמן: ${timeEntity.timeRange}`)
+      }
+
+      if (timeEntity.isRecent && !timeEntity.days) {
+        payload.days = 7 // ברירת מחדל לחיפוש עדכני
+        console.log("🕐 חיפוש עדכני - 7 ימים אחרונים")
+      }
+    }
+
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.TAVILY_API_KEY}`,
       },
-      messages: [
-        {
-          role: "system",
-          content: `אתה עוזר AI של פיקוד העורף הישראלי. 
-          
-תפקידך:
-1. לחפש מידע עדכני ומדויק באינטרנט
-2. לענות בעברית בצורה ברורה ומועילה
-3. להתמקד במידע רלוונטי לחירום והיערכות בישראל
-4. לציין תאריכים מדויקים ולהתייחס לזמן הנוכחי
-
-מידע זמן חשוב:
-- התאריך והשעה הנוכחיים: ${currentDate}, ${currentTime}
-- כשמתבקש מידע "היום", "השבוע", "לאחרונה" - התייחס לתאריך הנוכחי
-- ציין תאריכים מדויקים בתשובה
-- אם המידע לא עדכני, ציין זאת בבירור
-
-הנחיות:
-- תן תשובה מפורטת ומעשית
-- אם השאלה קשורה לפיקוד העורף או חירום בישראל, חפש מידע ספציפי
-- ציין תאריכים מדויקים אם רלוונטי
-- אם לא מוצא מידע עדכני, ציין זאת בבירור`,
-        },
-        {
-          role: "user",
-          content: `${query}
-
-הערה: התאריך הנוכחי הוא ${currentDate}, ${currentTime}. אנא התייחס לזמן הנוכחי בתשובה.`,
-        },
-      ],
-      max_tokens: 1000,
-      temperature: 0.3,
+      body: JSON.stringify(payload),
     })
 
-    const answer = completion.choices[0]?.message?.content || ""
-
-    console.log("✅ קיבלתי תגובה מ-OpenAI Search")
-    console.log("📊 Usage:", completion.usage)
-    console.log("🔍 Model used:", completion.model)
-
-    // יצירת תוצאה מדומה בפורמט של Tavily
-    const mockResult: WebSearchResult = {
-      title: "מידע עדכני מהאינטרנט - OpenAI Search",
-      content: answer,
-      url: "https://openai-search-result",
-      score: 1.0,
+    if (!response.ok) {
+      throw new Error(`Tavily error ${response.status}`)
     }
 
-    return {
-      success: true,
-      results: [mockResult],
-    }
+    const data = await response.json()
+    const results = (data.results || []).map((r: any) => ({
+      title: r.title || "",
+      content: r.content || "",
+      url: r.url || "",
+      score: r.score || 0,
+    }))
+
+    console.log("✅ Tavily החזיר תוצאות:", results.length)
+    return { success: true, results }
   } catch (err) {
-    console.error("❌ שגיאה ב-OpenAI Search:", err)
+    console.error("❌ שגיאה ב-Tavily:", err)
     return { success: false, results: [] }
   }
 }
@@ -108,10 +95,8 @@ export async function generateAnswerFromWeb(
   results: WebSearchResult[],
   language: "he" | "en",
 ): Promise<string> {
-  // עם OpenAI Search, התשובה כבר מוכנה ומעוצבת
-  const answer = results[0]?.content || ""
+  const context = results.map((r, i) => `(${i + 1}) ${r.title}\n${r.content.slice(0, 300)}\nURL: ${r.url}`).join("\n\n")
 
-  // הוספת תווית מקור אינטרנטי עם זמן
   const now = new Date()
   const currentDate = now.toLocaleDateString("he-IL", {
     year: "numeric",
@@ -119,10 +104,42 @@ export async function generateAnswerFromWeb(
     day: "numeric",
   })
 
-  const webNote =
+  const prompt =
     language === "he"
-      ? `\n\n🌐 (מידע זה נמצא באמצעות חיפוש אינטרנטי עדכני נכון ל-${currentDate})`
-      : `\n\n🌐 (This information was retrieved from current web search as of ${currentDate})`
+      ? `ענה על השאלה על בסיס המידע הבא מהאינטרנט. ציין מקורות ותאריכים מדויקים.
 
-  return answer + webNote
+התאריך הנוכחי: ${currentDate}
+
+מידע מהאינטרנט:
+${context}
+
+שאלה: ${question}
+
+תשובה מפורטת עם תאריכים מדויקים:`
+      : `Answer the question based on the following web data. Include sources and exact dates.
+
+Current date: ${currentDate}
+
+Web information:
+${context}
+
+Question: ${question}
+
+Detailed answer with exact dates:`
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: 600,
+    temperature: 0.3,
+  })
+
+  const answer = response.choices[0]?.message?.content || ""
+
+  return (
+    answer +
+    (language === "he"
+      ? `\n\n🌐 (מידע זה נמצא באמצעות חיפוש אינטרנטי נכון ל-${currentDate})`
+      : `\n\n🌐 (This information was retrieved from web search as of ${currentDate})`)
+  )
 }
