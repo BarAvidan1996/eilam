@@ -39,7 +39,7 @@ export async function searchWebViaTavily(
       include_raw_content: false,
       include_images: false,
       include_image_descriptions: false,
-      include_domains: ["oref.org.il", "news.walla.co.il", "ynet.co.il", "mako.co.il"],
+      include_domains: ["oref.org.il", "news.walla.co.il", "ynet.co.il", "mako.co.il", "kan.org.il"],
       exclude_domains: [],
     }
 
@@ -61,6 +61,8 @@ export async function searchWebViaTavily(
       }
     }
 
+    console.log("📦 Payload שנשלח ל-Tavily:", JSON.stringify(payload, null, 2))
+
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: {
@@ -70,11 +72,17 @@ export async function searchWebViaTavily(
       body: JSON.stringify(payload),
     })
 
+    console.log("📡 תגובת Tavily - Status:", response.status)
+
     if (!response.ok) {
-      throw new Error(`Tavily error ${response.status}`)
+      const errorText = await response.text()
+      console.error("❌ Tavily error response:", errorText)
+      throw new Error(`Tavily error ${response.status}: ${errorText}`)
     }
 
     const data = await response.json()
+    console.log("📄 תגובת Tavily מלאה:", JSON.stringify(data, null, 2))
+
     const results = (data.results || []).map((r: any) => ({
       title: r.title || "",
       content: r.content || "",
@@ -83,6 +91,12 @@ export async function searchWebViaTavily(
     }))
 
     console.log("✅ Tavily החזיר תוצאות:", results.length)
+    results.forEach((result, i) => {
+      console.log(`  ${i + 1}. ${result.title} (${result.score})`)
+      console.log(`     URL: ${result.url}`)
+      console.log(`     Content: ${result.content.substring(0, 100)}...`)
+    })
+
     return { success: true, results }
   } catch (err) {
     console.error("❌ שגיאה ב-Tavily:", err)
