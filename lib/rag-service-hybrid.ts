@@ -77,13 +77,13 @@ async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" 
 - על מה השאלה הזו עוסקת ביסודה?
 - איזה סוג תשובה צריך לתת (פרוצדורלית, עובדתית, מבוססת בטיחות)?
 
-השתמש רק במידע הבא כדי לענות בעברית ברורה וידידותית לציבור:
+תשתמש קודם כל במידע של ההקשר הרלוונטי כדי לענות בעברית ברורה וידידותית לציבור, אך אם לא נמצא שם מידע מספר עלייך להשתמש בידע הכללי שלך.
 
 הקשר רלוונטי:
-{context}
+${context}
 
 שאלה:
-{question}
+${question}
 
 תשובה:`
       : `You are an AI assistant. Use only the following information.
@@ -98,32 +98,27 @@ Answer in English with sources.`
 
   console.log("🔄 שולח בקשה ל-OpenAI...")
 
-  try {
-    const res = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.1,
-      max_tokens: 500,
-    })
+  const res = await openai.chat.completions.create({
+    model: "gpt-4",
+    messages: [{ role: "user", content: prompt }],
+    temperature: 0.1,
+    max_tokens: 500,
+  })
 
-    return res.choices[0]?.message?.content || "מצטער, לא הצלחתי לייצר תשובה."
-  } catch (error) {
-    console.error("Error generating answer:", error)
-    throw new Error("Failed to generate answer")
-  }
+  const answer = res.choices[0]?.message?.content || ""
+  console.log("✅ תשובה התקבלה:", answer.substring(0, 200) + "...")
+  console.log("🏁 generateAnswerFromDocs - סיום")
+
+  return answer
 }
 
-// Fallback prompt
-const FALLBACK_PROMPT =
-  "אתה עוזר חכם של פיקוד העורף. ענה על השאלה הבאה בהתבסס על הידע הכללי שלך:\n\nשאלה: {question}\n\nתשובה:"
-
-// Fallback general GPT-only
+// Step 4: Fallback general GPT-only
 async function generateFallbackAnswer(question: string, lang: "he" | "en") {
   console.log("🔄 generateFallbackAnswer - התחלה")
 
   const prompt =
     lang === "he"
-      ? `אתה עוזר חכם של פיקוד העורף בישראל. ענה על השאלה הבאה בהתבסס על הידע הכללי שלך:
+      ? `אתה עוזר חכם של פיקוד העורף. ענה על השאלה הבאה בהתבסס על הידע הכללי שלך:
 
 שאלה: ${question}
 
@@ -141,7 +136,7 @@ Answer:`
     max_tokens: 500,
   })
 
-  const answer = res.choices[0]?.message?.content || "מצטער, לא הצלחתי לייצר תשובה."
+  const answer = res.choices[0]?.message?.content || ""
   const fallbackNote =
     lang === "he"
       ? "\n\n(הערה: תשובה זו ניתנה באופן כללי לפי הבנת המערכת, ללא הסתמכות על מסמך מאומת.)"
@@ -156,31 +151,23 @@ async function routeQuery(question: string): Promise<"documents" | "tavily"> {
   console.log("🧭 Router - מחליט על מסלול עבור:", question)
 
   const prompt = `
-אתה עוזר של פיקוד העורף. המשימה שלך היא להחליט האם השאלה הבאה דורשת מידע עדכני מהאינטרנט (כמו חדשות, אירועים מהימים האחרונים, מידע שמשתנה בתדירות גבוהה), או שניתן להשיב עליה מתוך ידע קבוע יחסית, כמו מסמכי הדרכה של פיקוד העורף.
+אתה עוזר של פיקוד העורף. האם השאלה הבאה דורשת מידע עדכני מהאינטרנט (כמו חדשות, מצב נוכחי, אירועים אחרונים) או שניתן לענות עליה ממסמכי הדרכה קיימים?
 
- אם השאלה עוסקת במידע משתנה או עדכני (למשל תרגילים, התרעות, הנחיות חדשות, אירועים מהשבוע האחרון), כתוב בדיוק:
-tavily
+דוגמאות לשאלות שדורשות אינטרנט:
+- "מה המצב הנוכחי בעזה?"
+- "מתי הייתה האזעקה האחרונה?"
+- "מה החדשות היום?"
 
- אם השאלה עוסקת בהנחיות כלליות, התנהגות בזמן חירום, מונחים, ציוד, או נהלים קבועים – כתוב בדיוק:
-documents
+דוגמאות לשאלות שלא דורשות אינטרנט:
+- "מה עושים באזעקה?"
+- "איך מתכוננים לרעידת אדמה?"
+- "מה זה מקלט?"
 
- אל תכתוב שום דבר נוסף פרט למילה tavily או documents בלבד.
-
----
-
-דוגמאות:
-
-- "מה עושים בזמן רעידת אדמה?" → documents
-- "איך מזהים אזעקה?" → documents
-- "מה המצב הביטחוני בצפון נכון להיום?" → tavily
-- "האם יש הנחיות חדשות לפינוי תושבים?" → tavily
-
----
+אם השאלה דורשת מידע עדכני מהאינטרנט, כתוב רק: tavily
+אם השאלה לא דורשת מידע עדכני, כתוב רק: documents
 
 שאלה:
-${question}
-`
-
+${question}`
 
   const res = await openai.chat.completions.create({
     model: "gpt-3.5-turbo",
@@ -197,136 +184,204 @@ ${question}
 }
 
 // Step 6: Hybrid process
-export async function processRAGQuery(question: string) {
+export async function processRAGQuery(question: string): Promise<{
+  answer: string
+  sources: Array<{
+    title: string
+    file_name: string
+    storage_path: string
+    similarity: number
+  }>
+  usedFallback: boolean
+  usedWebSearch: boolean
+  error?: string
+}> {
+  console.log("🚀 processRAGQuery - התחלה עבור:", question)
+
+  const language = detectLanguage(question)
+  console.log("🌐 שפה מזוהה:", language)
+
+  const route = await routeQuery(question)
+  console.log("📍 מסלול שנבחר:", route)
+
   try {
-    console.log("Processing RAG query:", question)
+    if (route === "documents") {
+      console.log("📚 מעבד דרך מסמכים פנימיים")
 
-    // שלב 1: זיהוי שפה
-    const language = detectLanguage(question)
-    console.log("Detected language:", language)
+      const embedding = await createEmbedding(question)
+      console.log("🔍 Embedding נוצר, אורך:", embedding.length)
 
-    // שלב 2: יצירת embedding
-    const embedding = await createEmbedding(question)
-    console.log("Created embedding, length:", embedding.length)
+      const documents = await searchSimilarDocuments(embedding, language)
+      console.log("📄 מסמכים נמצאו:", documents.length)
 
-    // שלב 3: חיפוש מסמכים דומים
-    const documents = await searchSimilarDocuments(embedding, language)
-    console.log("Found documents:", documents.length)
+      if (documents.length > 0) {
+        console.log("📊 מסמכים עם דמיון:")
+        documents.forEach((doc, i) => {
+          console.log(`  ${i + 1}. ${doc.title} (${Math.round(doc.similarity * 100)}%)`)
+        })
+      }
 
-    // שלב 4: יצירת תשובה
-    const answer = await generateAnswer(question, documents, true)
+      const answer = await generateAnswerFromDocs(question, documents, language)
 
-    return {
-      answer,
-      sources: documents.map((doc) => ({
-        title: doc.title,
-        file_name: doc.file_name,
-        similarity: doc.similarity,
-      })),
-      language,
-      documentsFound: documents.length,
+      if (!answer || answer.length < 20) {
+        console.log("⚠️ תשובה חלשה ממסמכים, עובר ל-fallback כללי")
+        const fallbackAnswer = await generateFallbackAnswer(question, language)
+        return {
+          answer: fallbackAnswer,
+          sources: [],
+          usedFallback: true,
+          usedWebSearch: false,
+        }
+      }
+
+      return {
+        answer,
+        sources: documents.map((d) => ({
+          title: d.title,
+          file_name: d.file_name,
+          storage_path: d.storage_path,
+          similarity: Math.round(d.similarity * 100),
+        })),
+        usedFallback: false,
+        usedWebSearch: false,
+      }
+    } else {
+      console.log("🌐 מעבד דרך חיפוש אינטרנטי")
+      return await processViaTavily(question, language)
     }
-  } catch (error) {
-    console.error("Error in processRAGQuery:", error)
+  } catch (err) {
+    console.error("❌ שגיאה כללית בתהליך RAG:", err)
     return {
-      answer: "מצטער, אירעה שגיאה בעיבוד השאלה שלך. אנא נסה שוב.",
+      answer:
+        language === "he"
+          ? "מצטער, לא הצלחתי למצוא תשובה מהימנה לשאלה זו. מומלץ לבדוק באתר פיקוד העורף או לפנות לרשות מוסמכת."
+          : "Sorry, I couldn't find a reliable answer. Please check the Home Front Command website.",
       sources: [],
-      language: "he",
-      documentsFound: 0,
-      error: error instanceof Error ? error.message : "Unknown error",
+      usedFallback: true,
+      usedWebSearch: false,
+      error: err instanceof Error ? err.message : JSON.stringify(err),
     }
   }
 }
 
-// ניהול סשנים
-export async function createChatSession(userId: string, title?: string) {
-  try {
-    const { data, error } = await supabase
-      .from("chat_sessions")
-      .insert({
-        user_id: userId,
-        title: title || "שיחה חדשה",
-      })
-      .select()
-      .single()
+// Step 7: Tavily-based Web Answer
+async function processViaTavily(question: string, language: "he" | "en") {
+  console.log("🌐 processViaTavily - התחלה")
 
-    if (error) throw error
-    return data
+  const searchResults = await searchWebViaTavily(question)
+  if (!searchResults.success || searchResults.results.length === 0) {
+    console.log("⚠️ Tavily לא מצא תוצאות, עובר ל-fallback כללי")
+    const fallbackAnswer = await generateFallbackAnswer(question, language)
+    return {
+      answer: fallbackAnswer,
+      sources: [],
+      usedFallback: true,
+      usedWebSearch: true,
+    }
+  }
+
+  console.log("✅ Tavily מצא תוצאות:", searchResults.results.length)
+
+  const webAnswer = await generateAnswerFromWeb(question, searchResults.results, language)
+  return {
+    answer: webAnswer,
+    sources: searchResults.results.map((res) => ({
+      title: res.title,
+      file_name: `web_result_${res.url}`,
+      storage_path: res.url,
+      similarity: res.score,
+    })),
+    usedFallback: false,
+    usedWebSearch: true,
+  }
+}
+
+// Chat management functions
+export async function createChatSession(userId?: string): Promise<string> {
+  try {
+    console.log("🆕 יוצר chat session חדש עבור user:", userId)
+
+    const sessionData: any = {
+      created_at: new Date().toISOString(),
+    }
+
+    if (userId) {
+      sessionData.user_id = userId
+      console.log("👤 מוסיף user_id לsession:", userId)
+    }
+
+    const { data, error } = await supabase.from("chat_sessions").insert(sessionData).select("id").single()
+
+    if (error) {
+      console.error("❌ שגיאה ביצירת session:", error)
+      throw error
+    }
+
+    console.log("✅ Session נוצר בהצלחה:", data.id)
+    return data.id
   } catch (error) {
-    console.error("Error creating chat session:", error)
+    console.error("❌ שגיאה ביצירת סשן:", error)
     throw error
   }
 }
 
-// שמירת הודעה
-export async function saveChatMessage(sessionId: string, role: "user" | "assistant", content: string) {
+export async function saveChatMessage(
+  sessionId: string,
+  message: string,
+  isUser: boolean,
+  sources?: Array<{ title: string; file_name: string; storage_path: string; similarity: number }>,
+): Promise<void> {
   try {
-    const { data, error } = await supabase
-      .from("chat_messages")
-      .insert({
-        session_id: sessionId,
-        role,
-        content,
-      })
-      .select()
-      .single()
+    console.log(`💾 שומר הודעה: ${isUser ? "משתמש" : "בוט"} - ${message.substring(0, 50)}...`)
+    console.log(`📊 מקורות לשמירה:`, sources?.length || 0)
 
-    if (error) throw error
-    return data
+    const { error } = await supabase.from("chat_messages").insert({
+      session_id: sessionId,
+      content: message,
+      role: isUser ? "user" : "assistant",
+      sources: sources || [],
+      created_at: new Date().toISOString(),
+    })
+
+    if (error) {
+      console.error("❌ שגיאה בשמירת הודעה:", error)
+      throw error
+    }
+
+    console.log("✅ הודעה נשמרה בהצלחה")
   } catch (error) {
-    console.error("Error saving chat message:", error)
+    console.error("❌ שגיאה בשמירת הודעה:", error)
     throw error
   }
 }
 
-// טעינת היסטוריית שיחה
-export async function getChatHistory(sessionId: string) {
+export async function getChatHistory(sessionId: string): Promise<
+  Array<{
+    id: string
+    content: string
+    role: string
+    sources: Array<{ title: string; file_name: string; storage_path: string; similarity: number }>
+    created_at: string
+  }>
+> {
   try {
+    console.log("📚 טוען היסטוריית צ'אט עבור session:", sessionId)
+
     const { data, error } = await supabase
       .from("chat_messages")
       .select("*")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true })
 
-    if (error) throw error
-    return data || []
-  } catch (error) {
-    console.error("Error getting chat history:", error)
-    return []
-  }
-}
-
-// טעינת סשנים של משתמש
-export async function getUserChatSessions(userId: string) {
-  try {
-    const { data, error } = await supabase
-      .from("chat_sessions")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-
-    if (error) throw error
-    return data || []
-  } catch (error) {
-    console.error("Error getting user chat sessions:", error)
-    return []
-  }
-}
-
-async function generateAnswer(question: string, documents: any[], useWebSearch: boolean) {
-  if (useWebSearch) {
-    const route = await routeQuery(question)
-
-    if (route === "tavily") {
-      console.log("Route: Tavily")
-      const webResults = await searchWebViaTavily(question)
-      return await generateAnswerFromWeb(question, webResults)
-    } else {
-      console.log("Route: Documents")
-      return await generateAnswerFromDocs(question, documents, detectLanguage(question))
+    if (error) {
+      console.error("❌ שגיאה בטעינת היסטוריה:", error)
+      throw error
     }
-  } else {
-    console.log("Use documents only")
-    return await generateAnswerFromDocs(question, documents, detectLanguage(question))
+
+    console.log(`✅ נטענו ${data?.length || 0} הודעות`)
+    return data || []
+  } catch (error) {
+    console.error("❌ שגיאה בטעינת היסטוריה:", error)
+    return []
   }
 }
