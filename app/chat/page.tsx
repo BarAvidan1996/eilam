@@ -16,10 +16,12 @@ interface Message {
   timestamp?: Date
   sources?: Array<{
     title: string
-    file_name: string
-    similarity: number
+    file_name?: string
+    similarity?: number
     storage_path?: string
-    url?: string // הוספת שדה URL למקורות web
+    url?: string
+    source?: string // שדה נוסף שיכול להכיל URL
+    link?: string // שדה נוסף שיכול להכיל URL
   }>
 }
 
@@ -195,29 +197,44 @@ export default function ChatPage() {
   }
 
   // פונקציה לפתיחת מקור מה-storage או מ-web
-  const openSource = async (source: {
-    title: string
-    file_name: string
-    similarity: number
-    storage_path?: string
-    url?: string
-  }) => {
+  const openSource = async (source: any) => {
     try {
-      // אם יש URL ישיר (ממקורות web), פותח אותו ישירות
+      // לוג מפורט של המקור לצורכי דיבאג
+      console.log("🔍 מקור שהתקבל:", JSON.stringify(source, null, 2))
+
+      // בדיקה של כל השדות האפשריים שיכולים להכיל URL
       if (source.url) {
-        console.log("🌐 פותח מקור web:", source.url)
+        console.log("🌐 פותח URL ישיר:", source.url)
         window.open(source.url, "_blank", "noopener,noreferrer")
         return
       }
 
-      // אם אין URL אבל יש file_name שמתחיל ב-http, זה כנראה URL
-      if (source.file_name && source.file_name.startsWith("http")) {
+      if (source.source) {
+        console.log("🌐 פותח URL משדה source:", source.source)
+        window.open(source.source, "_blank", "noopener,noreferrer")
+        return
+      }
+
+      if (source.link) {
+        console.log("🌐 פותח URL משדה link:", source.link)
+        window.open(source.link, "_blank", "noopener,noreferrer")
+        return
+      }
+
+      // בדיקה אם title או file_name מכילים URL
+      if (source.title && (source.title.startsWith("http://") || source.title.startsWith("https://"))) {
+        console.log("🌐 פותח URL מהכותרת:", source.title)
+        window.open(source.title, "_blank", "noopener,noreferrer")
+        return
+      }
+
+      if (source.file_name && (source.file_name.startsWith("http://") || source.file_name.startsWith("https://"))) {
         console.log("🌐 פותח URL מ-file_name:", source.file_name)
         window.open(source.file_name, "_blank", "noopener,noreferrer")
         return
       }
 
-      // אחרת, זה מקור RAG - ממשיך עם הלוגיקה הקיימת
+      // אם הגענו לכאן, זה כנראה מקור RAG - ממשיך עם הלוגיקה הקיימת
       if (source.storage_path) {
         console.log("🔍 מנסה לחלץ URL מקורי מקובץ HTML:", source.storage_path)
 
@@ -279,16 +296,38 @@ export default function ChatPage() {
           window.open(fallbackUrl, "_blank", "noopener,noreferrer")
         }
       } else {
-        // fallback - אם אין storage_path, ננסה את האתר הרשמי
-        console.log("⚠️ אין storage_path, משתמש ב-fallback")
-        const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
-        window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+        // אם אין לנו שום URL או storage_path, ננסה להשתמש בכותרת כ-URL
+        if (source.title) {
+          // בדיקה אם הכותרת מכילה URL חלקי
+          if (
+            source.title.includes("www.") ||
+            source.title.includes(".com") ||
+            source.title.includes(".co.il") ||
+            source.title.includes(".org")
+          ) {
+            let url = source.title
+            if (!url.startsWith("http")) {
+              url = "https://" + url
+            }
+            console.log("🔄 מנסה לפתוח כותרת כ-URL:", url)
+            window.open(url, "_blank", "noopener,noreferrer")
+            return
+          }
+        }
+
+        // fallback אחרון - אם אין שום דבר אחר, ננסה לחפש את הכותרת בגוגל
+        const searchQuery = encodeURIComponent(source.title || "פיקוד העורף")
+        const googleUrl = `https://www.google.com/search?q=${searchQuery}`
+        console.log("🔍 מחפש בגוגל:", googleUrl)
+        window.open(googleUrl, "_blank", "noopener,noreferrer")
       }
     } catch (error) {
       console.error("❌ שגיאה בפתיחת מקור:", error)
-      // fallback אחרון
-      const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
-      window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+      // fallback אחרון - חיפוש בגוגל
+      const searchQuery = encodeURIComponent(source.title || "פיקוד העורף")
+      const googleUrl = `https://www.google.com/search?q=${searchQuery}`
+      console.log("🔍 מחפש בגוגל אחרי שגיאה:", googleUrl)
+      window.open(googleUrl, "_blank", "noopener,noreferrer")
     }
   }
 
@@ -338,6 +377,7 @@ export default function ChatPage() {
       }
 
       const data = await response.json()
+      console.log("📊 תשובה מה-API:", JSON.stringify(data, null, 2))
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -432,7 +472,9 @@ export default function ChatPage() {
                             onClick={() => openSource(source)}
                             className="text-blue-600 dark:text-blue-400 hover:underline text-left"
                           >
-                            {source.title}
+                            {source.title ||
+                              (source.url ? new URL(source.url).hostname : "מקור") ||
+                              (source.source ? new URL(source.source).hostname : "מקור")}
                           </button>
                         </li>
                       ))}
