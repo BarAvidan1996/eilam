@@ -29,11 +29,11 @@ export async function searchWebViaTavily(query: string): Promise<{
       },
       body: JSON.stringify({
         query,
-        search_depth: "basic",
-        include_answer: false,
-        include_raw_content: false,
-        max_results: 3,
-        //include_domains: ["oref.org.il", "gov.il"],
+        search_depth: "advanced",
+        include_answer: true,
+        include_raw_content: true,
+        max_results: 5,
+        include_domains: ["oref.org.il", "gov.il", "mako.co.il", "ynet.co.il", "walla.co.il", "kan.org.il"],
       }),
     })
 
@@ -65,8 +65,34 @@ export async function generateAnswerFromWeb(
 
   const prompt =
     language === "he"
-      ? `ענה על השאלה על בסיס המידע הבא מהאינטרנט. ציין מקורות.\n\n${context}\n\nשאלה: ${question}`
-      : `Answer the question based on the following web data. Include sources.\n\n${context}\n\nQuestion: ${question}`
+      ? `אתה עוזר מומחה של פיקוד העורף. ענה על השאלה בהתבסס על המידע העדכני הבא מהאינטרנט.
+
+חשוב: 
+- תן תשובה מדויקת ועדכנית
+- אם יש תאריכים או שעות, ציין אותם בבירור
+- אם המידע לא ברור או סותר, ציין זאת
+- השתמש במידע הכי עדכני שיש
+
+מידע מהאינטרנט:
+${context}
+
+שאלה: ${question}
+
+תשובה מפורטת ומדויקת:`
+      : `You are a Home Front Command expert assistant. Answer based on the current web information.
+
+Important:
+- Provide accurate and current information
+- If there are dates or times, mention them clearly
+- If information is unclear or contradictory, mention it
+- Use the most current information available
+
+Web information:
+${context}
+
+Question: ${question}
+
+Detailed and accurate answer:`
 
   const response = await openai.chat.completions.create({
     model: "gpt-4",

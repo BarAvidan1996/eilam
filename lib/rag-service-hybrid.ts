@@ -151,23 +151,25 @@ async function routeQuery(question: string): Promise<"documents" | "tavily"> {
   console.log("🧭 Router - מחליט על מסלול עבור:", question)
 
   const prompt = `
-אתה עוזר של פיקוד העורף. האם השאלה הבאה דורשת מידע עדכני מהאינטרנט (כמו חדשות, מצב נוכחי, אירועים אחרונים) או שניתן לענות עליה ממסמכי הדרכה קיימים?
+אתה עוזר של פיקוד העורף. האם השאלה הבאה דורשת מידע עדכני מהאינטרנט או שניתן לענות עליה ממסמכי הדרכה קיימים?
 
-דוגמאות לשאלות שדורשות אינטרנט:
-- "מה המצב הנוכחי בעזה?"
+שאלות שדורשות אינטרנט (כתוב: tavily):
+- שאלות על מצב נוכחי, אירועים אחרונים
 - "מתי הייתה האזעקה האחרונה?"
-- "מה החדשות היום?"
+- "מה המצב היום?"
+- "מה קורה עכשיו?"
+- שאלות על חדשות, עדכונים, זמנים ספציפיים
 
-דוגמאות לשאלות שלא דורשות אינטרנט:
+שאלות שלא דורשות אינטרנט (כתוב: documents):
+- הוראות כלליות, נהלים
 - "מה עושים באזעקה?"
 - "איך מתכוננים לרעידת אדמה?"
 - "מה זה מקלט?"
+- שאלות על הכנה, ציוד, נהלים
 
-אם השאלה דורשת מידע עדכני מהאינטרנט, כתוב רק: tavily
-אם השאלה לא דורשת מידע עדכני, כתוב רק: documents
+שאלה: ${question}
 
-שאלה:
-${question}`
+החלטה (רק tavily או documents):`
 
   const res = await openai.chat.completions.create({
     model: "gpt-3.5-turbo",
@@ -270,7 +272,29 @@ async function processViaTavily(question: string, language: "he" | "en") {
 
   const searchResults = await searchWebViaTavily(question)
   if (!searchResults.success || searchResults.results.length === 0) {
-    console.log("⚠️ Tavily לא מצא תוצאות, עובר ל-fallback כללי")
+    console.log("⚠️ Tavily לא מצא תוצאות, מנסה חיפוש כללי")
+
+    // ננסה חיפוש כללי יותר
+    const generalQuery = question.replace(/מתי|איפה|כמה/, "").trim()
+    const retryResults = await searchWebViaTavily(generalQuery)
+
+    if (retryResults.success && retryResults.results.length > 0) {
+      console.log("✅ חיפוש כללי הצליח")
+      const webAnswer = await generateAnswerFromWeb(question, retryResults.results, language)
+      return {
+        answer: webAnswer + "\n\n(מידע זה מבוסס על חיפוש כללי)",
+        sources: retryResults.results.map((res) => ({
+          title: res.title,
+          file_name: `web_result_${res.url}`,
+          storage_path: res.url,
+          similarity: res.score,
+        })),
+        usedFallback: false,
+        usedWebSearch: true,
+      }
+    }
+
+    console.log("⚠️ גם חיפוש כללי נכשל, עובר ל-fallback")
     const fallbackAnswer = await generateFallbackAnswer(question, language)
     return {
       answer: fallbackAnswer,
