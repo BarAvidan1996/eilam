@@ -33,6 +33,7 @@ export async function searchWebViaTavily(query: string): Promise<{
         include_answer: false,
         include_raw_content: false,
         max_results: 5,
+        
         //include_domains: ["oref.org.il", "gov.il"],
       }),
     })
