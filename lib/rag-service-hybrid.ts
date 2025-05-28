@@ -30,10 +30,10 @@ export async function createEmbedding(text: string): Promise<number[]> {
 }
 
 // Step 2: Search in internal documents (Supabase RAG)
-export async function searchSimilarDocuments(embedding: number[], language: "he" | "en", limit = 3) {
+export async function searchSimilarDocuments(embedding: number[], language: "he" | "en", limit = 5) {
   const { data, error } = await supabase.rpc("match_documents", {
     query_embedding: embedding,
-    match_threshold: 0.8,
+    match_threshold: 0.7,
     match_count: limit,
     filter_language: language,
   })
@@ -55,10 +55,10 @@ async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" 
   let context = ""
   let len = 0
   for (const doc of docs) {
-    const txt = `מקור: ${doc.title}\nתוכן: ${doc.plain_text}\n\n`
-    if (len + txt.length > 2000) {
-      const short = truncateText(doc.plain_text, 2000 - len - doc.title.length - 20)
-      context += `מקור: ${doc.title}\nתוכן: ${short}\n\n`
+    const txt = `מסמך ${docs.indexOf(doc) + 1}:\n${doc.plain_text}\n\n---\n\n`
+    if (len + txt.length > 3000) {
+      const short = truncateText(doc.plain_text, 3000 - len - 50)
+      context += `מסמך ${docs.indexOf(doc) + 1}:\n${short}\n\n---\n\n`
       break
     }
     context += txt
@@ -71,30 +71,31 @@ async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" 
     lang === "he"
       ? `אתה עוזר חכם של פיקוד העורף בישראל. תפקידך לספק תשובות מדויקות, אמינות ועדכניות לשאלות הקשורות למצבי חירום בישראל.
 
-לפני מתן התשובה, קח צעד אחורה וחשב מה המידע המרכזי הנדרש כדי לענות על השאלה בצורה מדויקת ובטוחה.
+ענה על השאלה בהתבסס על המידע הבא. אם המידע לא מספיק מדויק, השתמש בידע הכללי שלך בנושאי חירום והיערכות, אבל ציין זאת.
 
-חשיבה מופשטת:
-- על מה השאלה הזו עוסקת ביסודה?
-- איזה סוג תשובה צריך לתת (פרוצדורלית, עובדתית, מבוססת בטיחות)?
-
-השתמש רק במידע הבא כדי לענות בעברית ברורה וידידותית לציבור:
-
-הקשר רלוונטי:
+מידע רלוונטי:
 ${context}
 
 שאלה:
 ${question}
 
-תשובה:`
-      : `You are an AI assistant. Use only the following information.
-${context}
-Question: ${question}
-Answer in English with sources.`
+תשובה מפורטת ומועילה:`
+      : `You are a Home Front Command assistant. Answer based on the following information, and use your general emergency knowledge if needed.
 
-  console.log("📝 פרומפט סופי:", prompt.substring(0, 200) + "...")
+Relevant information:
+${context}
+
+Question: ${question}
+
+Detailed answer:`
+
+  console.log("📝 פרומפט סופי:", prompt.substring(0, 300) + "...")
 
   const totalTokens = estimateTokens(prompt)
-  if (totalTokens > 3500) throw new Error("Too many tokens")
+  if (totalTokens > 4000) {
+    console.log("⚠️ יותר מדי טוקנים, מקצר הקשר")
+    context = context.substring(0, 2000) + "..."
+  }
 
   console.log("🔄 שולח בקשה ל-OpenAI...")
 
@@ -102,7 +103,7 @@ Answer in English with sources.`
     model: "gpt-4",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.1,
-    max_tokens: 500,
+    max_tokens: 600,
   })
 
   const answer = res.choices[0]?.message?.content || ""
@@ -118,29 +119,29 @@ async function generateFallbackAnswer(question: string, lang: "he" | "en") {
 
   const prompt =
     lang === "he"
-      ? `אתה עוזר חכם של פיקוד העורף. ענה על השאלה הבאה בהתבסס על הידע הכללי שלך:
+      ? `אתה עוזר חכם של פיקוד העורף בישראל. ענה על השאלה הבאה בהתבסס על הידע הכללי שלך בנושאי חירום והיערכות:
 
 שאלה: ${question}
 
-תשובה:`
-      : `You are a Home Front Command assistant. Answer the following question based on your general knowledge:
+תשובה מפורטת ומועילה:`
+      : `You are a Home Front Command assistant. Answer the following question based on your general knowledge of emergency preparedness:
 
 Question: ${question}
 
-Answer:`
+Detailed answer:`
 
   const res = await openai.chat.completions.create({
     model: "gpt-4",
     messages: [{ role: "user", content: prompt }],
     temperature: 0.1,
-    max_tokens: 500,
+    max_tokens: 600,
   })
 
   const answer = res.choices[0]?.message?.content || ""
   const fallbackNote =
     lang === "he"
-      ? "\n\n(הערה: תשובה זו ניתנה באופן כללי לפי הבנת המערכת, ללא הסתמכות על מסמך מאומת.)"
-      : "\n\n(Note: This answer was provided generally based on the system's understanding, without reliance on verified documents.)"
+      ? "\n\n(הערה: תשובה זו ניתנה בהתבסס על ידע כללי במצבי חירום, מומלץ לוודא באתר פיקוד העורף)"
+      : "\n\n(Note: This answer is based on general emergency knowledge, please verify on the Home Front Command website)"
 
   console.log("✅ Fallback answer generated")
   return answer + fallbackNote
@@ -157,11 +158,13 @@ async function routeQuery(question: string): Promise<"documents" | "tavily"> {
 - "מה המצב הנוכחי בעזה?"
 - "מתי הייתה האזעקה האחרונה?"
 - "מה החדשות היום?"
+- "האם יש הנחיות חדשות היום?"
 
 דוגמאות לשאלות שלא דורשות אינטרנט:
 - "מה עושים באזעקה?"
 - "איך מתכוננים לרעידת אדמה?"
 - "מה זה מקלט?"
+- "מה ההבדל בין ירי תלול לחדירת מחבלים?"
 
 אם השאלה דורשת מידע עדכני מהאינטרנט, כתוב רק: tavily
 אם השאלה לא דורשת מידע עדכני, כתוב רק: documents
@@ -223,7 +226,7 @@ export async function processRAGQuery(question: string): Promise<{
 
       const answer = await generateAnswerFromDocs(question, documents, language)
 
-      if (!answer || answer.length < 20) {
+      if (!answer || answer.length < 50) {
         console.log("⚠️ תשובה חלשה ממסמכים, עובר ל-fallback כללי")
         const fallbackAnswer = await generateFallbackAnswer(question, language)
         return {
@@ -251,11 +254,9 @@ export async function processRAGQuery(question: string): Promise<{
     }
   } catch (err) {
     console.error("❌ שגיאה כללית בתהליך RAG:", err)
+    const fallbackAnswer = await generateFallbackAnswer(question, language)
     return {
-      answer:
-        language === "he"
-          ? "מצטער, לא הצלחתי למצוא תשובה מהימנה לשאלה זו. מומלץ לבדוק באתר פיקוד העורף או לפנות לרשות מוסמכת."
-          : "Sorry, I couldn't find a reliable answer. Please check the Home Front Command website.",
+      answer: fallbackAnswer,
       sources: [],
       usedFallback: true,
       usedWebSearch: false,
