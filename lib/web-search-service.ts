@@ -79,6 +79,7 @@ export async function generateAnswerFromWeb(
   let answer = response.choices[0]?.message?.content || ""
   // הסרת הקישור מהתשובה
   answer = answer.replace(/$$מקור:.*$$/g, "")
+  answer = answer.replace(/\$$מקור:.*\$$/g, "")
 
   return (
     answer +
