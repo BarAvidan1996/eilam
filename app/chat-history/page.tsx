@@ -156,24 +156,125 @@ export default function ChatHistoryPage() {
 
       setChatSessions(filteredSessions)
 
+      // הסר את הקטע הזה מתוך fetchChatSessions:
       // יצירת תקציר AI לשיחות ללא תקציר ועם לפחות 2 הודעות
-      for (const session of filteredSessions) {
-        if (!session.ai_summary && session.message_count >= 2) {
-          console.log("🤖 יוצר תקציר AI לשיחה:", session.id)
-          await generateAISummary(session.id)
-        }
+      // for (const session of filteredSessions) {
+      //   if (!session.ai_summary && session.message_count >= 2) {
+      //     console.log("🤖 יוצר תקציר AI לשיחה:", session.id)
+      //     await generateAISummary(session.id)
+      //   }
 
-        // יצירת כותרת לשיחות ללא כותרת
-        if ((!session.title || session.title === "" || session.title === "שיחה חדשה") && session.message_count >= 2) {
-          console.log("🏷️ יוצר כותרת AI לשיחה:", session.id)
-          await generateAITitle(session.id)
-        }
-      }
+      //   // יצירת כותרת לשיחות ללא כותרת
+      //   if ((!session.title || session.title === "" || session.title === "שיחה חדשה") && session.message_count >= 2) {
+      //     console.log("🏷️ יוצר כותרת AI לשיחה:", session.id)
+      //     await generateAITitle(session.id)
+      //   }
+      // }
     } catch (error) {
       console.error("❌ שגיאה כללית בטעינת שיחות:", error)
       setChatSessions([])
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // טעינה אסינכרונית של כותרות ותקצירים ברקע
+  const generateMissingTitlesAndSummaries = async () => {
+    try {
+      console.log("🔄 מתחיל יצירת כותרות ותקצירים ברקע...")
+
+      const sessionsNeedingWork = chatSessions.filter(
+        (session) =>
+          session.message_count >= 2 &&
+          (!session.ai_summary || !session.title || session.title === "" || session.title === "שיחה חדשה"),
+      )
+
+      console.log(`📝 נמצאו ${sessionsNeedingWork.length} שיחות שצריכות עבודה`)
+
+      // עבוד על שיחה אחת בכל פעם כדי לא להעמיס על השרת
+      for (const session of sessionsNeedingWork) {
+        // יצירת כותרת אם חסרה
+        if (!session.title || session.title === "" || session.title === "שיחה חדשה") {
+          console.log("🏷️ יוצר כותרת ברקע לשיחה:", session.id)
+          await generateAITitle(session.id)
+          // המתן קצת בין בקשות
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+        }
+
+        // יצירת תקציר אם חסר
+        if (!session.ai_summary) {
+          console.log("🤖 יוצר תקציר ברקע לשיחה:", session.id)
+          await generateAISummary(session.id)
+          // המתן קצת בין בקשות
+          await new Promise((resolve) => setTimeout(resolve, 1000))
+        }
+      }
+
+      console.log("✅ סיום יצירת כותרות ותקצירים ברקע")
+    } catch (error) {
+      console.error("❌ שגיאה ביצירת כותרות/תקצירים ברקע:", error)
+    }
+  }
+
+  // יצירת כותרת AI
+  const generateAITitle = async (sessionId: string) => {
+    setIsGeneratingTitle(sessionId)
+
+    try {
+      console.log("🏷️ מתחיל יצירת כותרת לשיחה:", sessionId)
+
+      // קבלת הודעות השיחה
+      const { data: messages, error } = await supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true })
+
+      if (error) {
+        console.error("❌ שגיאה בקבלת הודעות:", error)
+        return
+      }
+
+      if (!messages || messages.length === 0) {
+        console.log("❌ אין הודעות לשיחה")
+        return
+      }
+
+      console.log("📨 נמצאו הודעות:", messages.length)
+
+      // שליחה ל-API לכותרת
+      const response = await fetch("/api/chat/title", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      })
+
+      if (!response.ok) {
+        console.error("❌ שגיאה בקריאה ל-API:", response.status)
+        return
+      }
+
+      const { title } = await response.json()
+      console.log("✅ כותרת נוצרה:", title)
+
+      // עדכון הכותרת בטבלה
+      const { error: updateError } = await supabase.from("chat_sessions").update({ title: title }).eq("id", sessionId)
+
+      if (updateError) {
+        console.error("❌ שגיאה בעדכון כותרת:", updateError)
+        return
+      }
+
+      // עדכון המצב המקומי
+      setChatSessions((prev) =>
+        prev.map((session) => (session.id === sessionId ? { ...session, title: title } : session)),
+      )
+
+      console.log("✅ כותרת עודכנה בהצלחה")
+    } catch (error) {
+      console.error("❌ שגיאה ביצירת כותרת:", error)
+    } finally {
+      setIsGeneratingTitle(null)
     }
   }
 
@@ -239,68 +340,6 @@ export default function ChatHistoryPage() {
       console.error("❌ שגיאה ביצירת תקציר:", error)
     } finally {
       setIsGeneratingSummary(null)
-    }
-  }
-
-  // יצירת כותרת AI
-  const generateAITitle = async (sessionId: string) => {
-    setIsGeneratingTitle(sessionId)
-
-    try {
-      console.log("🏷️ מתחיל יצירת כותרת לשיחה:", sessionId)
-
-      // קבלת הודעות השיחה
-      const { data: messages, error } = await supabase
-        .from("chat_messages")
-        .select("role, content")
-        .eq("session_id", sessionId)
-        .order("created_at", { ascending: true })
-
-      if (error) {
-        console.error("❌ שגיאה בקבלת הודעות:", error)
-        return
-      }
-
-      if (!messages || messages.length === 0) {
-        console.log("❌ אין הודעות לשיחה")
-        return
-      }
-
-      console.log("📨 נמצאו הודעות:", messages.length)
-
-      // שליחה ל-API לכותרת
-      const response = await fetch("/api/chat/title", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages }),
-      })
-
-      if (!response.ok) {
-        console.error("❌ שגיאה בקריאה ל-API:", response.status)
-        return
-      }
-
-      const { title } = await response.json()
-      console.log("✅ כותרת נוצרה:", title)
-
-      // עדכון הכותרת בטבלה
-      const { error: updateError } = await supabase.from("chat_sessions").update({ title: title }).eq("id", sessionId)
-
-      if (updateError) {
-        console.error("❌ שגיאה בעדכון כותרת:", updateError)
-        return
-      }
-
-      // עדכון המצב המקומי
-      setChatSessions((prev) =>
-        prev.map((session) => (session.id === sessionId ? { ...session, title: title } : session)),
-      )
-
-      console.log("✅ כותרת עודכנה בהצלחה")
-    } catch (error) {
-      console.error("❌ שגיאה ביצירת כותרת:", error)
-    } finally {
-      setIsGeneratingTitle(null)
     }
   }
 
@@ -394,6 +433,18 @@ export default function ChatHistoryPage() {
 
     return createFallbackSummary(messagesData || [])
   }
+
+  // useEffect נפרד ליצירת כותרות ותקצירים ברקע
+  useEffect(() => {
+    if (!isLoading && chatSessions.length > 0) {
+      // המתן קצת אחרי הטעינה הראשונית ואז התחל לעבוד ברקע
+      const timer = setTimeout(() => {
+        generateMissingTitlesAndSummaries()
+      }, 2000) // המתן 2 שניות
+
+      return () => clearTimeout(timer)
+    }
+  }, [isLoading, chatSessions.length])
 
   useEffect(() => {
     fetchChatSessions()
