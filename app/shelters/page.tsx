@@ -1,150 +1,46 @@
 "use client"
-
-import { useRef } from "react"
-
 import { useState, useEffect, useCallback } from "react"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Search, Navigation, Filter, MapPin } from "lucide-react"
 import ShelterMap from "@/components/map/shelter-map"
-import ShelterSearchForm from "@/components/shelters/shelters-search-form"
-import ShelterList from "@/components/shelters/shelter-list"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
 // Adding translations object
 const translations = {
   he: {
     pageTitle: "איתור מקלטים",
     pageDescription: "מצא מקלטים קרובים אליך לפי כתובת או מיקום נוכחי.",
-    searchInputPlaceholder: "חפש לפי כתובת או שם מקום...",
-    useMyLocation: "השתמש במיקומי",
-    currentLocation: "מיקום נוכחי",
-    filterButton: "סינון",
-    searchButton: "חפש",
-    filterTitle: "סינון תוצאות",
-    searchRadius: "רדיוס חיפוש",
-    meters: "מטר",
-    maxDuration: "זמן הגעה מקסימלי",
-    minutes: "דקות",
-    applyFilter: "החל סינון",
-    loading: "טוען...",
-    loadingMap: "טוען מפה...",
-    foundShelters: "מקלטים נמצאו",
-    noMatchingResults: "אין מקלטים מתאימים לסינון",
+    searchPlaceholder: "חפש לפי כתובת או שם מקום",
+    useCurrentLocation: "השתמש במיקום נוכחי",
+    filter: "סינון",
     noSearchYet: "לא התבצע חיפוש עדיין",
-    enterAddressPrompt: "הזן כתובת או השתמש במיקום הנוכחי שלך כדי למצוא מקלטים באזור",
+    sheltersFound: "מקלטים נמצאו",
+    noSearchMessage: "הזן כתובת או השתמש במיקום הנוכחי שלך כדי למצוא מקלטים באזור",
     findNearMe: "מצא מקלטים ליד המיקום שלי",
-    sortBy: "מיין לפי",
-    distance: "מרחק",
-    duration: "זמן הגעה",
-    navigateToShelter: "נווט למקלט",
     errorMessages: {
       locationNotSupported: "הדפדפן שלך לא תומך באיתור מיקום",
       locationFailed: "לא ניתן לאתר את מיקומך הנוכחי",
       noSheltersFound: "לא נמצאו מקלטים באזור זה. נסה להגדיל את רדיוס החיפוש.",
-      noMatchingFilters: "לא נמצאו מקלטים העונים על הגדרות הסינון. נסה לשנות את רדיוס החיפוש או זמן ההגעה המקסימלי.",
       mapsError: "שירותי המפה אינם זמינים כרגע. נסה לרענן את הדף.",
     },
   },
   en: {
     pageTitle: "Find Shelters",
     pageDescription: "Find nearby shelters by address or current location.",
-    searchInputPlaceholder: "Search by address or place name...",
-    useMyLocation: "Use My Location",
-    currentLocation: "Current Location",
-    filterButton: "Filter",
-    searchButton: "Search",
-    filterTitle: "Filter Results",
-    searchRadius: "Search Radius",
-    meters: "meters",
-    maxDuration: "Maximum Walking Time",
-    minutes: "minutes",
-    applyFilter: "Apply Filter",
-    loading: "Loading...",
-    loadingMap: "Loading map...",
-    foundShelters: "shelters found",
-    noMatchingResults: "No shelters match the current filters",
+    searchPlaceholder: "Search by address or place name",
+    useCurrentLocation: "Use Current Location",
+    filter: "Filter",
     noSearchYet: "No search performed yet",
-    enterAddressPrompt: "Enter an address or use your current location to find nearby shelters",
+    sheltersFound: "shelters found",
+    noSearchMessage: "Enter an address or use your current location to find nearby shelters",
     findNearMe: "Find Shelters Near Me",
-    sortBy: "Sort by",
-    distance: "Distance",
-    duration: "Duration",
-    navigateToShelter: "Navigate to Shelter",
     errorMessages: {
       locationNotSupported: "Your browser doesn't support location services",
       locationFailed: "Unable to determine your current location",
       noSheltersFound: "No shelters found in this area. Try increasing the search radius.",
-      noMatchingFilters:
-        "No shelters match the current filter settings. Try adjusting the search radius or maximum arrival time.",
       mapsError: "Map services are currently unavailable. Please try refreshing the page.",
-    },
-  },
-  ar: {
-    pageTitle: "البحث عن الملاجئ",
-    pageDescription: "ابحث عن الملاجئ القريبة حسب العنوان أو الموقع الحالي.",
-    searchInputPlaceholder: "ابحث حسب العنوان أو اسم المكان...",
-    useMyLocation: "استخدم موقعي",
-    currentLocation: "الموقع الحالي",
-    filterButton: "تصفية",
-    searchButton: "بحث",
-    filterTitle: "تصفية النتائج",
-    searchRadius: "نطاق البحث",
-    meters: "متر",
-    maxDuration: "أقصى وقت للمشي",
-    minutes: "دقائق",
-    applyFilter: "تطبيق التصفية",
-    loading: "جارِ التحميل...",
-    loadingMap: "جارِ تحميل الخريطة...",
-    foundShelters: "ملاجئ تم العثور عليها",
-    noMatchingResults: "لا توجد ملاجئ تطابق عوامل التصفية الحالية",
-    noSearchYet: "لم يتم إجراء بحث بعد",
-    enterAddressPrompt: "أدخل عنوانًا أو استخدم موقعك الحالي للعثور على الملاجئ القريبة",
-    findNearMe: "ابحث عن ملاجئ بالقرب مني",
-    sortBy: "ترتيب حسب",
-    distance: "المسافة",
-    duration: "المدة",
-    navigateToShelter: "التنقل إلى الملجأ",
-    errorMessages: {
-      locationNotSupported: "متصفحك لا يدعم خدمات الموقع",
-      locationFailed: "تعذر تحديد موقعك الحالي",
-      noSheltersFound: "لم يتم العثور على ملاجئ في هذه المنطقة. حاول زيادة نطاق البحث.",
-      noMatchingFilters:
-        "لا توجد ملاجئ تطابق إعدادات التصفية الحالية. حاول تعديل نطاق البحث أو الحد الأقصى لوقت الوصول.",
-      mapsError: "خدمات الخرائط غير متوفرة حاليًا. يرجى تحديث الصفحة.",
-    },
-  },
-  ru: {
-    pageTitle: "Поиск убежищ",
-    pageDescription: "Найдите ближайшие убежища по адресу или текущему местоположению.",
-    searchInputPlaceholder: "Поиск по адресу или названию места...",
-    useMyLocation: "Использовать мое местоположение",
-    currentLocation: "Текущее местоположение",
-    filterButton: "Фильтр",
-    searchButton: "Поиск",
-    filterTitle: "Фильтр результатов",
-    searchRadius: "Радиус поиска",
-    meters: "метров",
-    maxDuration: "Максимальное время ходьбы",
-    minutes: "минут",
-    applyFilter: "Применить фильтр",
-    loading: "Загрузка...",
-    loadingMap: "Загрузка карты...",
-    foundShelters: "найдено убежищ",
-    noMatchingResults: "Нет убежищ, соответствующих текущим фильтрам",
-    noSearchYet: "Поиск еще не выполнен",
-    enterAddressPrompt: "Введите адрес или используйте текущее местоположение для поиска ближайших убежищ",
-    findNearMe: "Найти убежища рядом со мной",
-    sortBy: "Сортировать по",
-    distance: "Расстоянию",
-    duration: "Времени",
-    navigateToShelter: "Проложить маршрут к убежищу",
-    errorMessages: {
-      locationNotSupported: "Ваш браузер не поддерживает службы определения местоположения",
-      locationFailed: "Не удалось определить ваше текущее местоположение",
-      noSheltersFound: "В этом районе не найдено убежищ. Попробуйте увеличить радиус поиска.",
-      noMatchingFilters:
-        "Нет убежищ, соответствующих текущим настройкам фильтра. Попробуйте изменить радиус поиска или максимальное время прибытия.",
-      mapsError: "Службы карт в настоящее время недоступны. Пожалуйста, обновите страницу.",
     },
   },
 }
@@ -152,8 +48,6 @@ const translations = {
 export default function SheltersPage() {
   const [language, setLanguage] = useState("he")
   const [isRTL, setIsRTL] = useState(true)
-
-  // Initialize with default translations
   const [t, setT] = useState(translations.he)
 
   // Set language from document only on client-side
@@ -166,48 +60,17 @@ export default function SheltersPage() {
 
   const [isLoading, setIsLoading] = useState(false)
   const [shelters, setShelters] = useState([])
-  const [allFetchedShelters, setAllFetchedShelters] = useState([])
   const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false)
   const [mapCenter, setMapCenter] = useState({ lat: 32.0853, lng: 34.7818 })
   const [originLocation, setOriginLocation] = useState(null)
   const [searchRadius, setSearchRadius] = useState(1000)
-  const [maxDurationFilter, setMaxDurationFilter] = useState(60)
   const [error, setError] = useState(null)
   const [mapServices, setMapServices] = useState(null)
   const [selectedShelter, setSelectedShelter] = useState(null)
   const [searchInput, setSearchInput] = useState("")
-  const [currentLocation, setCurrentLocation] = useState(null)
-  const [sortBy, setSortBy] = useState("distance")
-  const [autocomplete, setAutocomplete] = useState(null)
-  const searchInputRef = useRef(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [favorites, setFavorites] = useState([])
-  const [updatingFavorite, setUpdatingFavorite] = useState(null)
-  const [isMobile, setIsMobile] = useState(false)
-  const resultsContainerRef = useRef(null)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [isGettingLocation, setIsGettingLocation] = useState(false)
   const supabase = createClientComponentClient()
-
-  const SHELTERS_PER_PAGE = 8
-
-  // Check if mobile view
-  useEffect(() => {
-    const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 1024)
-    }
-
-    checkIfMobile()
-    window.addEventListener("resize", checkIfMobile)
-
-    return () => {
-      window.removeEventListener("resize", checkIfMobile)
-    }
-  }, [])
-
-  // Load favorites
-  useEffect(() => {
-    // This would be replaced with actual data fetching from Supabase
-    setFavorites([])
-  }, [])
 
   const handleMapLoad = useCallback((map) => {
     if (!map || !window.google) return
@@ -229,7 +92,6 @@ export default function SheltersPage() {
 
       setError(null)
 
-      // בקשה לחיפוש מקומות קרובים מסוג מקלט
       return new Promise((resolve, reject) => {
         const request = {
           location: location,
@@ -240,7 +102,6 @@ export default function SheltersPage() {
 
         mapServices.placesService.nearbySearch(request, (results, status) => {
           if (status === window.google.maps.places.PlacesServiceStatus.OK) {
-            // עיבוד התוצאות
             const processedResults = results.map((place) => ({
               place_id: place.place_id,
               name: place.name,
@@ -254,7 +115,6 @@ export default function SheltersPage() {
               duration: null,
             }))
 
-            // חישוב מרחקים
             if (processedResults.length > 0) {
               const origins = [location]
               const destinations = processedResults.map((place) => place.location)
@@ -280,7 +140,6 @@ export default function SheltersPage() {
                     })
                   }
 
-                  // מיון לפי מרחק
                   const sortedResults = processedResults.sort(
                     (a, b) => (a.distance_value || Number.MAX_VALUE) - (b.distance_value || Number.MAX_VALUE),
                   )
@@ -302,41 +161,19 @@ export default function SheltersPage() {
     [mapServices, t],
   )
 
-  const applyFiltersAndSort = useCallback(
-    (sheltersToProcess) => {
-      // Filter by maximum duration
-      const durationFilteredShelters = sheltersToProcess.filter((shelter) => {
-        if (maxDurationFilter === 60) return true // If slider is at maximum, don't filter
-        return shelter.duration_value <= maxDurationFilter * 60 // Convert to seconds
-      })
-
-      // Sort the filtered results
-      return [...durationFilteredShelters].sort((a, b) => {
-        switch (sortBy) {
-          case "distance":
-            return (a.distance_value || Number.POSITIVE_INFINITY) - (b.distance_value || Number.POSITIVE_INFINITY)
-          case "duration":
-            return (a.duration_value || Number.POSITIVE_INFINITY) - (b.duration_value || Number.POSITIVE_INFINITY)
-          default:
-            return 0
-        }
-      })
-    },
-    [sortBy, maxDurationFilter],
-  )
-
   const handleSearch = useCallback(
-    async (address, radius) => {
+    async (address) => {
+      if (!address.trim()) return
+
       setIsLoading(true)
       setError(null)
       setShelters([])
-      setSearchRadius(radius)
+      setHasSearched(true)
 
       try {
         let searchLocation
 
-        if (address && mapServices?.geocoder) {
-          // חיפוש לפי כתובת
+        if (mapServices?.geocoder) {
           const geocodeResult = await new Promise((resolve, reject) => {
             mapServices.geocoder.geocode({ address }, (results, status) => {
               if (status === "OK" && results && results.length > 0) {
@@ -349,12 +186,13 @@ export default function SheltersPage() {
 
           searchLocation = { lat: geocodeResult.lat(), lng: geocodeResult.lng() }
           setMapCenter(searchLocation)
+          setOriginLocation(searchLocation)
         } else {
           setIsLoading(false)
           return
         }
 
-        const foundShelters = await searchShelters(searchLocation, radius)
+        const foundShelters = await searchShelters(searchLocation, searchRadius)
         setShelters(foundShelters)
 
         if (foundShelters.length === 0) {
@@ -367,121 +205,52 @@ export default function SheltersPage() {
         setIsLoading(false)
       }
     },
-    [mapServices, searchShelters, t],
+    [mapServices, searchShelters, t, searchRadius],
   )
 
-  // Update shelter list when filters change
-  useEffect(() => {
-    if (allFetchedShelters.length > 0) {
-      const processedShelters = applyFiltersAndSort(allFetchedShelters)
-      setShelters(processedShelters)
-      setCurrentPage(1)
-      if (processedShelters.length === 0) {
-        setError("לא נמצאו מקלטים העונים על הגדרות הסינון הנוכחיות.")
-      } else {
+  const handleLocationSearch = useCallback(async () => {
+    setIsGettingLocation(true)
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords
+        const location = { lat: latitude, lng: longitude }
+
+        setIsLoading(true)
         setError(null)
-      }
-    }
-  }, [sortBy, maxDurationFilter, allFetchedShelters, applyFiltersAndSort])
+        setShelters([])
+        setHasSearched(true)
+        setMapCenter(location)
+        setOriginLocation(location)
 
-  const handleLocationSearch = useCallback(
-    async (location, radius) => {
-      setIsLoading(true)
-      setError(null)
-      setShelters([])
-      setSearchRadius(radius)
-      setMapCenter(location)
+        try {
+          const foundShelters = await searchShelters(location, searchRadius)
+          setShelters(foundShelters)
 
-      try {
-        const foundShelters = await searchShelters(location, radius)
-        setShelters(foundShelters)
-
-        if (foundShelters.length === 0) {
-          setError(t.errorMessages.noSheltersFound)
-        }
-      } catch (error) {
-        console.error("Error searching shelters by location:", error)
-        setError(error.message || "אירעה שגיאה בחיפוש. נסה שוב מאוחר יותר.")
-      } finally {
-        setIsLoading(false)
-      }
-    },
-    [searchShelters, t],
-  )
-
-  // Update autocomplete after Google Maps loads
-  useEffect(() => {
-    if (window?.google && searchInputRef.current && !autocomplete) {
-      const autoComplete = new window.google.maps.places.Autocomplete(searchInputRef.current, {
-        componentRestrictions: { country: "il" },
-        fields: ["formatted_address", "geometry"],
-      })
-
-      autoComplete.addListener("place_changed", () => {
-        const place = autoComplete.getPlace()
-        if (place.geometry) {
-          const location = {
-            lat: place.geometry.location.lat(),
-            lng: place.geometry.location.lng(),
+          if (foundShelters.length === 0) {
+            setError(t.errorMessages.noSheltersFound)
           }
-          setMapCenter(location)
-          setOriginLocation(location)
-          handleSearch(place.formatted_address, searchRadius, location)
+        } catch (error) {
+          console.error("Error searching shelters by location:", error)
+          setError(error.message || "אירעה שגיאה בחיפוש. נסה שוב מאוחר יותר.")
+        } finally {
+          setIsLoading(false)
         }
-      })
 
-      setAutocomplete(autoComplete)
-    }
-  }, [googleMapsLoaded, searchInputRef, autocomplete, handleSearch, searchRadius])
+        setIsGettingLocation(false)
+      },
+      (error) => {
+        console.error("שגיאה באיתור מיקום:", error)
+        setIsGettingLocation(false)
+        alert("לא ניתן לאתר את המיקום הנוכחי. אנא ודא שהדפדפן מאפשר גישה למיקום.")
+      },
+    )
+  }, [searchShelters, t, searchRadius])
 
-  const navigateToGoogleMaps = (shelter, event) => {
-    event.stopPropagation()
-    if (!shelter.location) return
-
-    let url = `https://www.google.com/maps/dir/?api=1&destination=${shelter.location.lat},${shelter.location.lng}&travelmode=walking`
-
-    // If there's an origin location, add it to the navigation
-    if (originLocation) {
-      url = `https://www.google.com/maps/dir/?api=1&origin=${originLocation.lat},${originLocation.lng}&destination=${shelter.location.lat},${shelter.location.lng}&travelmode=walking`
-    }
-
-    window.open(url, "_blank")
+  const handleSearchSubmit = (e) => {
+    e.preventDefault()
+    handleSearch(searchInput)
   }
-
-  const toggleFavorite = async (shelter, event) => {
-    event.stopPropagation()
-    setUpdatingFavorite(shelter.place_id)
-
-    try {
-      const isFavorite = favorites.includes(shelter.place_id)
-
-      // This would be replaced with actual Supabase operations
-      if (isFavorite) {
-        // Remove from favorites
-        setFavorites((prev) => prev.filter((id) => id !== shelter.place_id))
-      } else {
-        // Add to favorites
-        setFavorites((prev) => [...prev, shelter.place_id])
-      }
-    } catch (error) {
-      console.error("Error updating favorites:", error)
-    }
-
-    setUpdatingFavorite(null)
-  }
-
-  // Calculate pagination
-  const totalPages = Math.ceil(shelters.length / SHELTERS_PER_PAGE)
-
-  // Current shelters to display
-  const currentShelters = shelters.slice((currentPage - 1) * SHELTERS_PER_PAGE, currentPage * SHELTERS_PER_PAGE)
-
-  // Scroll to results when page changes
-  useEffect(() => {
-    if (resultsContainerRef.current && isMobile) {
-      resultsContainerRef.current.scrollIntoView({ behavior: "smooth" })
-    }
-  }, [currentPage, isMobile])
 
   const handleShelterSelect = (shelter) => {
     setSelectedShelter(shelter)
@@ -490,49 +259,143 @@ export default function SheltersPage() {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">{t.pageTitle}</h1>
+      {/* Header */}
+      <header className="mb-6 text-center">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">{t.pageTitle}</h1>
         <p className="text-gray-600 dark:text-gray-300">{t.pageDescription}</p>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-          <ShelterSearchForm onSearch={handleSearch} onLocationSearch={handleLocationSearch} isLoading={isLoading} />
+      {/* Search Bar */}
+      <div className="mb-6">
+        <form onSubmit={handleSearchSubmit} className="flex gap-3 items-center">
+          <div className="flex-1 relative">
+            <Input
+              type="text"
+              placeholder={t.searchPlaceholder}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full pr-4 pl-4 py-3 text-right"
+              dir="rtl"
+            />
+          </div>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          <Button
+            type="button"
+            onClick={handleLocationSearch}
+            disabled={isLoading || isGettingLocation}
+            className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-3"
+            variant="outline"
+          >
+            <Navigation className="w-4 h-4 ml-2" />
+            {t.useCurrentLocation}
+          </Button>
 
-          <ShelterList shelters={shelters} isLoading={isLoading} onShelterSelect={handleShelterSelect} />
-        </div>
+          <Button
+            type="button"
+            className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-3"
+            variant="outline"
+          >
+            <Filter className="w-4 h-4 ml-2" />
+            {t.filter}
+          </Button>
 
-        <div className="lg:col-span-2">
-          <ShelterMap
-            center={mapCenter}
-            radius={searchRadius}
-            markers={[
-              ...shelters.map((shelter) => ({
-                position: shelter.location,
-                title: shelter.name,
-                isSelected: selectedShelter?.place_id === shelter.place_id,
-                content: `
-                  <div dir="rtl" style="padding: 8px; min-width: 200px;">
-                    <strong>${shelter.name}</strong>
-                    <p>${shelter.address}</p>
-                    ${shelter.distance ? `<p>מרחק: ${shelter.distance}</p>` : ""}
-                    ${shelter.duration ? `<p>זמן הליכה: ${shelter.duration}</p>` : ""}
-                  </div>
-                `,
-              })),
-            ]}
-            onMapLoad={handleMapLoad}
-            height="calc(100vh - 200px)"
-          />
-        </div>
+          <Button
+            type="submit"
+            disabled={isLoading || !searchInput.trim()}
+            className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-800 text-white px-4 py-3"
+          >
+            <Search className="w-4 h-4" />
+          </Button>
+        </form>
       </div>
+
+      {/* Map */}
+      <div className="mb-6">
+        <ShelterMap
+          center={mapCenter}
+          radius={searchRadius}
+          markers={[
+            ...shelters.map((shelter) => ({
+              position: shelter.location,
+              title: shelter.name,
+              isSelected: selectedShelter?.place_id === shelter.place_id,
+              content: `
+                <div dir="rtl" style="padding: 8px; min-width: 200px;">
+                  <strong>${shelter.name}</strong>
+                  <p>${shelter.address}</p>
+                  ${shelter.distance ? `<p>מרחק: ${shelter.distance}</p>` : ""}
+                  ${shelter.duration ? `<p>זמן הליכה: ${shelter.duration}</p>` : ""}
+                </div>
+              `,
+            })),
+          ]}
+          onMapLoad={handleMapLoad}
+          height="400px"
+        />
+      </div>
+
+      {/* Status Message */}
+      <div className="mb-4 text-center">
+        <p className="text-gray-600 dark:text-gray-300">
+          {!hasSearched ? t.noSearchYet : `${shelters.length} ${t.sheltersFound}`}
+        </p>
+      </div>
+
+      {/* Error Alert */}
+      {error && (
+        <div className="mb-6">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* No Search State */}
+      {!hasSearched && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <div className="mb-4">
+            <div className="w-16 h-16 mx-auto bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
+              <MapPin className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+            </div>
+          </div>
+
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">{t.noSearchYet}</h3>
+
+          <p className="text-gray-600 dark:text-gray-300 mb-6">{t.noSearchMessage}</p>
+
+          <Button
+            onClick={handleLocationSearch}
+            disabled={isGettingLocation}
+            className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-800 text-white px-6 py-3"
+          >
+            <Navigation className="w-4 h-4 ml-2" />
+            {t.findNearMe}
+          </Button>
+        </div>
+      )}
+
+      {/* Shelters List - Only show when there are results */}
+      {hasSearched && shelters.length > 0 && (
+        <div className="grid gap-4">
+          {shelters.map((shelter) => (
+            <div
+              key={shelter.place_id}
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+              onClick={() => handleShelterSelect(shelter)}
+            >
+              <h3 className="font-semibold text-gray-800 dark:text-white mb-1">{shelter.name}</h3>
+              <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">{shelter.address}</p>
+              {shelter.distance && (
+                <div className="flex gap-4 text-sm text-gray-500 dark:text-gray-400">
+                  <span>מרחק: {shelter.distance}</span>
+                  {shelter.duration && <span>זמן הליכה: {shelter.duration}</span>}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
