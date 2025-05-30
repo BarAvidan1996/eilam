@@ -375,7 +375,7 @@ export default function EquipmentListsPage() {
 
       {/* Delete Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-[90%] w-[350px] mx-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>{t.confirmDelete}</AlertDialogTitle>
             <AlertDialogDescription>{t.confirmDeleteDescription}</AlertDialogDescription>
@@ -391,7 +391,7 @@ export default function EquipmentListsPage() {
 
       {/* Edit Title Dialog */}
       <Dialog open={isEditTitleDialogOpen} onOpenChange={setIsEditTitleDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-w-[90%] w-[350px] mx-auto">
           <DialogHeader>
             <DialogTitle>{t.editTitleDialog}</DialogTitle>
             <DialogDescription>שנה את כותרת הרשימה לכותרת חדשה</DialogDescription>
