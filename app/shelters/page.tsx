@@ -69,6 +69,7 @@ export default function SheltersPage() {
   const [selectedShelter, setSelectedShelter] = useState(null)
   const [searchInput, setSearchInput] = useState("")
   const [hasSearched, setHasSearched] = useState(false)
+  const [sortBy, setSortBy] = useState("distance")
   const [isGettingLocation, setIsGettingLocation] = useState(false)
   const supabase = createClientComponentClient()
 
@@ -310,7 +311,7 @@ export default function SheltersPage() {
       </div>
 
       {/* Map */}
-      <div className="mb-6">
+      <div className="mb-8">
         <ShelterMap
           center={mapCenter}
           radius={searchRadius}
@@ -330,14 +331,26 @@ export default function SheltersPage() {
             })),
           ]}
           onMapLoad={handleMapLoad}
-          height="400px"
+          height="500px"
         />
       </div>
 
-      {/* Status Message - Only when there are search results */}
-      {hasSearched && (
-        <div className="mb-4 text-center">
-          <p className="text-gray-600 dark:text-gray-300">{`${shelters.length} ${t.sheltersFound}`}</p>
+      {/* Status Message and Sort Options - Only when there are search results */}
+      {hasSearched && shelters.length > 0 && (
+        <div className="mb-6 flex justify-between items-center">
+          <p className="text-gray-600 dark:text-gray-300">{`נמצאו ${shelters.length} תוצאות`}</p>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400">מיין לפי:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+            >
+              <option value="distance">מרחק</option>
+              <option value="duration">זמן הגעה</option>
+            </select>
+          </div>
         </div>
       )}
 
@@ -355,8 +368,8 @@ export default function SheltersPage() {
       {!hasSearched && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
           <div className="mb-4">
-            <div className="w-16 h-16 mx-auto bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-              <MapPin className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            <div className="w-16 h-16 mx-auto bg-blue-100 dark:bg-[#D3E3FD]/20 rounded-full flex items-center justify-center">
+              <MapPin className="w-8 h-8 text-blue-600 dark:text-[#D3E3FD]" />
             </div>
           </div>
 
