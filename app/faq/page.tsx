@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { HelpCircle } from "lucide-react"
 
 // תרגומים לפי שפה
 const translations = {
@@ -145,14 +144,11 @@ export default function FAQPage() {
 
   return (
     <div className="container py-10">
+      <h1 className="text-3xl font-bold mb-2">{t.title}</h1>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">{t.description}</p>
       <Card className="w-full max-w-4xl mx-auto dark:bg-gray-800">
         <CardContent className="p-8">
-          <div className="flex items-center mb-6">
-            <HelpCircle className="mr-2 h-6 w-6" />
-            <h1 className="text-2xl font-semibold">{t.title}</h1>
-          </div>
-          <p className="text-gray-600 dark:text-gray-400">{t.description}</p>
-          <Accordion type="single" collapsible className="w-full mt-4">
+          <Accordion type="single" collapsible className="w-full">
             {t.faqItems.map((item, index) => (
               <AccordionItem value={`item-${index}`} key={index}>
                 <AccordionTrigger>{item.question}</AccordionTrigger>
