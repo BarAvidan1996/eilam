@@ -357,7 +357,7 @@ export default function SheltersPage() {
   }, [googleMapsLoaded, searchInputRef, autocomplete, handleSearch, searchRadius])
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-4 py-6">
       {/* Header */}
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">{t.pageTitle}</h1>
@@ -365,35 +365,9 @@ export default function SheltersPage() {
       </header>
 
       {/* Search Bar */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+      <div className="mb-6">
         <form onSubmit={handleSearchSubmit} className="flex gap-3 items-center" dir="rtl">
-          <Button
-            type="submit"
-            disabled={isLoading || !searchInput.trim()}
-            className="bg-[#005C72] hover:bg-[#004A5E] dark:bg-[#D3E3FD] dark:hover:bg-[#B4CEF9] text-white dark:text-black px-6 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
-          >
-            <Search className="w-5 h-5" />
-            {t.searchButton}
-          </Button>
-
-          <Button
-            variant="outline"
-            className="border-gray-300 dark:border-gray-600 px-4 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
-          >
-            <Filter className="w-5 h-5" />
-            {t.filterButton}
-          </Button>
-
-          <Button
-            onClick={handleUseMyLocation}
-            disabled={isLoading}
-            variant="outline"
-            className="border-gray-300 dark:border-gray-600 px-4 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
-          >
-            <Navigation className="w-5 h-5" />
-            {t.useMyLocation}
-          </Button>
-
+          {/* Search Input - rightmost */}
           <div className="flex-1 relative">
             <Input
               ref={searchInputRef}
@@ -406,12 +380,42 @@ export default function SheltersPage() {
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
           </div>
+
+          {/* Search Button */}
+          <Button
+            type="submit"
+            disabled={isLoading || !searchInput.trim()}
+            className="bg-[#005C72] hover:bg-[#004A5E] dark:bg-[#D3E3FD] dark:hover:bg-[#B4CEF9] text-white dark:text-black px-6 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
+          >
+            <Search className="w-5 h-5" />
+            {t.searchButton}
+          </Button>
+
+          {/* Filter Button */}
+          <Button
+            variant="outline"
+            className="border-gray-300 dark:border-gray-600 px-4 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
+          >
+            <Filter className="w-5 h-5" />
+            {t.filterButton}
+          </Button>
+
+          {/* Use My Location Button - leftmost */}
+          <Button
+            onClick={handleUseMyLocation}
+            disabled={isLoading}
+            variant="outline"
+            className="border-gray-300 dark:border-gray-600 px-4 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
+          >
+            <Navigation className="w-5 h-5" />
+            {t.useMyLocation}
+          </Button>
         </form>
       </div>
 
       {/* Map Section */}
-      <div className="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-        <div className="h-[400px]">
+      <div className="relative mb-6">
+        <div className="h-[400px] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
           <ShelterMap
             center={mapCenter}
             radius={searchRadius}
@@ -445,7 +449,7 @@ export default function SheltersPage() {
 
       {/* Error Alert */}
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
