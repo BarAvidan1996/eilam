@@ -259,7 +259,7 @@ export default function SheltersPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Header */}
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2 text-right">{t.pageTitle}</h1>
