@@ -380,7 +380,7 @@ export default function EquipmentListsPage() {
             <AlertDialogTitle>{t.confirmDelete}</AlertDialogTitle>
             <AlertDialogDescription>{t.confirmDeleteDescription}</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="flex gap-3">
             <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteList} className="bg-red-600 hover:bg-red-700">
               {t.delete}
@@ -404,7 +404,7 @@ export default function EquipmentListsPage() {
               <Input id="title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="col-span-3" />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex gap-3">
             <Button variant="outline" onClick={() => setIsEditTitleDialogOpen(false)}>
               {t.cancel}
             </Button>
