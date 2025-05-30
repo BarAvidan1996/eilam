@@ -144,7 +144,7 @@ export default function FAQPage() {
 
   return (
     <div className="container py-10">
-      <div className="flex flex-col items-end mb-6">
+      <div className="w-full max-w-4xl mx-auto mb-6">
         <h1 className="text-3xl font-bold mb-2 text-right">{t.title}</h1>
         <p className="text-gray-600 dark:text-gray-400 text-right">{t.description}</p>
       </div>
