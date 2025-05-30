@@ -267,7 +267,7 @@ export default function SheltersPage() {
       </header>
 
       {/* Search Bar */}
-      <div className="mb-6 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+      <div className="mb-6 bg-gray-50 dark:bg-gray-800 py-4 rounded-lg">
         <form onSubmit={handleSearchSubmit} className="flex gap-3 items-center">
           <div className="flex-1 relative">
             <Input
