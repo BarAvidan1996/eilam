@@ -331,7 +331,7 @@ export default function SheltersPage() {
             })),
           ]}
           onMapLoad={handleMapLoad}
-          height="500px"
+          height="650px"
         />
       </div>
 
