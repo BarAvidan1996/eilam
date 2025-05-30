@@ -18,6 +18,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import ShelterMap from "@/components/map/shelter-map"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 // תרגומים לפי שפה
 const translations = {
@@ -172,6 +182,7 @@ export default function FavoriteSheltersPage() {
   const shareTimeoutRef = useRef(null)
   const [language, setLanguage] = useState("he")
   const [isRTL, setIsRTL] = useState(true)
+  const [shelterToDelete, setShelterToDelete] = useState(null)
 
   // קביעת השפה מתוך document רק בצד לקוח
   useEffect(() => {
@@ -238,6 +249,8 @@ export default function FavoriteSheltersPage() {
       if (selectedShelter && selectedShelter.id === shelter.id) {
         setSelectedShelter(updatedFavorites.length > 0 ? updatedFavorites[0] : null)
       }
+
+      setShelterToDelete(null)
     } catch (error) {
       console.error("שגיאה במחיקת מועדף:", error)
     } finally {
@@ -462,7 +475,7 @@ export default function FavoriteSheltersPage() {
                                   disabled={deletingShelter === shelter.id}
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    removeFavorite(shelter)
+                                    setShelterToDelete(shelter)
                                   }}
                                 >
                                   {deletingShelter === shelter.id ? (
@@ -625,6 +638,25 @@ export default function FavoriteSheltersPage() {
           <p className="text-sm text-gray-500">{t.linkOpensGoogleMaps}</p>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!shelterToDelete} onOpenChange={() => setShelterToDelete(null)}>
+        <AlertDialogContent className="max-w-[90%] w-[350px] mx-auto">
+          <AlertDialogHeader>
+            <AlertDialogTitle>מחיקת מקלט מועדף</AlertDialogTitle>
+            <AlertDialogDescription>
+              האם אתה בטוח שברצונך למחוק את המקלט "{shelterToDelete?.name || "מקלט"}" מרשימת המועדפים שלך? פעולה זו לא
+              ניתנת לביטול.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-3">
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={() => removeFavorite(shelterToDelete)} className="bg-red-600 hover:bg-red-700">
+              מחק
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
