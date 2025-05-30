@@ -357,64 +357,60 @@ export default function SheltersPage() {
   }, [googleMapsLoaded, searchInputRef, autocomplete, handleSearch, searchRadius])
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white text-right">{t.pageTitle}</h1>
-          <p className="text-gray-600 dark:text-gray-300 text-right mt-2">{t.pageDescription}</p>
-        </div>
-      </div>
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">{t.pageTitle}</h1>
+        <p className="text-gray-600 dark:text-gray-300">{t.pageDescription}</p>
+      </header>
 
       {/* Search Bar */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto px-4 py-4">
-          <form onSubmit={handleSearchSubmit} className="flex gap-3 items-center" dir="rtl">
-            <Button
-              type="submit"
-              disabled={isLoading || !searchInput.trim()}
-              className="bg-[#005C72] hover:bg-[#004A5E] dark:bg-[#D3E3FD] dark:hover:bg-[#B4CEF9] text-white dark:text-black px-6 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
-            >
-              <Search className="w-5 h-5" />
-              {t.searchButton}
-            </Button>
+      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+        <form onSubmit={handleSearchSubmit} className="flex gap-3 items-center" dir="rtl">
+          <Button
+            type="submit"
+            disabled={isLoading || !searchInput.trim()}
+            className="bg-[#005C72] hover:bg-[#004A5E] dark:bg-[#D3E3FD] dark:hover:bg-[#B4CEF9] text-white dark:text-black px-6 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
+          >
+            <Search className="w-5 h-5" />
+            {t.searchButton}
+          </Button>
 
-            <Button
-              variant="outline"
-              className="border-gray-300 dark:border-gray-600 px-4 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
-            >
-              <Filter className="w-5 h-5" />
-              {t.filterButton}
-            </Button>
+          <Button
+            variant="outline"
+            className="border-gray-300 dark:border-gray-600 px-4 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
+          >
+            <Filter className="w-5 h-5" />
+            {t.filterButton}
+          </Button>
 
-            <Button
-              onClick={handleUseMyLocation}
-              disabled={isLoading}
-              variant="outline"
-              className="border-gray-300 dark:border-gray-600 px-4 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
-            >
-              <Navigation className="w-5 h-5" />
-              {t.useMyLocation}
-            </Button>
+          <Button
+            onClick={handleUseMyLocation}
+            disabled={isLoading}
+            variant="outline"
+            className="border-gray-300 dark:border-gray-600 px-4 py-3 rounded-lg flex items-center gap-2 whitespace-nowrap"
+          >
+            <Navigation className="w-5 h-5" />
+            {t.useMyLocation}
+          </Button>
 
-            <div className="flex-1 relative">
-              <Input
-                ref={searchInputRef}
-                type="text"
-                placeholder={t.searchInputPlaceholder}
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full px-4 py-3 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg text-right"
-                dir="rtl"
-              />
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            </div>
-          </form>
-        </div>
+          <div className="flex-1 relative">
+            <Input
+              ref={searchInputRef}
+              type="text"
+              placeholder={t.searchInputPlaceholder}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="w-full px-4 py-3 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg text-right"
+              dir="rtl"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          </div>
+        </form>
       </div>
 
       {/* Map Section */}
-      <div className="relative">
+      <div className="relative bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <div className="h-[400px]">
           <ShelterMap
             center={mapCenter}
@@ -447,17 +443,18 @@ export default function SheltersPage() {
         )}
       </div>
 
-      {/* Empty State or Results */}
-      <div className="container mx-auto px-4 py-8">
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-        {!hasSearched ? (
-          <div className="flex flex-col items-center justify-center text-center py-12">
+      {/* Empty State or Results */}
+      {!hasSearched ? (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8">
+          <div className="flex flex-col items-center justify-center text-center">
             <div className="w-16 h-16 bg-[#005C72] dark:bg-[#D3E3FD] rounded-full flex items-center justify-center mb-6">
               <Navigation className="w-8 h-8 text-white dark:text-black" />
             </div>
@@ -472,10 +469,10 @@ export default function SheltersPage() {
               {t.findNearMe}
             </Button>
           </div>
-        ) : (
-          <ShelterList shelters={shelters} isLoading={isLoading} onShelterSelect={handleShelterSelect} />
-        )}
-      </div>
+        </div>
+      ) : (
+        <ShelterList shelters={shelters} isLoading={isLoading} onShelterSelect={handleShelterSelect} />
+      )}
     </div>
   )
 }
