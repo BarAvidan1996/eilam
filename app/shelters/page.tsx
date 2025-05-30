@@ -260,13 +260,13 @@ export default function SheltersPage() {
   return (
     <div className="container mx-auto px-4 py-6">
       {/* Header */}
-      <header className="mb-6 text-center">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">{t.pageTitle}</h1>
-        <p className="text-gray-600 dark:text-gray-300">{t.pageDescription}</p>
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2 text-right">{t.pageTitle}</h1>
+        <p className="text-gray-600 dark:text-gray-300 text-right">{t.pageDescription}</p>
       </header>
 
       {/* Search Bar */}
-      <div className="mb-6">
+      <div className="mb-6 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
         <form onSubmit={handleSearchSubmit} className="flex gap-3 items-center">
           <div className="flex-1 relative">
             <Input
@@ -334,12 +334,12 @@ export default function SheltersPage() {
         />
       </div>
 
-      {/* Status Message */}
-      <div className="mb-4 text-center">
-        <p className="text-gray-600 dark:text-gray-300">
-          {!hasSearched ? t.noSearchYet : `${shelters.length} ${t.sheltersFound}`}
-        </p>
-      </div>
+      {/* Status Message - Only when there are search results */}
+      {hasSearched && (
+        <div className="mb-4 text-center">
+          <p className="text-gray-600 dark:text-gray-300">{`${shelters.length} ${t.sheltersFound}`}</p>
+        </div>
+      )}
 
       {/* Error Alert */}
       {error && (
@@ -355,8 +355,8 @@ export default function SheltersPage() {
       {!hasSearched && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
           <div className="mb-4">
-            <div className="w-16 h-16 mx-auto bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center">
-              <MapPin className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+            <div className="w-16 h-16 mx-auto bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+              <MapPin className="w-8 h-8 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
 
