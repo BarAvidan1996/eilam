@@ -196,6 +196,14 @@ export default function ChatPage() {
     return finalUrl.startsWith("http") ? finalUrl : null
   }
 
+  // פונקציה לזיהוי מובייל
+  const isMobile = () => {
+    return (
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      window.innerWidth <= 768
+    )
+  }
+
   // פונקציה לפתיחת מקור מה-storage או מ-web
   const openSource = async (source: any) => {
     try {
@@ -208,33 +216,60 @@ export default function ChatPage() {
         (source.storage_path.startsWith("http://") || source.storage_path.startsWith("https://"))
       ) {
         console.log("🌐 זה מקור web מ-Tavily, פותח ישירות:", source.storage_path)
-        window.open(source.storage_path, "_blank", "noopener,noreferrer")
+
+        if (isMobile()) {
+          // במובייל - פתיחה באותו חלון
+          window.location.href = source.storage_path
+        } else {
+          // בדסקטופ - פתיחה בחלון חדש
+          window.open(source.storage_path, "_blank", "noopener,noreferrer")
+        }
         return
       }
 
       // בדיקה של שדות URL ישירים
       if (source.url) {
         console.log("🌐 פותח URL ישיר:", source.url)
-        window.open(source.url, "_blank", "noopener,noreferrer")
+
+        if (isMobile()) {
+          window.location.href = source.url
+        } else {
+          window.open(source.url, "_blank", "noopener,noreferrer")
+        }
         return
       }
 
       if (source.source) {
         console.log("🌐 פותח URL משדה source:", source.source)
-        window.open(source.source, "_blank", "noopener,noreferrer")
+
+        if (isMobile()) {
+          window.location.href = source.source
+        } else {
+          window.open(source.source, "_blank", "noopener,noreferrer")
+        }
         return
       }
 
       if (source.link) {
         console.log("🌐 פותח URL משדה link:", source.link)
-        window.open(source.link, "_blank", "noopener,noreferrer")
+
+        if (isMobile()) {
+          window.location.href = source.link
+        } else {
+          window.open(source.link, "_blank", "noopener,noreferrer")
+        }
         return
       }
 
       // בדיקה אם file_name מכיל URL
       if (source.file_name && (source.file_name.startsWith("http://") || source.file_name.startsWith("https://"))) {
         console.log("🌐 פותח URL מ-file_name:", source.file_name)
-        window.open(source.file_name, "_blank", "noopener,noreferrer")
+
+        if (isMobile()) {
+          window.location.href = source.file_name
+        } else {
+          window.open(source.file_name, "_blank", "noopener,noreferrer")
+        }
         return
       }
 
@@ -291,13 +326,23 @@ export default function ChatPage() {
 
         if (originalUrl) {
           console.log("🚀 פותח URL מקורי:", originalUrl)
-          window.open(originalUrl, "_blank", "noopener,noreferrer")
+
+          if (isMobile()) {
+            window.location.href = originalUrl
+          } else {
+            window.open(originalUrl, "_blank", "noopener,noreferrer")
+          }
         } else {
           console.error("❌ לא הצלחתי לחלץ URL מקורי, משתמש ב-fallback")
           // fallback - ננסה את האתר הרשמי
           const fallbackUrl = `https://www.oref.org.il/${source.file_name}`
           console.log("🔄 משתמש ב-fallback URL:", fallbackUrl)
-          window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+
+          if (isMobile()) {
+            window.location.href = fallbackUrl
+          } else {
+            window.open(fallbackUrl, "_blank", "noopener,noreferrer")
+          }
         }
       } else {
         // אם אין לנו שום URL או storage_path, ננסה להשתמש בכותרת כ-URL
@@ -314,15 +359,25 @@ export default function ChatPage() {
               url = "https://" + url
             }
             console.log("🔄 מנסה לפתוח כותרת כ-URL:", url)
-            window.open(url, "_blank", "noopener,noreferrer")
+
+            if (isMobile()) {
+              window.location.href = url
+            } else {
+              window.open(url, "_blank", "noopener,noreferrer")
+            }
             return
           }
         }
+      }
 
-        // fallback אחרון - אם אין שום דבר אחר, ננסה לחפש את הכותרת בגוגל
-        const searchQuery = encodeURIComponent(source.title || "פיקוד העורף")
-        const googleUrl = `https://www.google.com/search?q=${searchQuery}`
-        console.log("🔍 מחפש בגוגל:", googleUrl)
+      // fallback אחרון - אם אין שום דבר אחר, ננסה לחפש את הכותרת בגוגל
+      const searchQuery = encodeURIComponent(source.title || "פיקוד העורף")
+      const googleUrl = `https://www.google.com/search?q=${searchQuery}`
+      console.log("🔍 מחפש בגוגל:", googleUrl)
+
+      if (isMobile()) {
+        window.location.href = googleUrl
+      } else {
         window.open(googleUrl, "_blank", "noopener,noreferrer")
       }
     } catch (error) {
@@ -331,7 +386,12 @@ export default function ChatPage() {
       const searchQuery = encodeURIComponent(source.title || "פיקוד העורף")
       const googleUrl = `https://www.google.com/search?q=${searchQuery}`
       console.log("🔍 מחפש בגוגל אחרי שגיאה:", googleUrl)
-      window.open(googleUrl, "_blank", "noopener,noreferrer")
+
+      if (isMobile()) {
+        window.location.href = googleUrl
+      } else {
+        window.open(googleUrl, "_blank", "noopener,noreferrer")
+      }
     }
   }
 
