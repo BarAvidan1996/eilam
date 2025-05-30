@@ -615,7 +615,7 @@ export default function ChatHistoryPage() {
         )}
       </div>
       <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
-        <AlertDialogContent className="mx-4 max-w-md sm:max-w-lg fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+        <AlertDialogContent className="max-w-[90%] w-[350px] mx-auto">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-right">האם אתה בטוח שברצונך למחוק את השיחה?</AlertDialogTitle>
             <AlertDialogDescription className="text-right">
