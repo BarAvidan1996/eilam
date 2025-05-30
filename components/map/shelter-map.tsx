@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import { Spinner } from "@/components/ui/spinner"
 
-const API_KEY = "AIzaSyDlvoVefGENQCOvIzwq52QZi8LSHT27b1Y"
+// Using environment variable instead of hardcoded API key
+const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API || process.env.GOOGLE_MAPS_API
 
 // Adding translations object
 const translations = {
@@ -38,9 +39,18 @@ export default function ShelterMap({ center, radius, markers = [], onMapLoad, he
     setT(translations[docLang] || translations.he)
   }, [])
 
+  // Check if API key is available
+  useEffect(() => {
+    if (!API_KEY) {
+      console.error(
+        "Google Maps API key is missing. Please set NEXT_PUBLIC_GOOGLE_MAPS_API or GOOGLE_MAPS_API environment variable.",
+      )
+    }
+  }, [])
+
   // טעינת סקריפט של Google Maps
   useEffect(() => {
-    if (typeof window === "undefined") return
+    if (typeof window === "undefined" || !API_KEY) return
 
     if (window.google?.maps) {
       setIsScriptLoaded(true)
@@ -51,7 +61,13 @@ export default function ShelterMap({ center, radius, markers = [], onMapLoad, he
     script.src = `https://maps.googleapis.com/maps/api/js?key=${API_KEY}&libraries=places,geometry`
     script.defer = true
     script.async = true
-    script.onload = () => setIsScriptLoaded(true)
+    script.onload = () => {
+      console.log("Google Maps script loaded successfully")
+      setIsScriptLoaded(true)
+    }
+    script.onerror = () => {
+      console.error("Failed to load Google Maps script")
+    }
     document.head.appendChild(script)
 
     return () => {
@@ -63,38 +79,44 @@ export default function ShelterMap({ center, radius, markers = [], onMapLoad, he
 
   // אתחול המפה
   useEffect(() => {
-    if (!isScriptLoaded || !mapRef.current || typeof window === "undefined") return
+    if (!isScriptLoaded || !mapRef.current || typeof window === "undefined" || !API_KEY) return
 
     const initialCenter = center || { lat: 32.0853, lng: 34.7818 } // תל אביב כברירת מחדל
 
-    const map = new window.google.maps.Map(mapRef.current, {
-      center: initialCenter,
-      zoom: 15,
-      zoomControl: true,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: true,
-      gestureHandling: "greedy", // מאפשר פינץ׳ גם ללא מקש ctrl
-      styles: [
-        {
-          featureType: "poi",
-          elementType: "labels",
-          stylers: [{ visibility: "off" }], // הסתרת נקודות עניין לקריאות טובה יותר
-        },
-      ],
-    })
+    try {
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: initialCenter,
+        zoom: 15,
+        zoomControl: true,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        gestureHandling: "greedy", // מאפשר פינץ׳ גם ללא מקש ctrl
+        styles: [
+          {
+            featureType: "poi",
+            elementType: "labels",
+            stylers: [{ visibility: "off" }], // הסתרת נקודות עניין לקריאות טובה יותר
+          },
+        ],
+      })
 
-    setMapInstance(map)
-    setIsLoaded(true)
+      setMapInstance(map)
+      setIsLoaded(true)
 
-    if (onMapLoad) {
-      onMapLoad(map)
+      if (onMapLoad) {
+        onMapLoad(map)
+      }
+
+      console.log("Map initialized successfully")
+    } catch (error) {
+      console.error("Error initializing map:", error)
     }
 
     return () => {
       // ניקוי
     }
-  }, [isScriptLoaded, mapRef, onMapLoad])
+  }, [isScriptLoaded, mapRef, onMapLoad, center])
 
   // עדכון המרכז של המפה
   useEffect(() => {
@@ -231,6 +253,20 @@ export default function ShelterMap({ center, radius, markers = [], onMapLoad, he
 
     setMapMarkers(newMarkers)
   }, [mapInstance, markers])
+
+  // Show error if API key is missing
+  if (!API_KEY) {
+    return (
+      <div style={{ position: "relative", width: "100%", height }} className="rounded-xl overflow-hidden shadow-md">
+        <div className="absolute inset-0 flex items-center justify-center bg-red-100">
+          <div className="text-center">
+            <p className="text-red-600 font-semibold">שגיאה: מפתח Google Maps API חסר</p>
+            <p className="text-red-500 text-sm mt-2">אנא הגדר את משתנה הסביבה NEXT_PUBLIC_GOOGLE_MAPS_API</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ position: "relative", width: "100%", height }} className="rounded-xl overflow-hidden shadow-md">
