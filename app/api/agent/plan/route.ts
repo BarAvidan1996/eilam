@@ -1,22 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
-import { z } from "zod"
+import { OpenAI } from "openai"
 
-// Schema for the plan
-const PlanSchema = z.object({
-  analysis: z.string().describe("ניתוח המצב והבנת הצרכים"),
-  tools: z.array(
-    z.object({
-      id: z.enum(["rag_chat", "find_shelters", "recommend_equipment"]).describe("מזהה הכלי"),
-      name: z.string().describe("שם הכלי בעברית"),
-      priority: z.number().min(1).max(10).describe("עדיפות (1 = הכי דחוף)"),
-      reasoning: z.string().describe("הסבר למה הכלי הזה נחוץ"),
-      parameters: z.record(z.any()).describe("פרמטרים לכלי"),
-    }),
-  ),
-  needsClarification: z.boolean().describe("האם נדרשות הבהרות נוספות"),
-  clarificationQuestions: z.array(z.string()).describe("שאלות הבהרה אם נדרש"),
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
 })
 
 export async function POST(request: NextRequest) {
@@ -27,70 +13,105 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    console.log("🤖 מתכנן פעולות עבור:", prompt)
-
-    const { object: plan } = await generateObject({
-      model: openai("gpt-4o"),
-      schema: PlanSchema,
-      prompt: `
-אתה סוכן AI מומחה לחירום ובטיחות בישראל. המשתמש פנה אליך עם הבקשה הבאה:
-
-"${prompt}"
-
-עליך לנתח את המצב ולתכנן רצף פעולות מתאים. יש לך 3 כלים זמינים:
-
-1. **rag_chat** - עונה על שאלות כלליות על חירום, בטיחות, נהלים
-   פרמטרים: { query: string }
-
-2. **find_shelters** - מחפש מקלטים לפי מיקום
-   פרמטרים: { location: string, radius?: number }
-
-3. **recommend_equipment** - ממליץ על ציוד חירום
-   פרמטרים: { familyProfile: string, duration?: number }
-
-כללים חשובים:
-- תן עדיפות גבוהה (1-3) לפעולות מיידיות ודחופות
-- עדיפות בינונית (4-6) לפעולות חשובות אך לא דחופות  
-- עדיפות נמוכה (7-10) לפעולות משלימות
-- אם המיקום לא ברור, בקש הבהרה
-- אם פרטי המשפחה לא ברורים להמלצות ציוד, בקש הבהרה
-
-דוגמאות לתרחישים:
-- אזעקה + מיקום → rag_chat (הוראות) + find_shelters (מקלטים)
-- בקשת ציוד + פרטי משפחה → recommend_equipment
-- שאלה כללית → rag_chat בלבד
-
-תן תשובה בעברית, מקצועית ומדויקת.
-`,
-    })
-
-    console.log("✅ תוכנית נוצרה:", plan)
-
-    return NextResponse.json({
-      ...plan,
-      availableTools: [
-        {
-          id: "rag_chat",
-          name: "חיפוש במידע פיקוד העורף",
-          description: "עונה על שאלות כלליות על חירום, בטיחות ונהלים",
+    // Define available tools
+    const availableTools = [
+      {
+        id: "rag_chat",
+        name: "חיפוש מידע בפיקוד העורף",
+        description: "מחפש מידע רלוונטי במאגר המידע של פיקוד העורף ומקורות נוספים",
+        parameters: {
+          query: "שאלה או נושא לחיפוש",
         },
-        {
-          id: "find_shelters",
-          name: "חיפוש מקלטים",
-          description: "מוצא מקלטים קרובים לפי מיקום",
+      },
+      {
+        id: "find_shelters",
+        name: "חיפוש מקלטים",
+        description: "מחפש מקלטים קרובים למיקום מסוים",
+        parameters: {
+          location: "כתובת או שם מקום",
+          radius: "רדיוס חיפוש במטרים (מספר)",
         },
-        {
-          id: "recommend_equipment",
-          name: "המלצות ציוד",
-          description: "ממליץ על ציוד חירום מותאם למשפחה",
+      },
+      {
+        id: "recommend_equipment",
+        name: "המלצות ציוד חירום",
+        description: "מספק המלצות מותאמות אישית לציוד חירום",
+        parameters: {
+          familyProfile: "תיאור המשפחה והצרכים המיוחדים",
+          duration: "משך זמן בשעות (מספר)",
         },
+      },
+    ]
+
+    // Create a prompt for the AI to analyze the user's request
+    const systemPrompt = `
+    אתה עוזר AI מומחה לחירום בישראל שמנתח בקשות משתמשים ומתכנן פעולות.
+    
+    תפקידך:
+    1. לנתח את בקשת המשתמש ולהבין מה הוא צריך
+    2. לבחור את הכלים המתאימים מהרשימה הזמינה
+    3. לקבוע סדר עדיפויות לכלים (1 = הכי חשוב)
+    4. להסביר למה כל כלי נבחר
+    5. להציע פרמטרים מתאימים לכל כלי
+    
+    כלים זמינים:
+    ${availableTools.map((tool) => `- ${tool.id}: ${tool.description}`).join("\n")}
+    
+    אם חסר מידע חיוני, ציין זאת וכתוב שאלות הבהרה.
+    
+    הפלט שלך חייב להיות ב-JSON בפורמט הבא:
+    {
+      "analysis": "ניתוח קצר של הבקשה",
+      "needsClarification": boolean,
+      "clarificationQuestions": ["שאלה 1", "שאלה 2"],
+      "tools": [
+        {
+          "id": "tool_id",
+          "name": "שם הכלי",
+          "priority": number,
+          "reasoning": "הסבר למה הכלי נבחר",
+          "parameters": {
+            "param1": "ערך1",
+            "param2": "ערך2"
+          }
+        }
+      ]
+    }
+    `
+
+    // Call OpenAI to analyze the prompt
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt },
       ],
+      response_format: { type: "json_object" },
     })
+
+    // Parse the response
+    const content = response.choices[0].message.content
+    if (!content) {
+      throw new Error("Empty response from OpenAI")
+    }
+
+    let planData
+    try {
+      planData = JSON.parse(content)
+    } catch (e) {
+      console.error("Failed to parse OpenAI response:", content)
+      throw new Error("Invalid response format from AI")
+    }
+
+    // Add available tools to the response
+    planData.availableTools = availableTools
+
+    return NextResponse.json(planData)
   } catch (error) {
-    console.error("❌ שגיאה ביצירת תוכנית:", error)
+    console.error("Error in agent planning:", error)
     return NextResponse.json(
       {
-        error: error instanceof Error ? error.message : "Failed to create plan",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 },
     )

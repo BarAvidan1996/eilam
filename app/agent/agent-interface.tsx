@@ -7,8 +7,23 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Bot, Play, CheckCircle, XCircle, Edit3, Clock, AlertTriangle } from "lucide-react"
+import {
+  Bot,
+  CheckCircle,
+  XCircle,
+  Edit3,
+  Clock,
+  AlertTriangle,
+  MapPin,
+  Search,
+  Package,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+} from "lucide-react"
 import type { JSX } from "react"
+import { Spinner } from "@/components/ui/spinner"
+import Link from "next/link"
 
 interface Tool {
   id: string
@@ -50,6 +65,7 @@ export default function AgentInterface() {
   const [isPlanning, setIsPlanning] = useState(false)
   const [currentExecutionIndex, setCurrentExecutionIndex] = useState(-1)
   const [editingTool, setEditingTool] = useState<string | null>(null)
+  const [expandedResults, setExpandedResults] = useState<Record<string, boolean>>({})
 
   // Create execution plan
   const createPlan = async () => {
@@ -101,6 +117,14 @@ export default function AgentInterface() {
     setEditingTool(null)
   }
 
+  // Toggle result expansion
+  const toggleResultExpansion = (toolId: string) => {
+    setExpandedResults((prev) => ({
+      ...prev,
+      [toolId]: !prev[toolId],
+    }))
+  }
+
   // Execute next approved tool
   const executeNext = async () => {
     const nextIndex = executions.findIndex((exec) => exec.status === "approved")
@@ -135,6 +159,12 @@ export default function AgentInterface() {
             : exec,
         ),
       )
+
+      // Auto-expand the result
+      setExpandedResults((prev) => ({
+        ...prev,
+        [execution.tool.id]: true,
+      }))
     } catch (error) {
       setExecutions((prev) =>
         prev.map((exec, i) =>
@@ -168,7 +198,7 @@ export default function AgentInterface() {
       case "approved":
         return <CheckCircle className="h-4 w-4 text-green-500" />
       case "executing":
-        return <Play className="h-4 w-4 text-blue-500 animate-spin" />
+        return <Spinner size="small" />
       case "completed":
         return <CheckCircle className="h-4 w-4 text-green-600" />
       case "failed":
@@ -195,70 +225,16 @@ export default function AgentInterface() {
     }
   }
 
-  const renderResult = (result: any) => {
-    if (!result?.result) return null
-
-    const { type } = result.result
-
-    switch (type) {
+  const getToolIcon = (toolId: string) => {
+    switch (toolId) {
       case "rag_chat":
-        return (
-          <div className="space-y-2">
-            <div className="font-medium text-blue-700">💬 תשובת מערכת המידע:</div>
-            <div className="bg-blue-50 p-3 rounded text-sm">
-              <p className="whitespace-pre-wrap">{result.result.answer}</p>
-              {result.result.sources?.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-blue-200">
-                  <div className="text-xs text-blue-600 font-medium">מקורות:</div>
-                  <ul className="text-xs text-blue-600 list-disc list-inside">
-                    {result.result.sources.map((source: string, i: number) => (
-                      <li key={i}>{source}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-        )
-
-      case "shelter_search":
-        return (
-          <div className="space-y-2">
-            <div className="font-medium text-green-700">🏠 מקלטים שנמצאו:</div>
-            <div className="bg-green-50 p-3 rounded text-sm space-y-2">
-              {result.result.shelters?.map((shelter: any, i: number) => (
-                <div key={i} className="border border-green-200 rounded p-2 bg-white">
-                  <div className="font-medium">{shelter.name}</div>
-                  <div className="text-gray-600">{shelter.address}</div>
-                  <div className="flex gap-4 text-xs text-gray-500 mt-1">
-                    <span>📍 {shelter.distance} ק"מ</span>
-                    <span>👥 {shelter.capacity} מקומות</span>
-                    <span>🏷️ {shelter.type}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )
-
-      case "equipment_recommendations":
-        return (
-          <div className="space-y-2">
-            <div className="font-medium text-purple-700">🎒 המלצות ציוד:</div>
-            <div className="bg-purple-50 p-3 rounded text-sm">
-              <pre className="whitespace-pre-wrap text-purple-800">
-                {JSON.stringify(result.result.recommendations, null, 2)}
-              </pre>
-            </div>
-          </div>
-        )
-
+        return <Search className="h-4 w-4" />
+      case "find_shelters":
+        return <MapPin className="h-4 w-4" />
+      case "recommend_equipment":
+        return <Package className="h-4 w-4" />
       default:
-        return (
-          <div className="text-sm bg-gray-50 p-3 rounded">
-            <pre className="text-xs overflow-auto">{JSON.stringify(result.result, null, 2)}</pre>
-          </div>
-        )
+        return <Bot className="h-4 w-4" />
     }
   }
 
@@ -281,7 +257,13 @@ export default function AgentInterface() {
             className="text-right"
           />
           <Button onClick={createPlan} disabled={!prompt.trim() || isPlanning} className="w-full">
-            {isPlanning ? "מתכנן..." : "צור תוכנית פעולה"}
+            {isPlanning ? (
+              <>
+                <Spinner size="small" className="mr-2" /> מתכנן...
+              </>
+            ) : (
+              "צור תוכנית פעולה"
+            )}
           </Button>
         </CardContent>
       </Card>
@@ -339,13 +321,16 @@ export default function AgentInterface() {
                 execution={execution}
                 index={index}
                 isEditing={editingTool === `${index}`}
+                isExpanded={expandedResults[execution.tool.id] || false}
                 onApprove={() => approveTool(index)}
                 onSkip={() => skipTool(index)}
                 onEdit={() => editTool(index)}
                 onSaveEdit={(params) => saveEditedParameters(index, params)}
                 onCancelEdit={() => setEditingTool(null)}
+                onToggleExpand={() => toggleResultExpansion(execution.tool.id)}
                 getStatusIcon={getStatusIcon}
                 getStatusColor={getStatusColor}
+                getToolIcon={getToolIcon}
               />
             ))}
           </CardContent>
@@ -360,26 +345,32 @@ interface ToolExecutionCardProps {
   execution: ToolExecution
   index: number
   isEditing: boolean
+  isExpanded: boolean
   onApprove: () => void
   onSkip: () => void
   onEdit: () => void
   onSaveEdit: (params: Record<string, any>) => void
   onCancelEdit: () => void
+  onToggleExpand: () => void
   getStatusIcon: (status: ExecutionStatus) => JSX.Element
   getStatusColor: (status: ExecutionStatus) => string
+  getToolIcon: (toolId: string) => JSX.Element
 }
 
 function ToolExecutionCard({
   execution,
   index,
   isEditing,
+  isExpanded,
   onApprove,
   onSkip,
   onEdit,
   onSaveEdit,
   onCancelEdit,
+  onToggleExpand,
   getStatusIcon,
   getStatusColor,
+  getToolIcon,
 }: ToolExecutionCardProps) {
   const [editedParams, setEditedParams] = useState(execution.tool.parameters)
 
@@ -395,7 +386,10 @@ function ToolExecutionCard({
           <Badge variant="outline" className="text-xs">
             עדיפות {execution.tool.priority}
           </Badge>
-          <h3 className="font-medium">{execution.tool.name}</h3>
+          <div className="flex items-center gap-1">
+            {getToolIcon(execution.tool.id)}
+            <h3 className="font-medium">{execution.tool.name}</h3>
+          </div>
           <div className="flex items-center gap-1">
             {getStatusIcon(execution.status)}
             <Badge className={`text-xs ${getStatusColor(execution.status)}`}>{execution.status}</Badge>
@@ -465,16 +459,161 @@ function ToolExecutionCard({
       {execution.result && (
         <div className="space-y-2">
           <Separator />
-          <h4 className="text-sm font-medium">תוצאות:</h4>
+          <div className="flex justify-between items-center">
+            <h4 className="text-sm font-medium">תוצאות:</h4>
+            <Button variant="ghost" size="sm" onClick={onToggleExpand}>
+              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </Button>
+          </div>
+
           {execution.result.success ? (
-            renderResult(execution.result)
-          ) : (
-            <div className="text-sm bg-red-50 p-3 rounded">
-              <div className="text-red-700">❌ שגיאה: {execution.result.error}</div>
+            <div className="text-sm bg-blue-50 p-3 rounded">
+              <div className="font-medium text-green-700 mb-2">✅ הושלם בהצלחה</div>
+
+              {isExpanded && (
+                <div className="mt-3">
+                  {execution.result.result.type === "rag_chat" && <RagChatResult result={execution.result.result} />}
+
+                  {execution.result.result.type === "shelter_search" && (
+                    <ShelterSearchResult result={execution.result.result} />
+                  )}
+
+                  {execution.result.result.type === "equipment_recommendations" && (
+                    <EquipmentResult result={execution.result.result} />
+                  )}
+                </div>
+              )}
             </div>
+          ) : (
+            <div className="text-red-700 bg-red-50 p-3 rounded">❌ שגיאה: {execution.result.error}</div>
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// RAG Chat Result Component
+function RagChatResult({ result }: { result: any }) {
+  return (
+    <div className="space-y-3">
+      <div className="p-3 bg-white rounded border border-blue-100">
+        <p className="whitespace-pre-wrap">{result.answer}</p>
+      </div>
+
+      {result.sources && result.sources.length > 0 && (
+        <div>
+          <h5 className="text-xs font-medium mb-1">מקורות:</h5>
+          <div className="text-xs space-y-1">
+            {result.sources.map((source: any, i: number) => (
+              <div key={i} className="p-2 bg-gray-50 rounded">
+                {source.title || source.url}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Link href="/chat" passHref>
+          <Button variant="outline" size="sm" className="text-xs flex items-center gap-1">
+            <ExternalLink size={12} />
+            המשך בצ'אט מלא
+          </Button>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+// Shelter Search Result Component
+function ShelterSearchResult({ result }: { result: any }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <div>
+          <span className="text-xs font-medium">מיקום: </span>
+          <span className="text-xs">{result.location}</span>
+        </div>
+        <div>
+          <span className="text-xs font-medium">רדיוס: </span>
+          <span className="text-xs">{result.radius} מטר</span>
+        </div>
+      </div>
+
+      {result.shelters && result.shelters.length > 0 ? (
+        <div className="space-y-2">
+          {result.shelters.map((shelter: any, i: number) => (
+            <div key={i} className="p-2 bg-white rounded border border-blue-100">
+              <div className="font-medium">{shelter.name}</div>
+              <div className="text-xs text-gray-600">{shelter.address}</div>
+              <div className="flex justify-between mt-1 text-xs">
+                <span>מרחק: {shelter.distance_text}</span>
+                <span>זמן הליכה: {shelter.duration_text}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-2 bg-yellow-50 rounded text-yellow-700 text-xs">
+          לא נמצאו מקלטים במיקום זה או שאירעה שגיאה בחיפוש.
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Link href="/shelters" passHref>
+          <Button variant="outline" size="sm" className="text-xs flex items-center gap-1">
+            <ExternalLink size={12} />
+            חיפוש מקלטים מתקדם
+          </Button>
+        </Link>
+      </div>
+    </div>
+  )
+}
+
+// Equipment Recommendations Result Component
+function EquipmentResult({ result }: { result: any }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <div>
+          <span className="text-xs font-medium">פרופיל: </span>
+          <span className="text-xs">{result.familyProfile}</span>
+        </div>
+        <div>
+          <span className="text-xs font-medium">משך זמן: </span>
+          <span className="text-xs">{result.duration} שעות</span>
+        </div>
+      </div>
+
+      {result.recommendations && result.recommendations.categories ? (
+        <div className="space-y-2">
+          {Object.entries(result.recommendations.categories).map(([category, items]: [string, any]) => (
+            <div key={category} className="p-2 bg-white rounded border border-blue-100">
+              <div className="font-medium">{category}</div>
+              <ul className="list-disc list-inside text-xs">
+                {items.map((item: string, i: number) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-2 bg-yellow-50 rounded text-yellow-700 text-xs">
+          לא נמצאו המלצות ציוד או שאירעה שגיאה בחיפוש.
+        </div>
+      )}
+
+      <div className="flex justify-end">
+        <Link href="/equipment-lists" passHref>
+          <Button variant="outline" size="sm" className="text-xs flex items-center gap-1">
+            <ExternalLink size={12} />
+            רשימות ציוד מלאות
+          </Button>
+        </Link>
+      </div>
     </div>
   )
 }
