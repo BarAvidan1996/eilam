@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Bot, CheckCircle, XCircle, Edit3, Clock, AlertTriangle, Loader2, Brain, Zap } from "lucide-react"
+import { LocationSelector } from "@/components/location-selector"
+import { Bot, CheckCircle, XCircle, Edit3, Clock, AlertTriangle, Loader2, Brain, Zap, MapPin } from "lucide-react"
 import type { JSX } from "react"
 
 interface Tool {
@@ -35,13 +36,21 @@ interface ExecutionResult {
   error?: string
 }
 
-type ExecutionStatus = "pending" | "approved" | "executing" | "completed" | "failed" | "skipped"
+type ExecutionStatus = "pending" | "approved" | "executing" | "completed" | "failed" | "skipped" | "waiting_location"
 
 interface ToolExecution {
   tool: Tool
   status: ExecutionStatus
   result?: ExecutionResult
   editedParameters?: Record<string, any>
+}
+
+interface LocationData {
+  type: "current" | "address"
+  lat?: number
+  lng?: number
+  address?: string
+  displayName?: string
 }
 
 export default function AgentInterface() {
@@ -53,6 +62,8 @@ export default function AgentInterface() {
   const [currentExecutionIndex, setCurrentExecutionIndex] = useState(-1)
   const [editingTool, setEditingTool] = useState<string | null>(null)
   const [retryingTool, setRetryingTool] = useState<string | null>(null)
+  const [showLocationSelector, setShowLocationSelector] = useState(false)
+  const [pendingLocationToolIndex, setPendingLocationToolIndex] = useState<number | null>(null)
 
   // Create execution plan
   const createPlan = async () => {
@@ -94,11 +105,21 @@ export default function AgentInterface() {
 
       setPlan(planData)
 
-      // Initialize executions
-      const initialExecutions: ToolExecution[] = planData.tools.map((tool: Tool) => ({
-        tool,
-        status: "pending" as ExecutionStatus,
-      }))
+      // Initialize executions and check for location requirements
+      const initialExecutions: ToolExecution[] = planData.tools.map((tool: Tool) => {
+        // Check if this tool needs location and doesn't have specific coordinates
+        if (tool.id === "find_shelters" && (!tool.parameters.lat || !tool.parameters.lng)) {
+          return {
+            tool,
+            status: "waiting_location" as ExecutionStatus,
+          }
+        }
+        return {
+          tool,
+          status: "pending" as ExecutionStatus,
+        }
+      })
+
       setExecutions(initialExecutions)
       setCurrentExecutionIndex(-1)
 
@@ -111,8 +132,53 @@ export default function AgentInterface() {
     }
   }
 
+  // Handle location selection
+  const handleLocationSelected = (location: LocationData) => {
+    if (pendingLocationToolIndex !== null) {
+      setExecutions((prev) =>
+        prev.map((exec, i) => {
+          if (i === pendingLocationToolIndex && exec.tool.id === "find_shelters") {
+            const updatedParameters = {
+              ...exec.tool.parameters,
+              lat: location.lat,
+              lng: location.lng,
+              location: location.displayName || location.address || "מיקום נוכחי",
+              locationType: location.type,
+            }
+            return {
+              ...exec,
+              status: "pending" as ExecutionStatus,
+              editedParameters: updatedParameters,
+            }
+          }
+          return exec
+        }),
+      )
+    }
+    setShowLocationSelector(false)
+    setPendingLocationToolIndex(null)
+  }
+
+  // Request location for shelter search
+  const requestLocation = (toolIndex: number) => {
+    setPendingLocationToolIndex(toolIndex)
+    setShowLocationSelector(true)
+  }
+
   // Approve tool for execution
   const approveTool = (index: number) => {
+    const execution = executions[index]
+
+    // Check if this is a shelter search without location
+    if (
+      execution.tool.id === "find_shelters" &&
+      (!execution.tool.parameters.lat || !execution.tool.parameters.lng) &&
+      (!execution.editedParameters?.lat || !execution.editedParameters?.lng)
+    ) {
+      requestLocation(index)
+      return
+    }
+
     setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, status: "approved" } : exec)))
   }
 
@@ -255,6 +321,8 @@ export default function AgentInterface() {
         return <XCircle className="h-4 w-4 text-red-500" />
       case "skipped":
         return <XCircle className="h-4 w-4 text-gray-400" />
+      case "waiting_location":
+        return <MapPin className="h-4 w-4 text-orange-500" />
     }
   }
 
@@ -272,6 +340,8 @@ export default function AgentInterface() {
         return "bg-red-100 text-red-700"
       case "skipped":
         return "bg-gray-100 text-gray-500"
+      case "waiting_location":
+        return "bg-orange-100 text-orange-700"
     }
   }
 
@@ -313,13 +383,13 @@ export default function AgentInterface() {
                     <div className="text-gray-600">{shelter.address}</div>
                     <div className="flex gap-4 text-xs text-gray-500 mt-1">
                       <span>📍 {shelter.distance} ק"מ</span>
-                      <span>👥 {shelter.capacity} מקומות</span>
+                      {shelter.duration && <span>🚶 {Math.round(shelter.duration / 60)} דק' הליכה</span>}
                       <span>🏷️ {shelter.type}</span>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-gray-500">לא נמצאו מקלטים</div>
+                <div className="text-gray-500">לא נמצאו מקלטים באזור</div>
               )}
             </div>
           </div>
@@ -367,6 +437,16 @@ export default function AgentInterface() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
+      {/* Location Selector Modal */}
+      <LocationSelector
+        isVisible={showLocationSelector}
+        onLocationSelected={handleLocationSelected}
+        onCancel={() => {
+          setShowLocationSelector(false)
+          setPendingLocationToolIndex(null)
+        }}
+      />
+
       {/* Input Section */}
       <Card>
         <CardHeader>
@@ -377,7 +457,7 @@ export default function AgentInterface() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder="תאר את המצב או מה שאתה צריך... (למשל: 'יש אזעקה ואני עם 2 ילדים בתל אביב')"
+            placeholder="תאר את המצב או מה שאתה צריך... (למשל: 'יש אזעקה ואני עם 2 ילדים')"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             rows={3}
@@ -489,6 +569,7 @@ export default function AgentInterface() {
                 renderResult={renderResult}
                 retryingTool={retryingTool}
                 retryTool={retryTool}
+                requestLocation={() => requestLocation(index)}
               />
             ))}
           </CardContent>
@@ -513,6 +594,7 @@ interface ToolExecutionCardProps {
   renderResult: (result: any) => JSX.Element | null
   retryingTool: string | null
   retryTool: (index: number) => Promise<void>
+  requestLocation: () => void
 }
 
 function ToolExecutionCard({
@@ -529,6 +611,7 @@ function ToolExecutionCard({
   renderResult,
   retryingTool,
   retryTool,
+  requestLocation,
 }: ToolExecutionCardProps) {
   const [editedParams, setEditedParams] = useState(execution.tool.parameters)
 
@@ -554,6 +637,7 @@ function ToolExecutionCard({
               {execution.status === "completed" && "הושלם"}
               {execution.status === "failed" && "נכשל"}
               {execution.status === "skipped" && "דולג"}
+              {execution.status === "waiting_location" && "ממתין למיקום"}
             </Badge>
           </div>
         </div>
@@ -571,6 +655,12 @@ function ToolExecutionCard({
             </Button>
           </div>
         )}
+        {execution.status === "waiting_location" && (
+          <Button size="sm" onClick={requestLocation}>
+            <MapPin className="h-3 w-3 mr-1" />
+            בחר מיקום
+          </Button>
+        )}
         {execution.status === "failed" && (
           <Button size="sm" variant="outline" onClick={() => retryTool(index)} disabled={retryingTool === `${index}`}>
             {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
@@ -586,6 +676,12 @@ function ToolExecutionCard({
           {execution.tool.id === "rag_chat" && "🔍 בודק מידע במערכת פיקוד העורף..."}
           {execution.tool.id === "find_shelters" && "🏠 מחפש מקלטים באזור המבוקש..."}
           {execution.tool.id === "recommend_equipment" && "🎒 מכין המלצות ציוד מותאמות..."}
+        </div>
+      )}
+
+      {execution.status === "waiting_location" && (
+        <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded">
+          📍 נדרש מיקום לחיפוש מקלטים. לחץ על "בחר מיקום" כדי להמשיך.
         </div>
       )}
 
