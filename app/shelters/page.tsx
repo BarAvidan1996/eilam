@@ -669,7 +669,10 @@ export default function SheltersPage() {
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Header */}
       <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2 text-right">{t.pageTitle}</h1>
+        <div className="flex items-center gap-3 justify-end mb-2">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">{t.pageTitle}</h1>
+          <Search className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+        </div>
         <p className="text-gray-600 dark:text-gray-300 text-right">{t.pageDescription}</p>
       </header>
 
@@ -680,9 +683,9 @@ export default function SheltersPage() {
             e.preventDefault()
             handleSearch(searchInput, searchRadius)
           }}
-          className="flex gap-3 items-center"
+          className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center"
         >
-          <div className="flex-1 relative">
+          <div className="flex-1 relative order-1">
             <Input
               ref={searchInputRef}
               type="text"
@@ -694,93 +697,97 @@ export default function SheltersPage() {
             />
           </div>
 
-          <Button
-            type="button"
-            onClick={handleLocationSearch}
-            disabled={isLoading}
-            className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-3"
-            variant="outline"
-          >
-            <Navigation className="w-4 h-4 ml-2" />
-            {t.useMyLocation}
-          </Button>
+          <div className="flex gap-2 order-2 sm:order-2">
+            <Button
+              type="button"
+              onClick={handleLocationSearch}
+              disabled={isLoading}
+              className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 sm:px-4 py-3 flex-1 sm:flex-none"
+              variant="outline"
+            >
+              <Navigation className="w-4 h-4 sm:ml-2" />
+              <span className="hidden sm:inline ml-2">{t.useMyLocation}</span>
+              <span className="sm:hidden">מיקום</span>
+            </Button>
 
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                className="gap-2 flex-1 sm:flex-none dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
-              >
-                <Filter size={18} />
-                <span className="hidden sm:inline">{t.filterButton}</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent position={isRTL ? "right" : "left"} size="sm" className="p-0 dark:bg-gray-800">
-              <SheetHeader className="p-6 border-b dark:border-gray-700">
-                <SheetTitle className="dark:text-white">{t.filterTitle}</SheetTitle>
-              </SheetHeader>
-              <div className="p-6 space-y-6">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <label className="text-sm font-medium dark:text-gray-300">
-                      {t.searchRadius}: {searchRadius} {t.meters}
-                    </label>
-                  </div>
-                  <input
-                    type="range"
-                    min="100"
-                    max="3000"
-                    step="100"
-                    value={searchRadius}
-                    onChange={(e) => setSearchRadius(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#005C72]"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>100 {t.meters}</span>
-                    <span>1500 {t.meters}</span>
-                    <span>3000 {t.meters}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <label className="text-sm font-medium dark:text-gray-300">
-                      {t.maxDuration}: {maxDurationFilter} {t.minutes}
-                    </label>
-                  </div>
-                  <input
-                    type="range"
-                    min="1"
-                    max="60"
-                    step="1"
-                    value={maxDurationFilter}
-                    onChange={(e) => setMaxDurationFilter(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#005C72]"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                    <span>1 {t.minutes}</span>
-                    <span>30 {t.minutes}</span>
-                    <span>60 {t.minutes}</span>
-                  </div>
-                </div>
-
+            <Sheet>
+              <SheetTrigger asChild>
                 <Button
-                  onClick={() => handleSearch(searchInput, searchRadius)}
-                  className="w-full bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-800 text-white"
+                  variant="outline"
+                  className="gap-2 flex-1 sm:flex-none dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 px-3 sm:px-4"
                 >
-                  {t.applyFilter}
+                  <Filter size={18} />
+                  <span className="sm:hidden">סינון</span>
+                  <span className="hidden sm:inline">{t.filterButton}</span>
                 </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
+              </SheetTrigger>
+              <SheetContent position={isRTL ? "right" : "left"} size="sm" className="p-0 dark:bg-gray-800">
+                <SheetHeader className="p-6 border-b dark:border-gray-700">
+                  <SheetTitle className="dark:text-white">{t.filterTitle}</SheetTitle>
+                </SheetHeader>
+                <div className="p-6 space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <label className="text-sm font-medium dark:text-gray-300">
+                        {t.searchRadius}: {searchRadius} {t.meters}
+                      </label>
+                    </div>
+                    <input
+                      type="range"
+                      min="100"
+                      max="3000"
+                      step="100"
+                      value={searchRadius}
+                      onChange={(e) => setSearchRadius(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#005C72]"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                      <span>100 {t.meters}</span>
+                      <span>1500 {t.meters}</span>
+                      <span>3000 {t.meters}</span>
+                    </div>
+                  </div>
 
-          <Button
-            type="submit"
-            disabled={isLoading || !searchInput.trim()}
-            className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-800 text-white px-4 py-3"
-          >
-            <Search className="w-4 h-4" />
-          </Button>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <label className="text-sm font-medium dark:text-gray-300">
+                        {t.maxDuration}: {maxDurationFilter} {t.minutes}
+                      </label>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="60"
+                      step="1"
+                      value={maxDurationFilter}
+                      onChange={(e) => setMaxDurationFilter(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#005C72]"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                      <span>1 {t.minutes}</span>
+                      <span>30 {t.minutes}</span>
+                      <span>60 {t.minutes}</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={() => handleSearch(searchInput, searchRadius)}
+                    className="w-full bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-800 text-white"
+                  >
+                    {t.applyFilter}
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <Button
+              type="submit"
+              disabled={isLoading || !searchInput.trim()}
+              className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-800 text-white px-3 sm:px-4 py-3"
+            >
+              <Search className="w-4 h-4" />
+            </Button>
+          </div>
         </form>
 
         {/* Recent Searches */}
