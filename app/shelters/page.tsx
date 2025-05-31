@@ -669,9 +669,9 @@ export default function SheltersPage() {
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Header */}
       <header className="mb-6">
-        <div className="flex items-center gap-3 justify-end mb-2">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">{t.pageTitle}</h1>
+        <div className="flex items-center gap-3 justify-start mb-2">
           <Search className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">{t.pageTitle}</h1>
         </div>
         <p className="text-gray-600 dark:text-gray-300 text-right">{t.pageDescription}</p>
       </header>
