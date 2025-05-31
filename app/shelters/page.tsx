@@ -184,7 +184,11 @@ export default function SheltersPage() {
           place_id: shelter.place_id,
           name: shelter.name,
           address: shelter.address,
-          location: shelter.location,
+          location: {
+            lat: shelter.location.lat,
+            lng: shelter.location.lng,
+          },
+          label: "בית", // ברירת מחדל
         })
       }
 

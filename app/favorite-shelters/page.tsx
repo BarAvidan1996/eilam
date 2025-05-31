@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useRef } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,6 +30,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { favoriteShelterService, type FavoriteShelter } from "@/lib/services/favorite-shelter-service"
+import { Spinner } from "@/components/ui/spinner"
 
 // תרגומים לפי שפה
 const translations = {
@@ -64,6 +68,10 @@ const translations = {
     shelter: "מקלט",
     selectShelterFromList: "בחר מקלט מהרשימה",
     selectShelterToShowOnMap: "בחר אחד מהמקלטים המועדפים שלך כדי לראות אותו במפה",
+    deleteConfirmTitle: "מחיקת מקלט מועדף",
+    deleteConfirmMessage: "האם אתה בטוח שברצונך למחוק את המקלט מרשימת המועדפים שלך? פעולה זו לא ניתנת לביטול.",
+    deleteButton: "מחק",
+    cancelButton: "ביטול",
   },
   en: {
     title: "Favorite Shelters",
@@ -98,6 +106,11 @@ const translations = {
     shelter: "Shelter",
     selectShelterFromList: "Select a shelter from the list",
     selectShelterToShowOnMap: "Select one of your favorite shelters to see it on the map",
+    deleteConfirmTitle: "Delete Favorite Shelter",
+    deleteConfirmMessage:
+      "Are you sure you want to remove this shelter from your favorites? This action cannot be undone.",
+    deleteButton: "Delete",
+    cancelButton: "Cancel",
   },
   ar: {
     title: "الملاجئ المفضلة",
@@ -132,6 +145,10 @@ const translations = {
     shelter: "ملجأ",
     selectShelterFromList: "اختر ملجأ من القائمة",
     selectShelterToShowOnMap: "اختر أحد ملاجئك المفضلة لرؤيته على الخريطة",
+    deleteConfirmTitle: "حذف الملجأ المفضل",
+    deleteConfirmMessage: "هل أنت متأكد أنك تريد إزالة هذا الملجأ من المفضلة؟ لا يمكن التراجع عن هذا الإجراء.",
+    deleteButton: "حذف",
+    cancelButton: "إلغاء",
   },
   ru: {
     title: "Избранные убежища",
@@ -166,23 +183,27 @@ const translations = {
     shelter: "Убежище",
     selectShelterFromList: "Выберите убежище из списка",
     selectShelterToShowOnMap: "Выберите одно из ваших избранных убежищ, чтобы увидеть его на карте",
+    deleteConfirmTitle: "Удалить избранное убежище",
+    deleteConfirmMessage: "Вы уверены, что хотите удалить это убежище из избранного? Это действие нельзя отменить.",
+    deleteButton: "Удалить",
+    cancelButton: "Отмена",
   },
 }
 
 export default function FavoriteSheltersPage() {
   const [isLoading, setIsLoading] = useState(true)
-  const [favorites, setFavorites] = useState([])
-  const [selectedShelter, setSelectedShelter] = useState(null)
-  const [deletingShelter, setDeletingShelter] = useState(null)
-  const [editingShelter, setEditingShelter] = useState(null)
+  const [favorites, setFavorites] = useState<FavoriteShelter[]>([])
+  const [selectedShelter, setSelectedShelter] = useState<FavoriteShelter | null>(null)
+  const [deletingShelter, setDeletingShelter] = useState<number | null>(null)
+  const [editingShelter, setEditingShelter] = useState<FavoriteShelter | null>(null)
   const [selectedLabel, setSelectedLabel] = useState("בית")
   const [customLabel, setCustomLabel] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [copiedLink, setCopiedLink] = useState(null)
-  const shareTimeoutRef = useRef(null)
+  const [copiedLink, setCopiedLink] = useState<number | null>(null)
+  const shareTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [language, setLanguage] = useState("he")
   const [isRTL, setIsRTL] = useState(true)
-  const [shelterToDelete, setShelterToDelete] = useState(null)
+  const [shelterToDelete, setShelterToDelete] = useState<FavoriteShelter | null>(null)
 
   // קביעת השפה מתוך document רק בצד לקוח
   useEffect(() => {
@@ -191,58 +212,35 @@ export default function FavoriteSheltersPage() {
     setIsRTL(lang === "he" || lang === "ar")
   }, [])
 
-  const t = translations[language] || translations.he
+  const t = translations[language as keyof typeof translations] || translations.he
 
-  // Mock data for favorite shelters
-  const mockFavoriteShelters = [
-    {
-      id: "1",
-      place_id: "place1",
-      name: "מקלט ציבורי - רחוב הרצל",
-      address: "רחוב הרצל 15, תל אביב",
-      location: { lat: 32.0853, lng: 34.7818 },
-      label: "בית",
-    },
-    {
-      id: "2",
-      place_id: "place2",
-      name: "מקלט עירוני - כיכר רבין",
-      address: "כיכר רבין, תל אביב",
-      location: { lat: 32.0873, lng: 34.7788 },
-      label: "עבודה",
-    },
-    {
-      id: "3",
-      place_id: "place3",
-      name: "מרחב מוגן - בית ספר הירדן",
-      address: "רחוב הירדן 8, תל אביב",
-      location: { lat: 32.0833, lng: 34.7798 },
-      label: "אחר",
-      custom_label: "בית הספר של הילדים",
-    },
-  ]
-
+  // טעינת מקלטים מועדפים
   useEffect(() => {
-    const loadData = async () => {
+    const loadFavorites = async () => {
       setIsLoading(true)
+      try {
+        const favs = await favoriteShelterService.list()
+        setFavorites(favs)
 
-      // סימולציה של טעינת נתונים
-      setFavorites(mockFavoriteShelters)
-      if (mockFavoriteShelters.length > 0) {
-        setSelectedShelter(mockFavoriteShelters[0])
+        if (favs.length > 0) {
+          setSelectedShelter(favs[0])
+        }
+      } catch (error) {
+        console.error("Error loading favorites:", error)
+      } finally {
+        setIsLoading(false)
       }
-
-      setIsLoading(false)
     }
 
-    loadData()
+    loadFavorites()
   }, [])
 
-  const removeFavorite = async (shelter) => {
+  const removeFavorite = async (shelter: FavoriteShelter) => {
+    if (!shelter.id) return
+
     setDeletingShelter(shelter.id)
     try {
-      // In a real implementation, this would call a database function
-      // await FavoriteShelter.delete(shelter.id);
+      await favoriteShelterService.delete(shelter.id)
       const updatedFavorites = favorites.filter((f) => f.id !== shelter.id)
       setFavorites(updatedFavorites)
 
@@ -258,7 +256,7 @@ export default function FavoriteSheltersPage() {
     }
   }
 
-  const navigateToGoogleMaps = (shelter, event) => {
+  const navigateToGoogleMaps = (shelter: FavoriteShelter, event?: React.MouseEvent) => {
     if (event) event.stopPropagation()
     if (!shelter.location) return
 
@@ -266,14 +264,14 @@ export default function FavoriteSheltersPage() {
     window.open(url, "_blank")
   }
 
-  const generateShareLink = (shelter) => {
+  const generateShareLink = (shelter: FavoriteShelter) => {
     if (!shelter.location) return ""
 
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${shelter.location.lat},${shelter.location.lng}`
     return mapsUrl
   }
 
-  const generateShareText = (shelter) => {
+  const generateShareText = (shelter: FavoriteShelter) => {
     if (!shelter.location) return ""
 
     const shelterName = shelter.name || t.shelter || "מקלט"
@@ -284,10 +282,10 @@ export default function FavoriteSheltersPage() {
     return `${t.shareText || "מצאתי מקלט באזור – הנה קישור עם ניווט:"}\n"${shelterName}${labelPart}"\n${mapsUrl}`
   }
 
-  const copyShareLink = (shelter) => {
+  const copyShareLink = (shelter: FavoriteShelter) => {
     const shareText = generateShareLink(shelter) // Just the link itself
     navigator.clipboard.writeText(shareText).then(() => {
-      setCopiedLink(shelter.id)
+      setCopiedLink(shelter.id || null)
 
       // Clear the "copied" status after 2 seconds
       if (shareTimeoutRef.current) {
@@ -300,7 +298,7 @@ export default function FavoriteSheltersPage() {
     })
   }
 
-  const shareShelter = async (shelter) => {
+  const shareShelter = async (shelter: FavoriteShelter) => {
     const shareText = generateShareText(shelter) // Full text for sharing
     const shareUrl = generateShareLink(shelter)
 
@@ -322,7 +320,7 @@ export default function FavoriteSheltersPage() {
     }
   }
 
-  const openEditDialog = (shelter) => {
+  const openEditDialog = (shelter: FavoriteShelter) => {
     setEditingShelter({ ...shelter })
     setSelectedLabel(shelter.label || "בית")
     setCustomLabel(shelter.custom_label || "")
@@ -330,7 +328,7 @@ export default function FavoriteSheltersPage() {
   }
 
   const saveEditDialog = async () => {
-    if (!editingShelter) return
+    if (!editingShelter || !editingShelter.id) return
 
     try {
       const updatedShelter = {
@@ -339,14 +337,13 @@ export default function FavoriteSheltersPage() {
         custom_label: selectedLabel === "אחר" ? customLabel : "",
       }
 
-      // In a real implementation, this would call a database function
-      // await FavoriteShelter.update(editingShelter.id, updatedShelter);
+      const result = await favoriteShelterService.update(editingShelter.id, updatedShelter)
 
       // Update the UI
-      setFavorites(favorites.map((s) => (s.id === editingShelter.id ? updatedShelter : s)))
+      setFavorites(favorites.map((s) => (s.id === editingShelter.id ? result : s)))
 
       if (selectedShelter && selectedShelter.id === editingShelter.id) {
-        setSelectedShelter(updatedShelter)
+        setSelectedShelter(result)
       }
 
       setIsDialogOpen(false)
@@ -357,7 +354,7 @@ export default function FavoriteSheltersPage() {
   }
 
   // Helper function to get badge icon based on label
-  const getLabelIcon = (label) => {
+  const getLabelIcon = (label?: string) => {
     if (label === "בית") return <Home className="w-3.5 h-3.5 mr-1" />
     if (label === "עבודה") return <Briefcase className="w-3.5 h-3.5 mr-1" />
     return null
@@ -366,7 +363,7 @@ export default function FavoriteSheltersPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-150px)]">
-        <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+        <Spinner size="large" />
       </div>
     )
   }
@@ -575,7 +572,7 @@ export default function FavoriteSheltersPage() {
                 id="shelterName"
                 placeholder={t.shelterNamePlaceholder}
                 value={editingShelter?.name || ""}
-                onChange={(e) => setEditingShelter({ ...editingShelter, name: e.target.value })}
+                onChange={(e) => setEditingShelter({ ...editingShelter, name: e.target.value } as FavoriteShelter)}
                 className="mt-1"
               />
             </div>
@@ -643,16 +640,16 @@ export default function FavoriteSheltersPage() {
       <AlertDialog open={!!shelterToDelete} onOpenChange={() => setShelterToDelete(null)}>
         <AlertDialogContent className="max-w-[90%] w-[350px] mx-auto">
           <AlertDialogHeader>
-            <AlertDialogTitle>מחיקת מקלט מועדף</AlertDialogTitle>
-            <AlertDialogDescription>
-              האם אתה בטוח שברצונך למחוק את המקלט "{shelterToDelete?.name || "מקלט"}" מרשימת המועדפים שלך? פעולה זו לא
-              ניתנת לביטול.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t.deleteConfirmTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.deleteConfirmMessage}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-3">
-            <AlertDialogCancel>ביטול</AlertDialogCancel>
-            <AlertDialogAction onClick={() => removeFavorite(shelterToDelete)} className="bg-red-600 hover:bg-red-700">
-              מחק
+            <AlertDialogCancel>{t.cancelButton}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => shelterToDelete && removeFavorite(shelterToDelete)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {t.deleteButton}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
