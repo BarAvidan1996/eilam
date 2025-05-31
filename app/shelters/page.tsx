@@ -510,17 +510,16 @@ export default function SheltersPage() {
               }
             })
           })
-          searchLocation = searchLocation
-          const center = { lat: searchLocation.lat(), lng: searchLocation.lng() }
+
+          // תיקון - שימוש ב-geocodeResult במקום searchLocation
+          const center = { lat: geocodeResult.lat(), lng: geocodeResult.lng() }
+          searchLocation = new window.google.maps.LatLng(center.lat, center.lng)
           setMapCenter(center)
-          if (!originLocation) {
-            setOriginLocation(center)
-          }
+          setOriginLocation(center)
         } else if (location) {
           searchLocation = new window.google.maps.LatLng(location.lat, location.lng)
-          if (!originLocation) {
-            setOriginLocation(location)
-          }
+          setMapCenter(location)
+          setOriginLocation(location)
         } else {
           setIsLoading(false)
           return
@@ -538,12 +537,13 @@ export default function SheltersPage() {
           setError(t.errorMessages.noSheltersFound)
         }
       } catch (error) {
+        console.error("Error searching shelters:", error)
         setError(error.message || "אירעה שגיאה בחיפוש. נסה שוב מאוחר יותר.")
       } finally {
         setIsLoading(false)
       }
     },
-    [mapServices, searchShelters, originLocation, applyFiltersAndSort, t, saveRecentSearch],
+    [mapServices, searchShelters, applyFiltersAndSort, t, saveRecentSearch],
   )
 
   // useEffect לעדכון רשימת המקלטים כאשר המסננים משתנים
@@ -598,6 +598,13 @@ export default function SheltersPage() {
       const autoComplete = new window.google.maps.places.Autocomplete(searchInputRef.current, {
         componentRestrictions: { country: "il" },
         fields: ["formatted_address", "geometry"],
+      })
+
+      // מונע מהאוטוקומפליט להשתלט על האירועים של שדה הקלט
+      searchInputRef.current.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") {
+          e.stopPropagation()
+        }
       })
 
       autoComplete.addListener("place_changed", () => {

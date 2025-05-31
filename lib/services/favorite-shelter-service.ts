@@ -18,17 +18,32 @@ class FavoriteShelterService {
   private supabase = createClientComponentClient()
 
   async list(): Promise<FavoriteShelter[]> {
-    const { data, error } = await this.supabase
-      .from("favorite_shelters")
-      .select("*")
-      .order("created_at", { ascending: false })
+    try {
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser()
 
-    if (error) {
-      console.error("Error fetching favorite shelters:", error)
-      throw error
+      if (!user) {
+        console.log("User not authenticated, returning empty favorites list")
+        return []
+      }
+
+      const { data, error } = await this.supabase
+        .from("favorite_shelters")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("Error fetching favorite shelters:", error)
+        return []
+      }
+
+      return data || []
+    } catch (error) {
+      console.error("Error in list() method:", error)
+      return []
     }
-
-    return data || []
   }
 
   async create(
@@ -69,11 +84,27 @@ class FavoriteShelterService {
   }
 
   async deleteByPlaceId(placeId: string): Promise<void> {
-    const { error } = await this.supabase.from("favorite_shelters").delete().eq("place_id", placeId)
+    try {
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser()
 
-    if (error) {
-      console.error("Error deleting favorite shelter by place_id:", error)
-      throw error
+      if (!user) {
+        console.log("User not authenticated, cannot delete favorite")
+        return
+      }
+
+      const { error } = await this.supabase
+        .from("favorite_shelters")
+        .delete()
+        .eq("place_id", placeId)
+        .eq("user_id", user.id)
+
+      if (error) {
+        console.error("Error deleting favorite shelter by place_id:", error)
+      }
+    } catch (error) {
+      console.error("Error in deleteByPlaceId() method:", error)
     }
   }
 
