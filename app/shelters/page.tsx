@@ -929,81 +929,83 @@ export default function SheltersPage() {
 
       {/* Shelters List - Only show when there are results */}
       {!isLoading && shelters.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {currentShelters.map((shelter) => (
-            <div
-              key={shelter.place_id}
-              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 cursor-pointer transition-all border border-transparent ${
-                selectedShelter?.place_id === shelter.place_id
-                  ? "ring-2 ring-blue-500 border-blue-200 dark:ring-blue-700 dark:border-blue-800"
-                  : "hover:border-gray-200 dark:hover:border-gray-700"
-              }`}
-              onClick={() => {
-                setSelectedShelter(shelter)
-                setMapCenter(shelter.location)
-              }}
-            >
-              <div className="flex flex-col h-full justify-between">
-                <div>
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1 ml-2">
-                      <h3 className="font-medium line-clamp-2 text-base leading-tight text-gray-800 dark:text-gray-200">
-                        {shelter.address}
-                      </h3>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {shelter.distance_text && (
-                          <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-300">
-                            <Navigation size={12} />
-                            {shelter.distance_text}
-                          </Badge>
-                        )}
-                        {shelter.duration_text && shelter.duration_text !== "-" && (
-                          <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-300">
-                            <Clock size={12} />
-                            {shelter.duration_text}
-                          </Badge>
-                        )}
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {currentShelters.map((shelter) => (
+              <div
+                key={shelter.place_id}
+                className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 cursor-pointer transition-all border border-transparent ${
+                  selectedShelter?.place_id === shelter.place_id
+                    ? "ring-2 ring-blue-500 border-blue-200 dark:ring-blue-700 dark:border-blue-800"
+                    : "hover:border-gray-200 dark:hover:border-gray-700"
+                }`}
+                onClick={() => {
+                  setSelectedShelter(shelter)
+                  setMapCenter(shelter.location)
+                }}
+              >
+                <div className="flex flex-col h-full justify-between">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex-1 ml-2">
+                        <h3 className="font-medium line-clamp-2 text-base leading-tight text-gray-800 dark:text-gray-200">
+                          {shelter.address}
+                        </h3>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {shelter.distance_text && (
+                            <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-300">
+                              <Navigation size={12} />
+                              {shelter.distance_text}
+                            </Badge>
+                          )}
+                          {shelter.duration_text && shelter.duration_text !== "-" && (
+                            <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-300">
+                              <Clock size={12} />
+                              {shelter.duration_text}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 -mt-1 -mr-1 shrink-0 p-1 dark:hover:bg-gray-700"
+                        onClick={(e) => toggleFavorite(shelter, e)}
+                        disabled={updatingFavorite === shelter.place_id}
+                      >
+                        {updatingFavorite === shelter.place_id ? (
+                          <Spinner size="small" />
+                        ) : (
+                          <Heart
+                            size={20}
+                            className={
+                              favorites.includes(shelter.place_id)
+                                ? "fill-red-500 text-red-500"
+                                : "text-gray-400 dark:text-gray-500"
+                            }
+                          />
+                        )}
+                      </Button>
                     </div>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">{shelter.name}</p>
+                  </div>
+
+                  <div className="mt-3">
                     <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 -mt-1 -mr-1 shrink-0 p-1 dark:hover:bg-gray-700"
-                      onClick={(e) => toggleFavorite(shelter, e)}
-                      disabled={updatingFavorite === shelter.place_id}
+                      size="sm"
+                      className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-800 text-white w-full"
+                      onClick={(e) => navigateToGoogleMaps(shelter, e)}
                     >
-                      {updatingFavorite === shelter.place_id ? (
-                        <Spinner size="small" />
-                      ) : (
-                        <Heart
-                          size={20}
-                          className={
-                            favorites.includes(shelter.place_id)
-                              ? "fill-red-500 text-red-500"
-                              : "text-gray-400 dark:text-gray-500"
-                          }
-                        />
-                      )}
+                      <Navigation size={14} className="ml-1" />
+                      {t.navigateToShelter}
                     </Button>
                   </div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">{shelter.name}</p>
-                </div>
-
-                <div className="mt-3">
-                  <Button
-                    size="sm"
-                    className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-800 text-white w-full"
-                    onClick={(e) => navigateToGoogleMaps(shelter, e)}
-                  >
-                    <Navigation size={14} className="ml-1" />
-                    {t.navigateToShelter}
-                  </Button>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
 
-          {/* Pagination */}
+          {/* Pagination - Now outside the grid and centered */}
           {totalPages > 1 && (
             <div className="flex justify-center mt-6 gap-2 items-center">
               <Button
@@ -1053,7 +1055,7 @@ export default function SheltersPage() {
               </Button>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )
