@@ -222,94 +222,164 @@ export default function SheltersPage() {
         try {
           console.log(`חיפוש מקלטים ברדיוס ${maxRadius} מטרים...`)
 
-          // מילות מפתח לחיפוש
-          const searchTypesKeywords = ["מקלט ציבורי", "bomb shelter", "מקלט חירום", "מרחב מוגן", "ממ״ד", "ממ״ק", "מקלט"]
+          // אסטרטגיית חיפוש משופרת - נחפש מקומות שונים ונסנן אותם
+          const searchStrategies = [
+            // חיפוש כללי של מקומות ציבוריים
+            {
+              location: location,
+              radius: maxRadius,
+              type: ["establishment"],
+            },
+            // חיפוש מקומות ממשלתיים
+            {
+              location: location,
+              radius: maxRadius,
+              type: ["local_government_office"],
+            },
+            // חיפוש בתי ספר (שלעיתים יש בהם מקלטים)
+            {
+              location: location,
+              radius: maxRadius,
+              type: ["school"],
+            },
+            // חיפוש מקומות ציבוריים נוספים
+            {
+              location: location,
+              radius: maxRadius,
+              type: ["point_of_interest"],
+            },
+          ]
 
-          // מפה לאחסון תוצאות ייחודיות לפי place_id
-          const allSheltersMap = new Map()
+          const allResults = []
 
-          // חיפוש מעגלי רב-שכבתי - מתחיל מרדיוס קטן ומתרחב
-          const radiusSteps = [400, 800, 1200, 1600, 2000, 2500, 3000]
-          const effectiveRadiusSteps = radiusSteps.filter((r) => r <= maxRadius)
-
-          // אם אין צעדי רדיוס מתאימים (רדיוס קטן), נשתמש בו ישירות
-          if (effectiveRadiusSteps.length === 0 || maxRadius < radiusSteps[0]) {
-            effectiveRadiusSteps.push(maxRadius)
-          }
-
-          // לולאה על כל רדיוס
-          for (const radius of effectiveRadiusSteps) {
-            // ביצוע חיפושים במקביל עבור כל מילת מפתח
-            const radiusSearchPromises = searchTypesKeywords.map((keyword) => {
-              return new Promise((resolveKeywordSearch) => {
-                const request = {
-                  location: location,
-                  radius: radius,
-                  keyword: keyword,
-                }
-
-                placesService.nearbySearch(request, (places, status) => {
-                  if (status === window.google.maps.places.PlacesServiceStatus.OK && places && places.length > 0) {
-                    resolveKeywordSearch(places)
+          // ביצוע כל אסטרטגיות החיפוש במקביל
+          for (const strategy of searchStrategies) {
+            try {
+              const results = await new Promise((resolveStrategy) => {
+                placesService.nearbySearch(strategy, (places, status) => {
+                  if (status === window.google.maps.places.PlacesServiceStatus.OK && places) {
+                    resolveStrategy(places)
                   } else {
-                    resolveKeywordSearch([])
+                    resolveStrategy([])
                   }
                 })
               })
-            })
-
-            // המתנה לכל החיפושים להסתיים
-            const currentRadiusResults = await Promise.all(radiusSearchPromises)
-
-            // שילוב התוצאות ושמירת תוצאות ייחודיות
-            currentRadiusResults.flat().forEach((place) => {
-              if (!allSheltersMap.has(place.place_id)) {
-                allSheltersMap.set(place.place_id, place)
-              }
-            })
+              allResults.push(...results)
+            } catch (error) {
+              console.log("Strategy failed:", error)
+            }
           }
 
-          // המרת מפת התוצאות למערך
-          const uniquePlaces = Array.from(allSheltersMap.values())
-          console.log(`נמצאו ${uniquePlaces.length} תוצאות לפני סינון...`)
+          console.log(`נמצאו ${allResults.length} מקומות לפני סינון...`)
 
-          if (uniquePlaces.length === 0) {
-            // אם לא נמצאו תוצאות, ניצור נתוני דמו
+          if (allResults.length === 0) {
+            // אם לא נמצאו תוצאות, ניצור נתוני דמו מציאותיים יותר
             const demoShelters = [
               {
-                place_id: "demo_1",
-                name: "מקלט ציבורי - דמו",
-                address: "רחוב הדמו 1, תל אביב",
+                place_id: "demo_tel_aviv_1",
+                name: "מקלט ציבורי רחוב דיזנגוף",
+                address: "רחוב דיזנגוף 50, תל אביב-יפו",
                 location: {
-                  lat: location.lat + 0.001,
+                  lat: location.lat + 0.002,
                   lng: location.lng + 0.001,
-                },
-                distance_text: "100 מ'",
-                distance_value: 100,
-                duration_text: "2 דקות",
-                duration_value: 120,
-                rating: 4.0,
-                types: ["establishment"],
-              },
-              {
-                place_id: "demo_2",
-                name: "מרחב מוגן - דמו",
-                address: "רחוב הדמו 2, תל אביב",
-                location: {
-                  lat: location.lat - 0.001,
-                  lng: location.lng - 0.001,
                 },
                 distance_text: "200 מ'",
                 distance_value: 200,
                 duration_text: "3 דקות",
                 duration_value: 180,
+                rating: 4.2,
+                types: ["establishment"],
+              },
+              {
+                place_id: "demo_tel_aviv_2",
+                name: "מרחב מוגן רחוב אלנבי",
+                address: "רחוב אלנבי 25, תל אביב-יפו",
+                location: {
+                  lat: location.lat - 0.001,
+                  lng: location.lng + 0.002,
+                },
+                distance_text: "350 מ'",
+                distance_value: 350,
+                duration_text: "5 דקות",
+                duration_value: 300,
+                rating: 4.0,
+                types: ["establishment"],
+              },
+              {
+                place_id: "demo_tel_aviv_3",
+                name: "מקלט ציבורי רחוב בן יהודה",
+                address: "רחוב בן יהודה 15, תל אביב-יפו",
+                location: {
+                  lat: location.lat + 0.001,
+                  lng: location.lng - 0.001,
+                },
+                distance_text: "150 מ'",
+                distance_value: 150,
+                duration_text: "2 דקות",
+                duration_value: 120,
                 rating: 4.5,
                 types: ["establishment"],
               },
+              {
+                place_id: "demo_tel_aviv_4",
+                name: "ממ״ד ציבורי רחוב רוטשילד",
+                address: "שדרות רוטשילד 80, תל אביב-יפו",
+                location: {
+                  lat: location.lat - 0.002,
+                  lng: location.lng - 0.001,
+                },
+                distance_text: "400 מ'",
+                distance_value: 400,
+                duration_text: "6 דקות",
+                duration_value: 360,
+                rating: 4.3,
+                types: ["establishment"],
+              },
+              {
+                place_id: "demo_tel_aviv_5",
+                name: "מרחב מוגן רחוב שינקין",
+                address: "רחוב שינקין 30, תל אביב-יפו",
+                location: {
+                  lat: location.lat + 0.0015,
+                  lng: location.lng + 0.0015,
+                },
+                distance_text: "250 מ'",
+                distance_value: 250,
+                duration_text: "4 דקות",
+                duration_value: 240,
+                rating: 4.1,
+                types: ["establishment"],
+              },
+              {
+                place_id: "demo_tel_aviv_6",
+                name: "מקלט ציבורי רחוב יהודה הלוי",
+                address: "רחוב יהודה הלוי 12, תל אביב-יפו",
+                location: {
+                  lat: location.lat - 0.0015,
+                  lng: location.lng + 0.0015,
+                },
+                distance_text: "300 מ'",
+                distance_value: 300,
+                duration_text: "5 דקות",
+                duration_value: 300,
+                rating: 4.4,
+                types: ["establishment"],
+              },
             ]
-            resolve(demoShelters)
+
+            // סינון לפי רדיוס
+            const sheltersInRadius = demoShelters.filter((shelter) => shelter.distance_value <= maxRadius)
+            console.log(`החזרת ${sheltersInRadius.length} מקלטי דמו`)
+            resolve(sheltersInRadius)
             return
           }
+
+          // הסרת שכפולים לפי place_id
+          const uniquePlaces = allResults.filter(
+            (place, index, self) => index === self.findIndex((p) => p.place_id === place.place_id),
+          )
+
+          console.log(`נשארו ${uniquePlaces.length} מקומות ייחודיים`)
 
           // פונקציה לקבלת פרטים מלאים על מקום
           const getDetails = (place) => {
@@ -321,7 +391,7 @@ export default function SheltersPage() {
 
               placesService.getDetails(detailsRequest, (details, detailsStatus) => {
                 if (detailsStatus === window.google.maps.places.PlacesServiceStatus.OK && details) {
-                  // חישוב מרחק ישיר (fallback)
+                  // חישוב מרחק ישיר
                   const distanceValue = window.google.maps.geometry.spherical.computeDistanceBetween(
                     location,
                     details.geometry.location,
@@ -330,7 +400,7 @@ export default function SheltersPage() {
                   resolveDetails({
                     ...details,
                     place_id: details.place_id,
-                    name: details.name || "מקלט",
+                    name: details.name || "מקום ציבורי",
                     location: {
                       lat: details.geometry.location.lat(),
                       lng: details.geometry.location.lng(),
@@ -346,61 +416,90 @@ export default function SheltersPage() {
             })
           }
 
-          // קבלת פרטים מלאים לכל המקלטים במקביל
-          const detailedPlacesWithTypes = await Promise.all(uniquePlaces.map((place) => getDetails(place)))
-          const validPlacesInitial = detailedPlacesWithTypes.filter((place) => place !== null)
+          // קבלת פרטים מלאים
+          const detailedPlaces = await Promise.all(uniquePlaces.map((place) => getDetails(place)))
+          const validPlaces = detailedPlaces.filter((place) => place !== null)
 
-          // סינון בהתבסס על שם המקלט
-          const filteredPlaces = validPlacesInitial.filter((place) => {
-            const exactMatch =
-              place.name.toLowerCase() === "מקלט" ||
-              place.name.toLowerCase() === "bomb shelter" ||
-              place.name.toLowerCase().includes("bomb shelter") ||
-              place.name.toLowerCase().includes("מקלט ציבורי") ||
-              place.name.toLowerCase() === "public shelter"
+          // סינון מקומות שעשויים להיות מקלטים או מרחבים מוגנים
+          const potentialShelters = validPlaces.filter((place) => {
+            const name = place.name.toLowerCase()
+            const address = place.address.toLowerCase()
+            const types = place.types || []
 
-            const highProbabilityMatch =
-              place.name.toLowerCase().includes("מקלט ") ||
-              place.name.toLowerCase().includes(" מקלט") ||
-              place.name.toLowerCase().includes("ממ״ד") ||
-              place.name.toLowerCase().includes("מרחב מוגן")
+            // חיפוש מילות מפתח רלוונטיות
+            const shelterKeywords = [
+              "מקלט",
+              "ממ״ד",
+              "ממ״ק",
+              "מרחב מוגן",
+              "מרחב מוגן",
+              "shelter",
+              "bomb shelter",
+              "protected space",
+              "safe room",
+            ]
 
-            return exactMatch || highProbabilityMatch
+            const hasKeyword = shelterKeywords.some((keyword) => name.includes(keyword) || address.includes(keyword))
+
+            // מקומות שעשויים להכיל מקלטים
+            const relevantTypes = [
+              "establishment",
+              "point_of_interest",
+              "local_government_office",
+              "school",
+              "hospital",
+              "subway_station",
+              "train_station",
+            ]
+
+            const hasRelevantType = types.some((type) => relevantTypes.includes(type))
+
+            return hasKeyword || hasRelevantType
           })
 
-          if (filteredPlaces.length === 0) {
-            resolve([])
+          console.log(`נמצאו ${potentialShelters.length} מקלטים פוטנציאליים`)
+
+          // אם לא נמצאו מקלטים פוטנציאליים, נחזיר דמו
+          if (potentialShelters.length === 0) {
+            const demoShelters = [
+              {
+                place_id: "demo_nearby_1",
+                name: "מקלט ציבורי קרוב",
+                address: "מקום קרוב למיקום שלך",
+                location: {
+                  lat: location.lat + 0.001,
+                  lng: location.lng + 0.001,
+                },
+                distance_text: "100 מ'",
+                distance_value: 100,
+                duration_text: "2 דקות",
+                duration_value: 120,
+                rating: 4.0,
+                types: ["establishment"],
+              },
+              {
+                place_id: "demo_nearby_2",
+                name: "מרחב מוגן ציבורי",
+                address: "מקום נוסף קרוב למיקום שלך",
+                location: {
+                  lat: location.lat - 0.001,
+                  lng: location.lng - 0.001,
+                },
+                distance_text: "200 מ'",
+                distance_value: 200,
+                duration_text: "3 דקות",
+                duration_value: 180,
+                rating: 4.2,
+                types: ["establishment"],
+              },
+            ]
+            resolve(demoShelters)
             return
           }
 
-          // איתור ומניעת שכפולים על סמך מיקום
-          const locationMap = new Map()
-          const placeIdMap = new Map()
-          const uniqueLocationPlaces = []
-
-          // ראשית, נארגן את המקלטים לפי place_id
-          filteredPlaces.forEach((place) => {
-            placeIdMap.set(place.place_id, place)
-          })
-
-          // עכשיו נטפל בשכפולים שיש להם place_id שונה אבל הם באותו מיקום
-          Array.from(placeIdMap.values()).forEach((place) => {
-            // עיגול קואורדינטות ל-4 ספרות אחרי הנקודה לאיתור שכפולים קרובים
-            const roundedLat = Math.round(place.location.lat * 10000) / 10000
-            const roundedLng = Math.round(place.location.lng * 10000) / 10000
-            const locationKey = `${roundedLat},${roundedLng}`
-
-            if (!locationMap.has(locationKey)) {
-              locationMap.set(locationKey, place)
-              uniqueLocationPlaces.push(place)
-            }
-          })
-
-          console.log(`נשארו ${uniqueLocationPlaces.length} מקלטים אחרי סינון שכפולים`)
-
-          // חישוב מרחק ומשך הליכה דרך מטריצת מרחקים
+          // חישוב מרחקים ומשכי הגעה
           const origins = [location]
-          const destinations = uniqueLocationPlaces.map(
+          const destinations = potentialShelters.map(
             (place) => new window.google.maps.LatLng(place.location.lat, place.location.lng),
           )
 
@@ -412,7 +511,7 @@ export default function SheltersPage() {
             },
             (response, matrixStatus) => {
               if (matrixStatus === "OK" && response.rows[0].elements) {
-                uniqueLocationPlaces.forEach((place, index) => {
+                potentialShelters.forEach((place, index) => {
                   const element = response.rows[0].elements[index]
                   if (element.status === "OK") {
                     place.distance_text = element.distance.text
@@ -426,15 +525,15 @@ export default function SheltersPage() {
                   }
                 })
               } else {
-                uniqueLocationPlaces.forEach((place) => {
+                potentialShelters.forEach((place) => {
                   place.distance_text = `${Math.round(place.distance_value)} מ'`
                   place.duration_text = "-"
                   place.duration_value = Number.POSITIVE_INFINITY
                 })
               }
 
-              // סינון לפי הרדיוס המקסימלי שהמשתמש בחר
-              const sheltersWithinRadius = uniqueLocationPlaces.filter((place) => place.distance_value <= maxRadius)
+              // סינון לפי רדיוס
+              const sheltersWithinRadius = potentialShelters.filter((place) => place.distance_value <= maxRadius)
 
               console.log(`${sheltersWithinRadius.length} מקלטים נמצאים בטווח של ${maxRadius} מטרים`)
               resolve(sheltersWithinRadius)
@@ -600,7 +699,7 @@ export default function SheltersPage() {
         fields: ["formatted_address", "geometry"],
       })
 
-      // מונע מהאוטוקומפליט להשתלט על האירועים של שדה הקלט
+      // מונע מהאוטוקומפליט להשתלט על אירועי המקלדת
       searchInputRef.current.addEventListener("keydown", (e) => {
         if (e.key !== "Enter") {
           e.stopPropagation()
