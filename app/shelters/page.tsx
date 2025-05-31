@@ -635,6 +635,12 @@ export default function SheltersPage() {
     handleSearch(search, searchRadius)
   }
 
+  const removeRecentSearch = (searchToRemove) => {
+    const updatedSearches = recentSearches.filter((search) => search !== searchToRemove)
+    setRecentSearches(updatedSearches)
+    localStorage.setItem("recentSearches", JSON.stringify(updatedSearches))
+  }
+
   // חישוב עמודים
   const totalPages = Math.ceil(shelters.length / SHELTERS_PER_PAGE)
 
@@ -775,13 +781,23 @@ export default function SheltersPage() {
             </div>
             <div className="flex flex-wrap gap-2">
               {recentSearches.map((search, index) => (
-                <button
+                <div
                   key={index}
-                  onClick={() => handleRecentSearch(search)}
-                  className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm px-3 py-1 rounded-full"
+                  className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-sm px-3 py-1 rounded-full flex items-center gap-2"
                 >
-                  {search}
-                </button>
+                  <button onClick={() => handleRecentSearch(search)} className="flex-1">
+                    {search}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeRecentSearch(search)
+                    }}
+                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -906,68 +922,76 @@ export default function SheltersPage() {
 
       {/* Shelters List - Only show when there are results */}
       {!isLoading && shelters.length > 0 && (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {currentShelters.map((shelter) => (
             <div
               key={shelter.place_id}
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700"
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 cursor-pointer transition-all border border-transparent ${
+                selectedShelter?.place_id === shelter.place_id
+                  ? "ring-2 ring-blue-500 border-blue-200 dark:ring-blue-700 dark:border-blue-800"
+                  : "hover:border-gray-200 dark:hover:border-gray-700"
+              }`}
               onClick={() => {
                 setSelectedShelter(shelter)
                 setMapCenter(shelter.location)
               }}
             >
-              <div className="flex justify-between items-start mb-2">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-800 dark:text-white mb-1">{shelter.name}</h3>
-                  <p className="text-gray-600 dark:text-gray-300 text-sm mb-2">{shelter.address}</p>
-
-                  <div className="flex flex-wrap gap-2">
-                    {shelter.distance_text && (
-                      <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-300">
-                        <Navigation size={12} />
-                        {shelter.distance_text}
-                      </Badge>
-                    )}
-                    {shelter.duration_text && shelter.duration_text !== "-" && (
-                      <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-300">
-                        <Clock size={12} />
-                        {shelter.duration_text}
-                      </Badge>
-                    )}
+              <div className="flex flex-col h-full justify-between">
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex-1 ml-2">
+                      <h3 className="font-medium line-clamp-2 text-base leading-tight text-gray-800 dark:text-gray-200">
+                        {shelter.address}
+                      </h3>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {shelter.distance_text && (
+                          <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-300">
+                            <Navigation size={12} />
+                            {shelter.distance_text}
+                          </Badge>
+                        )}
+                        {shelter.duration_text && shelter.duration_text !== "-" && (
+                          <Badge variant="secondary" className="gap-1 dark:bg-gray-700 dark:text-gray-300">
+                            <Clock size={12} />
+                            {shelter.duration_text}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 -mt-1 -mr-1 shrink-0 p-1 dark:hover:bg-gray-700"
+                      onClick={(e) => toggleFavorite(shelter, e)}
+                      disabled={updatingFavorite === shelter.place_id}
+                    >
+                      {updatingFavorite === shelter.place_id ? (
+                        <Spinner size="small" />
+                      ) : (
+                        <Heart
+                          size={20}
+                          className={
+                            favorites.includes(shelter.place_id)
+                              ? "fill-red-500 text-red-500"
+                              : "text-gray-400 dark:text-gray-500"
+                          }
+                        />
+                      )}
+                    </Button>
                   </div>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">{shelter.name}</p>
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 dark:hover:bg-gray-700"
-                  onClick={(e) => toggleFavorite(shelter, e)}
-                  disabled={updatingFavorite === shelter.place_id}
-                >
-                  {updatingFavorite === shelter.place_id ? (
-                    <Spinner size="small" />
-                  ) : (
-                    <Heart
-                      size={20}
-                      className={
-                        favorites.includes(shelter.place_id)
-                          ? "fill-red-500 text-red-500"
-                          : "text-gray-400 dark:text-gray-500"
-                      }
-                    />
-                  )}
-                </Button>
-              </div>
-
-              <div className="flex justify-end">
-                <Button
-                  size="sm"
-                  className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-800 text-white"
-                  onClick={(e) => navigateToGoogleMaps(shelter, e)}
-                >
-                  <Navigation size={14} className="ml-1" />
-                  {t.navigateToShelter}
-                </Button>
+                <div className="mt-3">
+                  <Button
+                    size="sm"
+                    className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-800 text-white w-full"
+                    onClick={(e) => navigateToGoogleMaps(shelter, e)}
+                  >
+                    <Navigation size={14} className="ml-1" />
+                    {t.navigateToShelter}
+                  </Button>
+                </div>
               </div>
             </div>
           ))}
@@ -978,6 +1002,17 @@ export default function SheltersPage() {
               <Button
                 variant="outline"
                 size="icon"
+                onClick={() => setCurrentPage(1)}
+                disabled={currentPage === 1}
+                className="dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+              >
+                <ChevronRight />
+                <ChevronRight />
+              </Button>
+
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
                 className="dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
@@ -985,7 +1020,7 @@ export default function SheltersPage() {
                 <ChevronRight />
               </Button>
 
-              <span className="text-sm text-gray-500 dark:text-gray-400">
+              <span className="text-sm text-gray-500 dark:text-gray-400 px-4">
                 עמוד {currentPage} מתוך {totalPages}
               </span>
 
@@ -996,6 +1031,17 @@ export default function SheltersPage() {
                 disabled={currentPage === totalPages}
                 className="dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
               >
+                <ChevronLeft />
+              </Button>
+
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCurrentPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"
+              >
+                <ChevronLeft />
                 <ChevronLeft />
               </Button>
             </div>
