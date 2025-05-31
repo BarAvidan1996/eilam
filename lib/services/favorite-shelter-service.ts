@@ -95,38 +95,77 @@ class FavoriteShelterService {
   }
 
   async update(id: number, shelter: Partial<FavoriteShelter>): Promise<FavoriteShelter> {
-    const { location, ...restShelter } = shelter
-    const updateData = {
-      ...restShelter,
-      ...(location ? { lat: location.lat, lng: location.lng } : {}),
-    }
+    try {
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser()
 
-    const { data, error } = await this.supabase
-      .from("favorite_shelters")
-      .update(updateData)
-      .eq("id", id)
-      .select()
-      .single()
+      if (!user) {
+        throw new Error("User not authenticated")
+      }
 
-    if (error) {
-      console.error("Error updating favorite shelter:", error)
+      const { location, ...restShelter } = shelter
+      const updateData = {
+        ...restShelter,
+        ...(location ? { lat: location.lat, lng: location.lng } : {}),
+      }
+
+      console.log("Updating shelter with data:", updateData)
+
+      const { data, error } = await this.supabase
+        .from("favorite_shelters")
+        .update(updateData)
+        .eq("id", id)
+        .eq("user_id", user.id) // Add user_id check for security
+        .select()
+        .single()
+
+      if (error) {
+        console.error("Error updating favorite shelter:", error)
+        throw error
+      }
+
+      if (!data) {
+        throw new Error("No data returned from update")
+      }
+
+      console.log("Updated shelter data:", data)
+
+      return {
+        ...data,
+        location: {
+          lat: data.lat,
+          lng: data.lng,
+        },
+      }
+    } catch (error) {
+      console.error("Error in update method:", error)
       throw error
-    }
-
-    return {
-      ...data,
-      location: {
-        lat: data.lat,
-        lng: data.lng,
-      },
     }
   }
 
   async delete(id: number): Promise<void> {
-    const { error } = await this.supabase.from("favorite_shelters").delete().eq("id", id)
+    try {
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser()
 
-    if (error) {
-      console.error("Error deleting favorite shelter:", error)
+      if (!user) {
+        throw new Error("User not authenticated")
+      }
+
+      console.log("Deleting shelter with id:", id)
+
+      const { error } = await this.supabase.from("favorite_shelters").delete().eq("id", id).eq("user_id", user.id) // Add user_id check for security
+
+      if (error) {
+        console.error("Error deleting favorite shelter:", error)
+        throw error
+      }
+
+      console.log("Successfully deleted shelter")
+    } catch (error) {
+      console.error("Error in delete method:", error)
       throw error
     }
   }

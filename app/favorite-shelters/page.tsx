@@ -267,7 +267,12 @@ export default function FavoriteSheltersPage() {
 
     setDeletingShelter(shelter.id)
     try {
+      console.log("Deleting shelter:", shelter)
+
       await favoriteShelterService.delete(shelter.id)
+
+      console.log("Successfully deleted shelter from service")
+
       const updatedFavorites = favorites.filter((f) => f.id !== shelter.id)
       setFavorites(updatedFavorites)
 
@@ -280,7 +285,7 @@ export default function FavoriteSheltersPage() {
       // הודעת הצלחה
       toast({
         title: t.deleteSuccess,
-        variant: "success",
+        variant: "default",
       })
     } catch (error) {
       console.error("שגיאה במחיקת מועדף:", error)
@@ -288,6 +293,7 @@ export default function FavoriteSheltersPage() {
       // הודעת שגיאה
       toast({
         title: t.deleteError,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       })
     } finally {
@@ -371,13 +377,19 @@ export default function FavoriteSheltersPage() {
 
     setIsSaving(true)
     try {
+      console.log("Saving shelter changes:", editingShelter)
+
       const updatedShelter = {
         ...editingShelter,
         label: selectedLabel,
         custom_label: selectedLabel === "אחר" ? customLabel : "",
       }
 
+      console.log("Updated shelter data to save:", updatedShelter)
+
       const result = await favoriteShelterService.update(editingShelter.id, updatedShelter)
+
+      console.log("Update result:", result)
 
       // Update the UI
       setFavorites(favorites.map((s) => (s.id === editingShelter.id ? result : s)))
@@ -389,7 +401,7 @@ export default function FavoriteSheltersPage() {
       // הודעת הצלחה
       toast({
         title: t.updateSuccess,
-        variant: "success",
+        variant: "default",
       })
 
       setIsDialogOpen(false)
@@ -400,6 +412,7 @@ export default function FavoriteSheltersPage() {
       // הודעת שגיאה
       toast({
         title: t.updateError,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       })
     } finally {
