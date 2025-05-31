@@ -15,7 +15,6 @@ export interface FavoriteShelter {
   label?: string
   custom_label?: string
   created_at?: string
-  updated_at?: string
 }
 
 class FavoriteShelterService {
@@ -32,6 +31,8 @@ class FavoriteShelterService {
         return []
       }
 
+      console.log("Fetching favorites for user:", user.id)
+
       const { data, error } = await this.supabase
         .from("favorite_shelters")
         .select("*")
@@ -42,6 +43,8 @@ class FavoriteShelterService {
         console.error("Error fetching favorite shelters:", error)
         return []
       }
+
+      console.log("Fetched favorites data:", data)
 
       // Transform data to match our interface
       return (data || []).map((item) => ({
@@ -57,40 +60,47 @@ class FavoriteShelterService {
     }
   }
 
-  async create(
-    shelter: Omit<FavoriteShelter, "id" | "user_id" | "created_at" | "updated_at">,
-  ): Promise<FavoriteShelter> {
-    const {
-      data: { user },
-    } = await this.supabase.auth.getUser()
+  async create(shelter: Omit<FavoriteShelter, "id" | "user_id" | "created_at">): Promise<FavoriteShelter> {
+    try {
+      const {
+        data: { user },
+      } = await this.supabase.auth.getUser()
 
-    if (!user) {
-      throw new Error("User not authenticated")
-    }
+      if (!user) {
+        throw new Error("User not authenticated")
+      }
 
-    // Extract lat/lng from location object for database storage
-    const { location, ...restShelter } = shelter
-    const shelterData = {
-      ...restShelter,
-      user_id: user.id,
-      lat: location?.lat,
-      lng: location?.lng,
-    }
+      // Extract lat/lng from location object for database storage
+      const { location, ...restShelter } = shelter
+      const shelterData = {
+        ...restShelter,
+        user_id: user.id,
+        lat: location?.lat,
+        lng: location?.lng,
+      }
 
-    const { data, error } = await this.supabase.from("favorite_shelters").insert(shelterData).select().single()
+      console.log("Creating shelter with data:", shelterData)
 
-    if (error) {
-      console.error("Error creating favorite shelter:", error)
+      const { data, error } = await this.supabase.from("favorite_shelters").insert(shelterData).select().single()
+
+      if (error) {
+        console.error("Error creating favorite shelter:", error)
+        throw error
+      }
+
+      console.log("Created shelter data:", data)
+
+      // Transform back to our interface format
+      return {
+        ...data,
+        location: {
+          lat: data.lat,
+          lng: data.lng,
+        },
+      }
+    } catch (error) {
+      console.error("Error in create method:", error)
       throw error
-    }
-
-    // Transform back to our interface format
-    return {
-      ...data,
-      location: {
-        lat: data.lat,
-        lng: data.lng,
-      },
     }
   }
 
@@ -104,19 +114,23 @@ class FavoriteShelterService {
         throw new Error("User not authenticated")
       }
 
-      const { location, ...restShelter } = shelter
-      const updateData = {
-        ...restShelter,
-        ...(location ? { lat: location.lat, lng: location.lng } : {}),
+      // Remove fields that shouldn't be updated
+      const { location, id: shelterId, user_id, created_at, ...updateData } = shelter
+
+      // Add lat/lng if location is provided
+      if (location) {
+        updateData.lat = location.lat
+        updateData.lng = location.lng
       }
 
-      console.log("Updating shelter with data:", updateData)
+      console.log("Updating shelter with ID:", id)
+      console.log("Update data:", updateData)
 
       const { data, error } = await this.supabase
         .from("favorite_shelters")
         .update(updateData)
         .eq("id", id)
-        .eq("user_id", user.id) // Add user_id check for security
+        .eq("user_id", user.id) // Security check
         .select()
         .single()
 
@@ -126,7 +140,7 @@ class FavoriteShelterService {
       }
 
       if (!data) {
-        throw new Error("No data returned from update")
+        throw new Error("No data returned from update operation")
       }
 
       console.log("Updated shelter data:", data)
@@ -154,16 +168,16 @@ class FavoriteShelterService {
         throw new Error("User not authenticated")
       }
 
-      console.log("Deleting shelter with id:", id)
+      console.log("Deleting shelter with ID:", id, "for user:", user.id)
 
-      const { error } = await this.supabase.from("favorite_shelters").delete().eq("id", id).eq("user_id", user.id) // Add user_id check for security
+      const { error } = await this.supabase.from("favorite_shelters").delete().eq("id", id).eq("user_id", user.id) // Security check
 
       if (error) {
         console.error("Error deleting favorite shelter:", error)
         throw error
       }
 
-      console.log("Successfully deleted shelter")
+      console.log("Successfully deleted shelter with ID:", id)
     } catch (error) {
       console.error("Error in delete method:", error)
       throw error
@@ -181,6 +195,8 @@ class FavoriteShelterService {
         return
       }
 
+      console.log("Deleting shelter with place_id:", placeId, "for user:", user.id)
+
       const { error } = await this.supabase
         .from("favorite_shelters")
         .delete()
@@ -189,9 +205,13 @@ class FavoriteShelterService {
 
       if (error) {
         console.error("Error deleting favorite shelter by place_id:", error)
+        throw error
       }
+
+      console.log("Successfully deleted shelter with place_id:", placeId)
     } catch (error) {
       console.error("Error in deleteByPlaceId() method:", error)
+      throw error
     }
   }
 

@@ -33,6 +33,7 @@ import {
 import { favoriteShelterService, type FavoriteShelter } from "@/lib/services/favorite-shelter-service"
 import { Spinner } from "@/components/ui/spinner"
 import { useToast } from "@/hooks/use-toast"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 // תרגומים לפי שפה
 const translations = {
@@ -231,6 +232,24 @@ export default function FavoriteSheltersPage() {
   const [shelterToDelete, setShelterToDelete] = useState<FavoriteShelter | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
+
+  // הוסף את זה אחרי ההגדרות של useState
+  const supabase = createClientComponentClient()
+
+  // בדיקת חיבור משתמש
+  useEffect(() => {
+    const checkUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      console.log("Current user:", user)
+      if (!user) {
+        console.log("No user found, redirecting to login")
+        // אפשר להוסיף redirect לדף התחברות
+      }
+    }
+    checkUser()
+  }, [])
 
   // קביעת השפה מתוך document רק בצד לקוח
   useEffect(() => {
