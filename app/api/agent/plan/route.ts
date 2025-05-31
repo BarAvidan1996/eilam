@@ -1,168 +1,98 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { generateObject } from "ai"
+import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 
-import { createAgent } from "@/lib/agent"
-import { prisma } from "@/lib/db"
-import { auth } from "@clerk/nextjs"
-
-const bodySchema = z.object({
-  prompt: z.string(),
-  conversationId: z.string().optional(),
+// Schema for the plan
+const PlanSchema = z.object({
+  analysis: z.string().describe("ניתוח המצב והבנת הצרכים"),
+  tools: z.array(
+    z.object({
+      id: z.enum(["rag_chat", "find_shelters", "recommend_equipment"]).describe("מזהה הכלי"),
+      name: z.string().describe("שם הכלי בעברית"),
+      priority: z.number().min(1).max(10).describe("עדיפות (1 = הכי דחוף)"),
+      reasoning: z.string().describe("הסבר למה הכלי הזה נחוץ"),
+      parameters: z.record(z.any()).describe("פרמטרים לכלי"),
+    }),
+  ),
+  needsClarification: z.boolean().describe("האם נדרשות הבהרות נוספות"),
+  clarificationQuestions: z.array(z.string()).describe("שאלות הבהרה אם נדרש"),
 })
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json()
-    const { prompt, conversationId } = bodySchema.parse(body)
+    const { prompt } = await request.json()
 
-    const { userId } = auth()
-
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 })
+    if (!prompt) {
+      return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    let conversation = await prisma.conversation.findUnique({
-      where: {
-        id: conversationId,
-        userId,
-      },
+    console.log("🤖 מתכנן פעולות עבור:", prompt)
+
+    const { object: plan } = await generateObject({
+      model: openai("gpt-4o"),
+      schema: PlanSchema,
+      prompt: `
+אתה סוכן AI מומחה לחירום ובטיחות בישראל. המשתמש פנה אליך עם הבקשה הבאה:
+
+"${prompt}"
+
+עליך לנתח את המצב ולתכנן רצף פעולות מתאים. יש לך 3 כלים זמינים:
+
+1. **rag_chat** - עונה על שאלות כלליות על חירום, בטיחות, נהלים
+   פרמטרים: { query: string }
+
+2. **find_shelters** - מחפש מקלטים לפי מיקום
+   פרמטרים: { location: string, radius?: number }
+
+3. **recommend_equipment** - ממליץ על ציוד חירום
+   פרמטרים: { familyProfile: string, duration?: number }
+
+כללים חשובים:
+- תן עדיפות גבוהה (1-3) לפעולות מיידיות ודחופות
+- עדיפות בינונית (4-6) לפעולות חשובות אך לא דחופות  
+- עדיפות נמוכה (7-10) לפעולות משלימות
+- אם המיקום לא ברור, בקש הבהרה
+- אם פרטי המשפחה לא ברורים להמלצות ציוד, בקש הבהרה
+
+דוגמאות לתרחישים:
+- אזעקה + מיקום → rag_chat (הוראות) + find_shelters (מקלטים)
+- בקשת ציוד + פרטי משפחה → recommend_equipment
+- שאלה כללית → rag_chat בלבד
+
+תן תשובה בעברית, מקצועית ומדויקת.
+`,
     })
 
-    if (!conversation) {
-      conversation = await prisma.conversation.create({
-        data: {
-          userId,
-          name: prompt.substring(0, 50),
-        },
-      })
-    }
-
-    const agent = createAgent({
-      conversationId: conversation.id,
-    })
-
-    const plan = await analyzePromptAndCreatePlan(prompt)
+    console.log("✅ תוכנית נוצרה:", plan)
 
     return NextResponse.json({
-      plan,
-      conversationId: conversation.id,
+      ...plan,
+      availableTools: [
+        {
+          id: "rag_chat",
+          name: "חיפוש במידע פיקוד העורף",
+          description: "עונה על שאלות כלליות על חירום, בטיחות ונהלים",
+        },
+        {
+          id: "find_shelters",
+          name: "חיפוש מקלטים",
+          description: "מוצא מקלטים קרובים לפי מיקום",
+        },
+        {
+          id: "recommend_equipment",
+          name: "המלצות ציוד",
+          description: "ממליץ על ציוד חירום מותאם למשפחה",
+        },
+      ],
     })
-  } catch (e) {
-    if (e instanceof z.ZodError) {
-      return new NextResponse(JSON.stringify(e.issues), { status: 422 })
-    }
-
-    return new NextResponse(null, { status: 500 })
-  }
-}
-
-type Tool = {
-  id: string
-  name: string
-  priority: number
-  reasoning: string
-  parameters: Record<string, string | number | boolean>
-}
-
-async function analyzePromptAndCreatePlan(prompt: string) {
-  // const tools: Tool[] = [
-  //   {
-  //     id: "rag_chat",
-  //     name: "RAG Chat",
-  //     priority: 1,
-  //     reasoning: "The user is asking a question that can be answered by RAG.",
-  //     parameters: {
-  //       query: prompt,
-  //     },
-  //   },
-  //   {
-  //     id: "find_shelters",
-  //     name: "Find Shelters",
-  //     priority: 2,
-  //     reasoning: "The user is asking to find shelters.",
-  //     parameters: {
-  //       address: "Tel Aviv",
-  //       radius: 1500,
-  //       maxDuration: 15,
-  //     },
-  //   },
-  // ]
-
-  const tools: Tool[] = []
-
-  // זיהוי צורך ב-RAG Chat
-  if (
-    prompt.includes("מה עושים") ||
-    prompt.includes("איך") ||
-    prompt.includes("נהלים") ||
-    prompt.includes("הוראות") ||
-    prompt.includes("מדריך") ||
-    prompt.includes("רעידת אדמה") ||
-    prompt.includes("אזעקה") ||
-    prompt.includes("חירום")
-  ) {
-    tools.push({
-      id: "rag_chat",
-      name: "חיפוש מידע וההוראות",
-      priority: 1,
-      reasoning: "מחפש מידע רלוונטי ונהלים מפיקוד העורף",
-      parameters: {
-        query: prompt,
+  } catch (error) {
+    console.error("❌ שגיאה ביצירת תוכנית:", error)
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to create plan",
       },
-    })
+      { status: 500 },
+    )
   }
-
-  // זיהוי צורך בחיפוש מקלטים
-  if (
-    prompt.includes("מקלט") ||
-    prompt.includes("איפה") ||
-    prompt.includes("קרוב") ||
-    prompt.includes("מיקום") ||
-    prompt.includes("כתובת") ||
-    /תל אביב|ירושלים|חיפה|באר שבע|פתח תקווה|נתניה|אשדוד|ראשון לציון/.test(prompt)
-  ) {
-    // ניסיון לחלץ כתובת או עיר מהפרומפט
-    const locationMatch =
-      prompt.match(/ב([א-ת\s]+)/) || prompt.match(/(תל אביב|ירושלים|חיפה|באר שבע|פתח תקווה|נתניה|אשדוד|ראשון לציון)/)
-    const location = locationMatch ? locationMatch[1] || locationMatch[0] : ""
-
-    tools.push({
-      id: "find_shelters",
-      name: "חיפוש מקלטים קרובים",
-      priority: 2,
-      reasoning: "מחפש מקלטים ומרחבים מוגנים באזור המבוקש",
-      parameters: {
-        address: location || "תל אביב", // ברירת מחדל
-        radius: 1500,
-        maxDuration: 15,
-      },
-    })
-  }
-
-  // זיהוי צורך בהמלצות ציוד
-  if (
-    prompt.includes("ציוד") ||
-    prompt.includes("מה צריך") ||
-    prompt.includes("להכין") ||
-    prompt.includes("משפחה") ||
-    prompt.includes("ילדים") ||
-    prompt.includes("תיק חירום")
-  ) {
-    // ניסיון לחלץ פרטי משפחה
-    const familyInfo = prompt.match(/(\d+)\s*(ילדים?|בנים?|בנות?)/)
-    const familyProfile = familyInfo ? `משפחה עם ${familyInfo[1]} ${familyInfo[2]}` : "משפחה"
-
-    tools.push({
-      id: "recommend_equipment",
-      name: "המלצות ציוד חירום",
-      priority: 3,
-      reasoning: "ממליץ על ציוד חירום מותאם לפרופיל המשפחה",
-      parameters: {
-        familyProfile: `${familyProfile} - ${prompt}`,
-        duration: 72,
-      },
-    })
-  }
-
-  return tools.sort((a, b) => a.priority - b.priority)
 }

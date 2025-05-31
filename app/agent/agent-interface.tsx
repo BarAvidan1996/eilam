@@ -195,6 +195,73 @@ export default function AgentInterface() {
     }
   }
 
+  const renderResult = (result: any) => {
+    if (!result?.result) return null
+
+    const { type } = result.result
+
+    switch (type) {
+      case "rag_chat":
+        return (
+          <div className="space-y-2">
+            <div className="font-medium text-blue-700">💬 תשובת מערכת המידע:</div>
+            <div className="bg-blue-50 p-3 rounded text-sm">
+              <p className="whitespace-pre-wrap">{result.result.answer}</p>
+              {result.result.sources?.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-blue-200">
+                  <div className="text-xs text-blue-600 font-medium">מקורות:</div>
+                  <ul className="text-xs text-blue-600 list-disc list-inside">
+                    {result.result.sources.map((source: string, i: number) => (
+                      <li key={i}>{source}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+
+      case "shelter_search":
+        return (
+          <div className="space-y-2">
+            <div className="font-medium text-green-700">🏠 מקלטים שנמצאו:</div>
+            <div className="bg-green-50 p-3 rounded text-sm space-y-2">
+              {result.result.shelters?.map((shelter: any, i: number) => (
+                <div key={i} className="border border-green-200 rounded p-2 bg-white">
+                  <div className="font-medium">{shelter.name}</div>
+                  <div className="text-gray-600">{shelter.address}</div>
+                  <div className="flex gap-4 text-xs text-gray-500 mt-1">
+                    <span>📍 {shelter.distance} ק"מ</span>
+                    <span>👥 {shelter.capacity} מקומות</span>
+                    <span>🏷️ {shelter.type}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+
+      case "equipment_recommendations":
+        return (
+          <div className="space-y-2">
+            <div className="font-medium text-purple-700">🎒 המלצות ציוד:</div>
+            <div className="bg-purple-50 p-3 rounded text-sm">
+              <pre className="whitespace-pre-wrap text-purple-800">
+                {JSON.stringify(result.result.recommendations, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )
+
+      default:
+        return (
+          <div className="text-sm bg-gray-50 p-3 rounded">
+            <pre className="text-xs overflow-auto">{JSON.stringify(result.result, null, 2)}</pre>
+          </div>
+        )
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       {/* Input Section */}
@@ -399,16 +466,13 @@ function ToolExecutionCard({
         <div className="space-y-2">
           <Separator />
           <h4 className="text-sm font-medium">תוצאות:</h4>
-          <div className="text-sm bg-blue-50 p-3 rounded">
-            {execution.result.success ? (
-              <div>
-                <div className="font-medium text-green-700 mb-2">✅ הושלם בהצלחה</div>
-                <pre className="text-xs overflow-auto">{JSON.stringify(execution.result.result, null, 2)}</pre>
-              </div>
-            ) : (
+          {execution.result.success ? (
+            renderResult(execution.result)
+          ) : (
+            <div className="text-sm bg-red-50 p-3 rounded">
               <div className="text-red-700">❌ שגיאה: {execution.result.error}</div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
