@@ -1,0 +1,416 @@
+"use client"
+
+import { useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { Bot, Play, CheckCircle, XCircle, Edit3, Clock, AlertTriangle } from "lucide-react"
+import type { JSX } from "react"
+
+interface Tool {
+  id: string
+  name: string
+  priority: number
+  reasoning: string
+  parameters: Record<string, any>
+}
+
+interface Plan {
+  analysis: string
+  tools: Tool[]
+  needsClarification: boolean
+  clarificationQuestions: string[]
+  availableTools: any[]
+}
+
+interface ExecutionResult {
+  success: boolean
+  toolId: string
+  result: any
+  timestamp: string
+  error?: string
+}
+
+type ExecutionStatus = "pending" | "approved" | "executing" | "completed" | "failed" | "skipped"
+
+interface ToolExecution {
+  tool: Tool
+  status: ExecutionStatus
+  result?: ExecutionResult
+  editedParameters?: Record<string, any>
+}
+
+export default function AgentInterface() {
+  const [prompt, setPrompt] = useState("")
+  const [plan, setPlan] = useState<Plan | null>(null)
+  const [executions, setExecutions] = useState<ToolExecution[]>([])
+  const [isPlanning, setIsPlanning] = useState(false)
+  const [currentExecutionIndex, setCurrentExecutionIndex] = useState(-1)
+  const [editingTool, setEditingTool] = useState<string | null>(null)
+
+  // Create execution plan
+  const createPlan = async () => {
+    if (!prompt.trim()) return
+
+    setIsPlanning(true)
+    try {
+      const response = await fetch("/api/agent/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      })
+
+      const planData = await response.json()
+      setPlan(planData)
+
+      // Initialize executions
+      const initialExecutions: ToolExecution[] = planData.tools.map((tool: Tool) => ({
+        tool,
+        status: "pending" as ExecutionStatus,
+      }))
+      setExecutions(initialExecutions)
+      setCurrentExecutionIndex(-1)
+    } catch (error) {
+      console.error("Failed to create plan:", error)
+    } finally {
+      setIsPlanning(false)
+    }
+  }
+
+  // Approve tool for execution
+  const approveTool = (index: number) => {
+    setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, status: "approved" } : exec)))
+  }
+
+  // Skip tool
+  const skipTool = (index: number) => {
+    setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, status: "skipped" } : exec)))
+  }
+
+  // Edit tool parameters
+  const editTool = (index: number) => {
+    setEditingTool(`${index}`)
+  }
+
+  // Save edited parameters
+  const saveEditedParameters = (index: number, newParams: Record<string, any>) => {
+    setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, editedParameters: newParams } : exec)))
+    setEditingTool(null)
+  }
+
+  // Execute next approved tool
+  const executeNext = async () => {
+    const nextIndex = executions.findIndex((exec) => exec.status === "approved")
+    if (nextIndex === -1) return
+
+    setCurrentExecutionIndex(nextIndex)
+    setExecutions((prev) => prev.map((exec, i) => (i === nextIndex ? { ...exec, status: "executing" } : exec)))
+
+    try {
+      const execution = executions[nextIndex]
+      const parameters = execution.editedParameters || execution.tool.parameters
+
+      const response = await fetch("/api/agent/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toolId: execution.tool.id,
+          parameters,
+        }),
+      })
+
+      const result = await response.json()
+
+      setExecutions((prev) =>
+        prev.map((exec, i) =>
+          i === nextIndex
+            ? {
+                ...exec,
+                status: result.success ? "completed" : "failed",
+                result,
+              }
+            : exec,
+        ),
+      )
+    } catch (error) {
+      setExecutions((prev) =>
+        prev.map((exec, i) =>
+          i === nextIndex
+            ? {
+                ...exec,
+                status: "failed",
+                result: { success: false, error: "Execution failed" },
+              }
+            : exec,
+        ),
+      )
+    }
+  }
+
+  // Execute all approved tools
+  const executeAll = async () => {
+    const approvedIndices = executions
+      .map((exec, index) => (exec.status === "approved" ? index : -1))
+      .filter((index) => index !== -1)
+
+    for (const index of approvedIndices) {
+      await executeNext()
+    }
+  }
+
+  const getStatusIcon = (status: ExecutionStatus) => {
+    switch (status) {
+      case "pending":
+        return <Clock className="h-4 w-4 text-gray-400" />
+      case "approved":
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      case "executing":
+        return <Play className="h-4 w-4 text-blue-500 animate-spin" />
+      case "completed":
+        return <CheckCircle className="h-4 w-4 text-green-600" />
+      case "failed":
+        return <XCircle className="h-4 w-4 text-red-500" />
+      case "skipped":
+        return <XCircle className="h-4 w-4 text-gray-400" />
+    }
+  }
+
+  const getStatusColor = (status: ExecutionStatus) => {
+    switch (status) {
+      case "pending":
+        return "bg-gray-100 text-gray-600"
+      case "approved":
+        return "bg-green-100 text-green-700"
+      case "executing":
+        return "bg-blue-100 text-blue-700"
+      case "completed":
+        return "bg-green-100 text-green-800"
+      case "failed":
+        return "bg-red-100 text-red-700"
+      case "skipped":
+        return "bg-gray-100 text-gray-500"
+    }
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 space-y-6">
+      {/* Input Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="h-5 w-5" />
+            סוכן AI לחירום - תכנון ובקרה
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            placeholder="תאר את המצב או מה שאתה צריך... (למשל: 'יש אזעקה ואני עם 2 ילדים בתל אביב')"
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            rows={3}
+            className="text-right"
+          />
+          <Button onClick={createPlan} disabled={!prompt.trim() || isPlanning} className="w-full">
+            {isPlanning ? "מתכנן..." : "צור תוכנית פעולה"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Plan Analysis */}
+      {plan && (
+        <Card>
+          <CardHeader>
+            <CardTitle>ניתוח המצב</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-700">{plan.analysis}</p>
+            {plan.needsClarification && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                  <span className="font-medium text-yellow-800">נדרשות הבהרות:</span>
+                </div>
+                <ul className="list-disc list-inside text-yellow-700">
+                  {plan.clarificationQuestions.map((q, i) => (
+                    <li key={i}>{q}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tools Execution Plan */}
+      {executions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-between justify-between">
+              <span>תוכנית ביצוע</span>
+              <div className="flex gap-2">
+                <Button onClick={executeNext} disabled={!executions.some((e) => e.status === "approved")} size="sm">
+                  בצע הבא
+                </Button>
+                <Button
+                  onClick={executeAll}
+                  disabled={!executions.some((e) => e.status === "approved")}
+                  size="sm"
+                  variant="outline"
+                >
+                  בצע הכל
+                </Button>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {executions.map((execution, index) => (
+              <ToolExecutionCard
+                key={index}
+                execution={execution}
+                index={index}
+                isEditing={editingTool === `${index}`}
+                onApprove={() => approveTool(index)}
+                onSkip={() => skipTool(index)}
+                onEdit={() => editTool(index)}
+                onSaveEdit={(params) => saveEditedParameters(index, params)}
+                onCancelEdit={() => setEditingTool(null)}
+                getStatusIcon={getStatusIcon}
+                getStatusColor={getStatusColor}
+              />
+            ))}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  )
+}
+
+// Tool Execution Card Component
+interface ToolExecutionCardProps {
+  execution: ToolExecution
+  index: number
+  isEditing: boolean
+  onApprove: () => void
+  onSkip: () => void
+  onEdit: () => void
+  onSaveEdit: (params: Record<string, any>) => void
+  onCancelEdit: () => void
+  getStatusIcon: (status: ExecutionStatus) => JSX.Element
+  getStatusColor: (status: ExecutionStatus) => string
+}
+
+function ToolExecutionCard({
+  execution,
+  index,
+  isEditing,
+  onApprove,
+  onSkip,
+  onEdit,
+  onSaveEdit,
+  onCancelEdit,
+  getStatusIcon,
+  getStatusColor,
+}: ToolExecutionCardProps) {
+  const [editedParams, setEditedParams] = useState(execution.tool.parameters)
+
+  const handleSave = () => {
+    onSaveEdit(editedParams)
+  }
+
+  return (
+    <div className="border rounded-lg p-4 space-y-3">
+      {/* Tool Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Badge variant="outline" className="text-xs">
+            עדיפות {execution.tool.priority}
+          </Badge>
+          <h3 className="font-medium">{execution.tool.name}</h3>
+          <div className="flex items-center gap-1">
+            {getStatusIcon(execution.status)}
+            <Badge className={`text-xs ${getStatusColor(execution.status)}`}>{execution.status}</Badge>
+          </div>
+        </div>
+
+        {execution.status === "pending" && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={onEdit}>
+              <Edit3 className="h-3 w-3" />
+            </Button>
+            <Button size="sm" onClick={onApprove}>
+              אשר
+            </Button>
+            <Button size="sm" variant="outline" onClick={onSkip}>
+              דלג
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Reasoning */}
+      <p className="text-sm text-gray-600">{execution.tool.reasoning}</p>
+
+      {/* Parameters */}
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium">פרמטרים:</h4>
+        {isEditing ? (
+          <div className="space-y-3 p-3 bg-gray-50 rounded">
+            {Object.entries(editedParams).map(([key, value]) => (
+              <div key={key}>
+                <label className="block text-xs font-medium mb-1">{key}:</label>
+                <Input
+                  value={value as string}
+                  onChange={(e) =>
+                    setEditedParams((prev) => ({
+                      ...prev,
+                      [key]: e.target.value,
+                    }))
+                  }
+                  className="text-sm"
+                />
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSave}>
+                שמור
+              </Button>
+              <Button size="sm" variant="outline" onClick={onCancelEdit}>
+                בטל
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm bg-gray-50 p-3 rounded">
+            {Object.entries(execution.editedParameters || execution.tool.parameters).map(([key, value]) => (
+              <div key={key} className="flex justify-between">
+                <span className="font-medium">{key}:</span>
+                <span>{value as string}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Results */}
+      {execution.result && (
+        <div className="space-y-2">
+          <Separator />
+          <h4 className="text-sm font-medium">תוצאות:</h4>
+          <div className="text-sm bg-blue-50 p-3 rounded">
+            {execution.result.success ? (
+              <div>
+                <div className="font-medium text-green-700 mb-2">✅ הושלם בהצלחה</div>
+                <pre className="text-xs overflow-auto">{JSON.stringify(execution.result.result, null, 2)}</pre>
+              </div>
+            ) : (
+              <div className="text-red-700">❌ שגיאה: {execution.result.error}</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
