@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Bot, Play, CheckCircle, XCircle, Edit3, Clock, AlertTriangle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Bot, CheckCircle, XCircle, Edit3, Clock, AlertTriangle, Loader2, Brain, Zap } from "lucide-react"
 import type { JSX } from "react"
 
 interface Tool {
@@ -48,6 +49,7 @@ export default function AgentInterface() {
   const [plan, setPlan] = useState<Plan | null>(null)
   const [executions, setExecutions] = useState<ToolExecution[]>([])
   const [isPlanning, setIsPlanning] = useState(false)
+  const [planningError, setPlanningError] = useState<string | null>(null)
   const [currentExecutionIndex, setCurrentExecutionIndex] = useState(-1)
   const [editingTool, setEditingTool] = useState<string | null>(null)
 
@@ -56,14 +58,39 @@ export default function AgentInterface() {
     if (!prompt.trim()) return
 
     setIsPlanning(true)
+    setPlanningError(null)
+    setPlan(null)
+    setExecutions([])
+
     try {
+      console.log("🚀 שולח בקשה לתכנון...")
+
       const response = await fetch("/api/agent/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       })
 
+      console.log("📡 תגובה התקבלה:", response.status)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Server error: ${response.status} - ${errorText}`)
+      }
+
       const planData = await response.json()
+      console.log("📋 נתוני תוכנית:", planData)
+
+      if (planData.error) {
+        throw new Error(planData.error)
+      }
+
+      // Validate plan data
+      if (!planData.tools || !Array.isArray(planData.tools)) {
+        console.error("❌ מבנה תוכנית לא תקין:", planData)
+        throw new Error("Invalid plan structure received")
+      }
+
       setPlan(planData)
 
       // Initialize executions
@@ -73,8 +100,11 @@ export default function AgentInterface() {
       }))
       setExecutions(initialExecutions)
       setCurrentExecutionIndex(-1)
+
+      console.log("✅ תוכנית הוגדרה בהצלחה")
     } catch (error) {
-      console.error("Failed to create plan:", error)
+      console.error("❌ שגיאה ביצירת תוכנית:", error)
+      setPlanningError(error instanceof Error ? error.message : "שגיאה לא ידועה")
     } finally {
       setIsPlanning(false)
     }
@@ -168,7 +198,7 @@ export default function AgentInterface() {
       case "approved":
         return <CheckCircle className="h-4 w-4 text-green-500" />
       case "executing":
-        return <Play className="h-4 w-4 text-blue-500 animate-spin" />
+        return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
       case "completed":
         return <CheckCircle className="h-4 w-4 text-green-600" />
       case "failed":
@@ -304,16 +334,53 @@ export default function AgentInterface() {
             className="text-right"
           />
           <Button onClick={createPlan} disabled={!prompt.trim() || isPlanning} className="w-full">
-            {isPlanning ? "מתכנן..." : "צור תוכנית פעולה"}
+            {isPlanning ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <Brain className="h-4 w-4" />
+                מתכנן פעולות...
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Zap className="h-4 w-4" />
+                צור תוכנית פעולה
+              </div>
+            )}
           </Button>
         </CardContent>
       </Card>
 
+      {/* Planning Status */}
+      {isPlanning && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+              <div>
+                <div className="font-medium text-blue-800">מתכנן פעולות...</div>
+                <div className="text-sm text-blue-600">מנתח את המצב ובוחר כלים מתאימים</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Planning Error */}
+      {planningError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>שגיאה ביצירת תוכנית: {planningError}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Plan Analysis */}
       {plan && (
-        <Card>
+        <Card className="border-green-200">
           <CardHeader>
-            <CardTitle>ניתוח המצב</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              ניתוח המצב
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-700">{plan.analysis}</p>
@@ -339,7 +406,7 @@ export default function AgentInterface() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-between justify-between">
-              <span>תוכנית ביצוע</span>
+              <span>תוכנית ביצוע ({executions.length} כלים)</span>
               <div className="flex gap-2">
                 <Button onClick={executeNext} disabled={!executions.some((e) => e.status === "approved")} size="sm">
                   בצע הבא
@@ -369,6 +436,7 @@ export default function AgentInterface() {
                 onCancelEdit={() => setEditingTool(null)}
                 getStatusIcon={getStatusIcon}
                 getStatusColor={getStatusColor}
+                renderResult={renderResult}
               />
             ))}
           </CardContent>
@@ -390,6 +458,7 @@ interface ToolExecutionCardProps {
   onCancelEdit: () => void
   getStatusIcon: (status: ExecutionStatus) => JSX.Element
   getStatusColor: (status: ExecutionStatus) => string
+  renderResult: (result: any) => JSX.Element | null
 }
 
 function ToolExecutionCard({
@@ -403,6 +472,7 @@ function ToolExecutionCard({
   onCancelEdit,
   getStatusIcon,
   getStatusColor,
+  renderResult,
 }: ToolExecutionCardProps) {
   const [editedParams, setEditedParams] = useState(execution.tool.parameters)
 
@@ -421,7 +491,14 @@ function ToolExecutionCard({
           <h3 className="font-medium">{execution.tool.name}</h3>
           <div className="flex items-center gap-1">
             {getStatusIcon(execution.status)}
-            <Badge className={`text-xs ${getStatusColor(execution.status)}`}>{execution.status}</Badge>
+            <Badge className={`text-xs ${getStatusColor(execution.status)}`}>
+              {execution.status === "pending" && "ממתין לאישור"}
+              {execution.status === "approved" && "מאושר"}
+              {execution.status === "executing" && "מבצע..."}
+              {execution.status === "completed" && "הושלם"}
+              {execution.status === "failed" && "נכשל"}
+              {execution.status === "skipped" && "דולג"}
+            </Badge>
           </div>
         </div>
 

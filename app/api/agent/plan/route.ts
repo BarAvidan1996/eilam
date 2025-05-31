@@ -1,72 +1,98 @@
-import { NextResponse } from "next/server"
+import { type NextRequest, NextResponse } from "next/server"
+import { generateObject } from "ai"
+import { openai } from "@ai-sdk/openai"
+import { z } from "zod"
 
-const analyzePromptAndCreatePlan = async (prompt: string) => {
-  const promptLower = prompt.toLowerCase()
-  const tools: any[] = []
+// Schema for the plan
+const PlanSchema = z.object({
+  analysis: z.string().describe("ניתוח המצב והבנת הצרכים"),
+  tools: z.array(
+    z.object({
+      id: z.enum(["rag_chat", "find_shelters", "recommend_equipment"]).describe("מזהה הכלי"),
+      name: z.string().describe("שם הכלי בעברית"),
+      priority: z.number().min(1).max(10).describe("עדיפות (1 = הכי דחוף)"),
+      reasoning: z.string().describe("הסבר למה הכלי הזה נחוץ"),
+      parameters: z.record(z.any()).describe("פרמטרים לכלי"),
+    }),
+  ),
+  needsClarification: z.boolean().describe("האם נדרשות הבהרות נוספות"),
+  clarificationQuestions: z.array(z.string()).describe("שאלות הבהרה אם נדרש"),
+})
 
-  // Enhanced shelter search detection
-  if (
-    promptLower.includes("מקלט") ||
-    promptLower.includes("מקלטים") ||
-    promptLower.includes("איפה") ||
-    promptLower.includes("מיקום") ||
-    promptLower.includes("קרוב") ||
-    promptLower.includes("shelter") ||
-    promptLower.includes("אזעקה") ||
-    promptLower.includes("alert") ||
-    promptLower.includes("ממ״ד") ||
-    promptLower.includes("ממ״ק") ||
-    promptLower.includes("מרחב מוגן") ||
-    (promptLower.includes("לאן") && (promptLower.includes("ללכת") || promptLower.includes("לרוץ")))
-  ) {
-    // Extract location from prompt
-    let location = "תל אביב" // default
-    const radius = 2000 // default 2km
-
-    // Try to extract specific location
-    const locationPatterns = [
-      /ב([א-ת\s]+)/g, // "ב..." pattern
-      /רחוב\s+([א-ת\s]+)/g, // "רחוב ..." pattern
-      /(תל אביב|ירושלים|חיפה|באר שבע|אשדוד|פתח תקווה|נתניה|חולון|בת ים|רמת גן|אשקלון|ראשון לציון)/gi,
-    ]
-
-    for (const pattern of locationPatterns) {
-      const match = pattern.exec(prompt)
-      if (match && match[1]) {
-        location = match[1].trim()
-        break
-      }
-    }
-
-    tools.push({
-      id: "find_shelters",
-      name: "חיפוש מקלטים קרובים",
-      priority: 1,
-      reasoning: `מזהה בקשה לחיפוש מקלטים באזור ${location}. חיפוש ברדיוס ${radius / 1000} ק"מ.`,
-      parameters: {
-        location: location,
-        radius: radius,
-        maxResults: 10,
-      },
-    })
-  }
-
-  return tools
-}
-
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { prompt } = await req.json()
+    const { prompt } = await request.json()
 
     if (!prompt) {
-      return new NextResponse("Prompt is required", { status: 400 })
+      return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    const plan = await analyzePromptAndCreatePlan(prompt)
+    console.log("🤖 מתכנן פעולות עבור:", prompt)
 
-    return NextResponse.json(plan)
+    const { object: plan } = await generateObject({
+      model: openai("gpt-4o"),
+      schema: PlanSchema,
+      prompt: `
+אתה סוכן AI מומחה לחירום ובטיחות בישראל. המשתמש פנה אליך עם הבקשה הבאה:
+
+"${prompt}"
+
+עליך לנתח את המצב ולתכנן רצף פעולות מתאים. יש לך 3 כלים זמינים:
+
+1. **rag_chat** - עונה על שאלות כלליות על חירום, בטיחות, נהלים
+   פרמטרים: { query: string }
+
+2. **find_shelters** - מחפש מקלטים לפי מיקום
+   פרמטרים: { location: string, radius?: number }
+
+3. **recommend_equipment** - ממליץ על ציוד חירום
+   פרמטרים: { familyProfile: string, duration?: number }
+
+כללים חשובים:
+- תן עדיפות גבוהה (1-3) לפעולות מיידיות ודחופות
+- עדיפות בינונית (4-6) לפעולות חשובות אך לא דחופות  
+- עדיפות נמוכה (7-10) לפעולות משלימות
+- אם המיקום לא ברור, בקש הבהרה
+- אם פרטי המשפחה לא ברורים להמלצות ציוד, בקש הבהרה
+
+דוגמאות לתרחישים:
+- אזעקה + מיקום → rag_chat (הוראות) + find_shelters (מקלטים)
+- בקשת ציוד + פרטי משפחה → recommend_equipment
+- שאלה כללית → rag_chat בלבד
+
+תן תשובה בעברית, מקצועית ומדויקת.
+`,
+    })
+
+    console.log("✅ תוכנית נוצרה:", plan)
+
+    return NextResponse.json({
+      ...plan,
+      availableTools: [
+        {
+          id: "rag_chat",
+          name: "חיפוש במידע פיקוד העורף",
+          description: "עונה על שאלות כלליות על חירום, בטיחות ונהלים",
+        },
+        {
+          id: "find_shelters",
+          name: "חיפוש מקלטים",
+          description: "מוצא מקלטים קרובים לפי מיקום",
+        },
+        {
+          id: "recommend_equipment",
+          name: "המלצות ציוד",
+          description: "ממליץ על ציוד חירום מותאם למשפחה",
+        },
+      ],
+    })
   } catch (error) {
-    console.log("[AGENT_PLAN_POST]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+    console.error("❌ שגיאה ביצירת תוכנית:", error)
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to create plan",
+      },
+      { status: 500 },
+    )
   }
 }
