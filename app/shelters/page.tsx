@@ -571,6 +571,14 @@ export default function SheltersPage() {
     }
 
     setIsLoading(true)
+
+    // הגדרות מיוחדות למובייל
+    const options = {
+      enableHighAccuracy: !isMobile, // במובייל נשתמש בדיוק נמוך יותר לביצועים טובים יותר
+      timeout: isMobile ? 15000 : 10000, // timeout ארוך יותר במובייל
+      maximumAge: 300000, // 5 דקות - נאפשר שימוש במיקום קודם
+    }
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords
@@ -590,11 +598,30 @@ export default function SheltersPage() {
         await handleSearch(null, searchRadius, location)
       },
       (error) => {
-        setError(t.errorMessages.locationFailed)
+        console.error("Geolocation error:", error)
+        let errorMessage = t.errorMessages.locationFailed
+
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "הגישה למיקום נדחתה. אנא אפשר גישה למיקום בהגדרות הדפדפן."
+            break
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "המיקום אינו זמין כרגע. נסה שוב מאוחר יותר."
+            break
+          case error.TIMEOUT:
+            errorMessage = "איתור המיקום לקח יותר מדי זמן. נסה שוב."
+            break
+          default:
+            errorMessage = "שגיאה באיתור המיקום. ודא שהגישה למיקום מאופשרת."
+            break
+        }
+
+        setError(errorMessage)
         setIsLoading(false)
       },
+      options,
     )
-  }, [mapServices, searchRadius, handleSearch, t])
+  }, [mapServices, searchRadius, handleSearch, t, isMobile])
 
   // עדכון האוטוקומפליט לאחר טעינת גוגל מפות
   useEffect(() => {
