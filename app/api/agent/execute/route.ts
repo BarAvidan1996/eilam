@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { processRAGQuery } from "@/lib/rag-service-hybrid"
+import { shelterSearchService } from "@/lib/services/shelter-search-service"
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,6 +18,8 @@ export async function POST(request: NextRequest) {
             type: "rag_chat",
             answer: ragResult.answer,
             sources: ragResult.sources || [],
+            usedFallback: ragResult.usedFallback,
+            usedWebSearch: ragResult.usedWebSearch,
           }
         } catch (error) {
           console.error("RAG error:", error)
@@ -24,42 +27,53 @@ export async function POST(request: NextRequest) {
             type: "rag_chat",
             answer: "מצטער, לא הצלחתי לקבל מידע כרגע. אנא פנה לפיקוד העורף ישירות.",
             sources: [],
+            usedFallback: true,
           }
         }
         break
 
       case "find_shelters":
-        // Mock data for now - will connect to real shelter search later
-        result = {
-          type: "shelter_search",
-          shelters: [
-            {
-              name: "מקלט ציבורי - בית ספר אלון",
-              address: "רחוב אלון 15, תל אביב",
-              distance: 0.3,
-              capacity: 200,
-              type: "מקלט ציבורי",
-              coordinates: { lat: 32.0853, lng: 34.7818 },
-            },
-            {
-              name: "מקלט ציבורי - מרכז קהילתי",
-              address: "רחוב דיזנגוף 45, תל אביב",
-              distance: 0.7,
-              capacity: 150,
-              type: "מקלט ציבורי",
-              coordinates: { lat: 32.0853, lng: 34.7818 },
-            },
-            {
-              name: "מרחב מוגן - קניון",
-              address: "רחוב בן יהודה 120, תל אביב",
-              distance: 1.2,
-              capacity: 500,
-              type: "מרחב מוגן",
-              coordinates: { lat: 32.0853, lng: 34.7818 },
-            },
-          ],
-          searchLocation: parameters.location,
-          radius: parameters.radius || 2,
+        try {
+          // Parse location from parameters
+          let location: { lat: number; lng: number }
+
+          if (parameters.location && typeof parameters.location === "object") {
+            location = parameters.location
+          } else if (parameters.location && typeof parameters.location === "string") {
+            // If location is a string, try to geocode it
+            location = await geocodeAddress(parameters.location)
+          } else {
+            throw new Error("Location parameter is required")
+          }
+
+          const radius = parameters.radius || 2000 // Default 2km
+          const maxResults = parameters.maxResults || 10
+
+          console.log(`🏠 חיפוש מקלטים ב-${location.lat},${location.lng} ברדיוס ${radius}m`)
+
+          // Search for shelters using the service
+          const shelters = await shelterSearchService.searchShelters({
+            location,
+            radius,
+            maxResults,
+          })
+
+          result = {
+            type: "shelter_search",
+            shelters,
+            searchLocation: location,
+            radius,
+            searchPerformed: true,
+            timestamp: new Date().toISOString(),
+          }
+        } catch (error) {
+          console.error("Shelter search error:", error)
+          result = {
+            type: "shelter_search",
+            shelters: [],
+            error: error instanceof Error ? error.message : "Failed to search shelters",
+            searchPerformed: false,
+          }
         }
         break
 
@@ -70,8 +84,10 @@ export async function POST(request: NextRequest) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              familyProfile: parameters.familyProfile,
-              duration: parameters.duration || 72,
+              prompt: parameters.familyProfile,
+              extractedData: {
+                duration_hours: parameters.duration || 72,
+              },
             }),
           })
 
@@ -82,7 +98,9 @@ export async function POST(request: NextRequest) {
           const equipmentData = await equipmentResponse.json()
           result = {
             type: "equipment_recommendations",
-            recommendations: equipmentData.recommendations || equipmentData,
+            recommendations: equipmentData,
+            familyProfile: parameters.familyProfile,
+            duration: parameters.duration || 72,
           }
         } catch (error) {
           console.error("Equipment recommendation error:", error)
@@ -126,5 +144,36 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 },
     )
+  }
+}
+
+// Helper function to geocode address to coordinates
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number }> {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API || process.env.GOOGLE_MAPS_API
+
+  if (!apiKey) {
+    // Fallback to Tel Aviv coordinates if no API key
+    console.warn("No Google Maps API key - using Tel Aviv coordinates")
+    return { lat: 32.0853, lng: 34.7818 }
+  }
+
+  try {
+    const url = new URL("https://maps.googleapis.com/maps/api/geocode/json")
+    url.searchParams.set("address", address)
+    url.searchParams.set("key", apiKey)
+
+    const response = await fetch(url.toString())
+    const data = await response.json()
+
+    if (data.status === "OK" && data.results.length > 0) {
+      const location = data.results[0].geometry.location
+      return { lat: location.lat, lng: location.lng }
+    } else {
+      throw new Error(`Geocoding failed: ${data.status}`)
+    }
+  } catch (error) {
+    console.error("Geocoding error:", error)
+    // Fallback to Tel Aviv coordinates
+    return { lat: 32.0853, lng: 34.7818 }
   }
 }
