@@ -52,6 +52,7 @@ export default function AgentInterface() {
   const [planningError, setPlanningError] = useState<string | null>(null)
   const [currentExecutionIndex, setCurrentExecutionIndex] = useState(-1)
   const [editingTool, setEditingTool] = useState<string | null>(null)
+  const [retryingTool, setRetryingTool] = useState<string | null>(null)
 
   // Create execution plan
   const createPlan = async () => {
@@ -129,6 +130,55 @@ export default function AgentInterface() {
   const saveEditedParameters = (index: number, newParams: Record<string, any>) => {
     setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, editedParameters: newParams } : exec)))
     setEditingTool(null)
+  }
+
+  const retryTool = async (index: number) => {
+    setRetryingTool(`${index}`)
+    setExecutions((prev) =>
+      prev.map((exec, i) => (i === index ? { ...exec, status: "executing", result: undefined } : exec)),
+    )
+
+    try {
+      const execution = executions[index]
+      const parameters = execution.editedParameters || execution.tool.parameters
+
+      const response = await fetch("/api/agent/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toolId: execution.tool.id,
+          parameters,
+        }),
+      })
+
+      const result = await response.json()
+
+      setExecutions((prev) =>
+        prev.map((exec, i) =>
+          i === index
+            ? {
+                ...exec,
+                status: result.success ? "completed" : "failed",
+                result,
+              }
+            : exec,
+        ),
+      )
+    } catch (error) {
+      setExecutions((prev) =>
+        prev.map((exec, i) =>
+          i === index
+            ? {
+                ...exec,
+                status: "failed",
+                result: { success: false, error: "Retry failed" },
+              }
+            : exec,
+        ),
+      )
+    } finally {
+      setRetryingTool(null)
+    }
   }
 
   // Execute next approved tool
@@ -437,6 +487,8 @@ export default function AgentInterface() {
                 getStatusIcon={getStatusIcon}
                 getStatusColor={getStatusColor}
                 renderResult={renderResult}
+                retryingTool={retryingTool}
+                retryTool={retryTool}
               />
             ))}
           </CardContent>
@@ -459,6 +511,8 @@ interface ToolExecutionCardProps {
   getStatusIcon: (status: ExecutionStatus) => JSX.Element
   getStatusColor: (status: ExecutionStatus) => string
   renderResult: (result: any) => JSX.Element | null
+  retryingTool: string | null
+  retryTool: (index: number) => Promise<void>
 }
 
 function ToolExecutionCard({
@@ -473,6 +527,8 @@ function ToolExecutionCard({
   getStatusIcon,
   getStatusColor,
   renderResult,
+  retryingTool,
+  retryTool,
 }: ToolExecutionCardProps) {
   const [editedParams, setEditedParams] = useState(execution.tool.parameters)
 
@@ -515,10 +571,23 @@ function ToolExecutionCard({
             </Button>
           </div>
         )}
+        {execution.status === "failed" && (
+          <Button size="sm" variant="outline" onClick={() => retryTool(index)} disabled={retryingTool === `${index}`}>
+            {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
+          </Button>
+        )}
       </div>
 
       {/* Reasoning */}
       <p className="text-sm text-gray-600">{execution.tool.reasoning}</p>
+
+      {execution.status === "executing" && (
+        <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
+          {execution.tool.id === "rag_chat" && "🔍 בודק מידע במערכת פיקוד העורף..."}
+          {execution.tool.id === "find_shelters" && "🏠 מחפש מקלטים באזור המבוקש..."}
+          {execution.tool.id === "recommend_equipment" && "🎒 מכין המלצות ציוד מותאמות..."}
+        </div>
+      )}
 
       {/* Parameters */}
       <div className="space-y-2">

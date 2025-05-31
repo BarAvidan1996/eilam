@@ -3,12 +3,12 @@ import { generateObject } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 
-// Schema for the plan
+// Enhanced Schema with more flexible validation
 const PlanSchema = z.object({
   analysis: z.string().describe("ניתוח המצב והבנת הצרכים"),
   tools: z.array(
     z.object({
-      id: z.enum(["rag_chat", "find_shelters", "recommend_equipment"]).describe("מזהה הכלי"),
+      id: z.string().describe("מזהה הכלי (rag_chat, find_shelters, recommend_equipment)"),
       name: z.string().describe("שם הכלי בעברית"),
       priority: z.number().min(1).max(10).describe("עדיפות (1 = הכי דחוף)"),
       reasoning: z.string().describe("הסבר למה הכלי הזה נחוץ"),
@@ -18,6 +18,22 @@ const PlanSchema = z.object({
   needsClarification: z.boolean().describe("האם נדרשות הבהרות נוספות"),
   clarificationQuestions: z.array(z.string()).describe("שאלות הבהרה אם נדרש"),
 })
+
+// Parameters validation schemas for each tool
+const ToolParametersSchemas = {
+  rag_chat: z.object({
+    query: z.string().describe("השאלה או הנושא לחיפוש"),
+  }),
+  find_shelters: z.object({
+    location: z.string().describe("מיקום לחיפוש"),
+    radius: z.number().optional().default(2000).describe("רדיוס חיפוש במטרים"),
+    maxResults: z.number().optional().default(10).describe("מספר תוצאות מקסימלי"),
+  }),
+  recommend_equipment: z.object({
+    familyProfile: z.string().describe("תיאור המשפחה"),
+    duration: z.number().optional().default(72).describe("משך זמן בשעות"),
+  }),
+}
 
 // Fallback function to create plan manually
 function createFallbackPlan(prompt: string) {
@@ -35,11 +51,11 @@ function createFallbackPlan(prompt: string) {
     // Add RAG chat for emergency instructions
     tools.push({
       id: "rag_chat",
-      name: "הוראות חירום",
+      name: "הוראות חירום מיידיות",
       priority: 1,
-      reasoning: "מזהה מצב חירום - צריך הוראות מיידיות מפיקוד העורף",
+      reasoning: "🚨 מזהה מצב חירום - צריך הוראות מיידיות מפיקוד העורף",
       parameters: {
-        query: "מה לעשות באזעקה עם ילדים",
+        query: "מה לעשות באזעקה עם ילדים - הוראות מיידיות",
       },
     })
 
@@ -48,12 +64,19 @@ function createFallbackPlan(prompt: string) {
     if (promptLower.includes("תל אביב")) location = "תל אביב"
     if (promptLower.includes("ירושלים")) location = "ירושלים"
     if (promptLower.includes("חיפה")) location = "חיפה"
+    if (promptLower.includes("באר שבע")) location = "באר שבע"
+
+    // Try to extract more specific location
+    const streetMatch = prompt.match(/רחוב\s+([א-ת\s]+)/i)
+    if (streetMatch) {
+      location = `${streetMatch[1].trim()}, ${location}`
+    }
 
     tools.push({
       id: "find_shelters",
       name: "חיפוש מקלטים קרובים",
       priority: 2,
-      reasoning: `מחפש מקלטים קרובים באזור ${location}`,
+      reasoning: `🏠 מחפש מקלטים קרובים באזור ${location} ברדיוס 2 ק"מ`,
       parameters: {
         location: location,
         radius: 2000,
@@ -70,14 +93,17 @@ function createFallbackPlan(prompt: string) {
     promptLower.includes("הכנה")
   ) {
     let familyProfile = "משפחה כללית"
-    if (promptLower.includes("ילד")) familyProfile = "משפחה עם ילדים"
+    if (promptLower.includes("ילד")) {
+      const childCount = prompt.match(/(\d+)\s*ילד/i)
+      familyProfile = childCount ? `משפחה עם ${childCount[1]} ילדים` : "משפחה עם ילדים"
+    }
     if (promptLower.includes("תינוק")) familyProfile = "משפחה עם תינוק"
 
     tools.push({
       id: "recommend_equipment",
       name: "המלצות ציוד חירום",
       priority: 3,
-      reasoning: "ממליץ על ציוד חירום מותאם למשפחה",
+      reasoning: `🎒 ממליץ על ציוד חירום מותאם ל${familyProfile}`,
       parameters: {
         familyProfile: familyProfile,
         duration: 72,
@@ -91,7 +117,7 @@ function createFallbackPlan(prompt: string) {
       id: "rag_chat",
       name: "מידע כללי על חירום",
       priority: 1,
-      reasoning: "מחפש מידע רלוונטי בהתבסס על השאלה",
+      reasoning: "🔍 מחפש מידע רלוונטי בהתבסס על השאלה",
       parameters: {
         query: prompt,
       },
@@ -117,10 +143,12 @@ export async function POST(request: NextRequest) {
     console.log("🤖 מתכנן פעולות עבור:", prompt)
 
     try {
-      // Try AI generation first
+      // Try AI generation first with enhanced prompt
       const { object: plan } = await generateObject({
         model: openai("gpt-4o"),
         schema: PlanSchema,
+        mode: "auto", // Enhanced mode for better schema matching
+        temperature: 0.1,
         prompt: `
 אתה סוכן AI מומחה לחירום ובטיחות בישראל. המשתמש פנה אליך עם הבקשה הבאה:
 
@@ -129,7 +157,7 @@ export async function POST(request: NextRequest) {
 עליך לנתח את המצב ולתכנן רצף פעולות מתאים. יש לך 3 כלים זמינים:
 
 1. **rag_chat** - עונה על שאלות כלליות על חירום, בטיחות, נהלים
-   פרמטרים: { "query": "השאלה או הנושא" }
+   פרמטרים: { "query": "השאלה או הנושא לחיפוש" }
 
 2. **find_shelters** - מחפש מקלטים לפי מיקום
    פרמטרים: { "location": "שם המקום", "radius": 2000, "maxResults": 10 }
@@ -137,20 +165,46 @@ export async function POST(request: NextRequest) {
 3. **recommend_equipment** - ממליץ על ציוד חירום
    פרמטרים: { "familyProfile": "תיאור המשפחה", "duration": 72 }
 
-דוגמאות:
-- אזעקה בתל אביב → rag_chat + find_shelters
+כללים חשובים:
+- תן עדיפות גבוהה (1-3) לפעולות מיידיות ודחופות
+- עדיפות בינונית (4-6) לפעולות חשובות אך לא דחופות  
+- עדיפות נמוכה (7-10) לפעולות משלימות
+- השתמש רק ב-id הבאים: "rag_chat", "find_shelters", "recommend_equipment"
+- אם המיקום לא ברור, השתמש ב"תל אביב" כברירת מחדל
+- אם פרטי המשפחה לא ברורים, השתמש ב"משפחה כללית"
+
+דוגמאות לתרחישים:
+- אזעקה בתל אביב → rag_chat (הוראות) + find_shelters (מקלטים)
 - בקשת ציוד → recommend_equipment
 - שאלה כללית → rag_chat
 
-חשוב: תן תשובה מדויקת בעברית עם פרמטרים ספציפיים.
+חשוב: תן תשובה מדויקת בעברית עם פרמטרים ספציפיים. וודא שכל השדות הנדרשים קיימים.
 `,
-        temperature: 0.1,
       })
 
-      console.log("✅ תוכנית AI נוצרה:", plan)
+      console.log("🔍 תוכנית AI שנוצרה:", JSON.stringify(plan, null, 2))
+
+      // Validate tool IDs
+      const validToolIds = ["rag_chat", "find_shelters", "recommend_equipment"]
+      const validatedTools = plan.tools.filter((tool) => validToolIds.includes(tool.id))
+
+      if (validatedTools.length !== plan.tools.length) {
+        console.warn(
+          "⚠️ כלים לא תקינים סוננו:",
+          plan.tools.filter((tool) => !validToolIds.includes(tool.id)),
+        )
+      }
+
+      const validatedPlan = {
+        ...plan,
+        tools: validatedTools,
+      }
+
+      console.log("✅ תוכנית AI מאומתת נוצרה:", validatedPlan)
 
       return NextResponse.json({
-        ...plan,
+        ...validatedPlan,
+        source: "ai",
         availableTools: [
           {
             id: "rag_chat",
@@ -179,6 +233,7 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         ...fallbackPlan,
+        source: "fallback",
         availableTools: [
           {
             id: "rag_chat",
