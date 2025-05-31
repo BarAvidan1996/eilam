@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { favoriteShelterService, type FavoriteShelter } from "@/lib/services/favorite-shelter-service"
 import { Spinner } from "@/components/ui/spinner"
+import { useToast } from "@/hooks/use-toast"
 
 // תרגומים לפי שפה
 const translations = {
@@ -72,6 +73,12 @@ const translations = {
     deleteConfirmMessage: "האם אתה בטוח שברצונך למחוק את המקלט מרשימת המועדפים שלך? פעולה זו לא ניתנת לביטול.",
     deleteButton: "מחק",
     cancelButton: "ביטול",
+    updateSuccess: "פרטי המקלט עודכנו בהצלחה",
+    deleteSuccess: "המקלט הוסר מהמועדפים בהצלחה",
+    updateError: "אירעה שגיאה בעדכון פרטי המקלט",
+    deleteError: "אירעה שגיאה בהסרת המקלט מהמועדפים",
+    saving: "שומר שינויים...",
+    deleting: "מוחק...",
   },
   en: {
     title: "Favorite Shelters",
@@ -111,6 +118,12 @@ const translations = {
       "Are you sure you want to remove this shelter from your favorites? This action cannot be undone.",
     deleteButton: "Delete",
     cancelButton: "Cancel",
+    updateSuccess: "Shelter details updated successfully",
+    deleteSuccess: "Shelter removed from favorites successfully",
+    updateError: "An error occurred while updating shelter details",
+    deleteError: "An error occurred while removing the shelter from favorites",
+    saving: "Saving changes...",
+    deleting: "Deleting...",
   },
   ar: {
     title: "الملاجئ المفضلة",
@@ -149,6 +162,12 @@ const translations = {
     deleteConfirmMessage: "هل أنت متأكد أنك تريد إزالة هذا الملجأ من المفضلة؟ لا يمكن التراجع عن هذا الإجراء.",
     deleteButton: "حذف",
     cancelButton: "إلغاء",
+    updateSuccess: "تم تحديث تفاصيل الملجأ بنجاح",
+    deleteSuccess: "تمت إزالة الملجأ من المفضلة بنجاح",
+    updateError: "حدث خطأ أثناء تحديث تفاصيل الملجأ",
+    deleteError: "حدث خطأ أثناء إزالة الملجأ من المفضلة",
+    saving: "جاري حفظ التغييرات...",
+    deleting: "جاري الحذف...",
   },
   ru: {
     title: "Избранные убежища",
@@ -187,6 +206,12 @@ const translations = {
     deleteConfirmMessage: "Вы уверены, что хотите удалить это убежище из избранного? Это действие нельзя отменить.",
     deleteButton: "Удалить",
     cancelButton: "Отмена",
+    updateSuccess: "Детали убежища успешно обновлены",
+    deleteSuccess: "Убежище успешно удалено из избранного",
+    updateError: "Произошла ошибка при обновлении деталей убежища",
+    deleteError: "Произошла ошибка при удалении убежища из избранного",
+    saving: "Сохранение изменений...",
+    deleting: "Удаление...",
   },
 }
 
@@ -204,6 +229,8 @@ export default function FavoriteSheltersPage() {
   const [language, setLanguage] = useState("he")
   const [isRTL, setIsRTL] = useState(true)
   const [shelterToDelete, setShelterToDelete] = useState<FavoriteShelter | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const { toast } = useToast()
 
   // קביעת השפה מתוך document רק בצד לקוח
   useEffect(() => {
@@ -249,8 +276,20 @@ export default function FavoriteSheltersPage() {
       }
 
       setShelterToDelete(null)
+
+      // הודעת הצלחה
+      toast({
+        title: t.deleteSuccess,
+        variant: "success",
+      })
     } catch (error) {
       console.error("שגיאה במחיקת מועדף:", error)
+
+      // הודעת שגיאה
+      toast({
+        title: t.deleteError,
+        variant: "destructive",
+      })
     } finally {
       setDeletingShelter(null)
     }
@@ -330,6 +369,7 @@ export default function FavoriteSheltersPage() {
   const saveEditDialog = async () => {
     if (!editingShelter || !editingShelter.id) return
 
+    setIsSaving(true)
     try {
       const updatedShelter = {
         ...editingShelter,
@@ -346,10 +386,24 @@ export default function FavoriteSheltersPage() {
         setSelectedShelter(result)
       }
 
+      // הודעת הצלחה
+      toast({
+        title: t.updateSuccess,
+        variant: "success",
+      })
+
       setIsDialogOpen(false)
       setEditingShelter(null)
     } catch (error) {
       console.error("שגיאה בעדכון פרטי מקלט:", error)
+
+      // הודעת שגיאה
+      toast({
+        title: t.updateError,
+        variant: "destructive",
+      })
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -559,8 +613,8 @@ export default function FavoriteSheltersPage() {
       </div>
 
       {/* Edit shelter dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => !isSaving && setIsDialogOpen(open)}>
+        <DialogContent className="sm:max-w-md w-[95%] max-w-[95%] sm:w-auto">
           <DialogHeader>
             <DialogTitle>{t.editShelterDetails}</DialogTitle>
             <DialogDescription>{editingShelter?.address}</DialogDescription>
@@ -612,18 +666,27 @@ export default function FavoriteSheltersPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
+          <DialogFooter className="sm:justify-between gap-3">
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
               {t.cancel}
             </Button>
-            <Button onClick={saveEditDialog}>{t.saveChanges}</Button>
+            <Button onClick={saveEditDialog} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Spinner size="small" className="mr-2" />
+                  {t.saving}
+                </>
+              ) : (
+                t.saveChanges
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Share shelter dialog */}
       <Dialog open={!!copiedLink} onOpenChange={() => setCopiedLink(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md w-[95%] max-w-[95%] sm:w-auto">
           <DialogHeader>
             <DialogTitle>
               <span className="flex items-center">
@@ -637,19 +700,30 @@ export default function FavoriteSheltersPage() {
       </Dialog>
 
       {/* Delete confirmation dialog */}
-      <AlertDialog open={!!shelterToDelete} onOpenChange={() => setShelterToDelete(null)}>
-        <AlertDialogContent className="max-w-[90%] w-[350px] mx-auto">
+      <AlertDialog
+        open={!!shelterToDelete}
+        onOpenChange={(open) => !deletingShelter && setShelterToDelete(open ? shelterToDelete : null)}
+      >
+        <AlertDialogContent className="w-[95%] max-w-[95%] sm:max-w-[350px] mx-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>{t.deleteConfirmTitle}</AlertDialogTitle>
             <AlertDialogDescription>{t.deleteConfirmMessage}</AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="gap-3">
-            <AlertDialogCancel>{t.cancelButton}</AlertDialogCancel>
+          <AlertDialogFooter className="gap-3 sm:justify-between">
+            <AlertDialogCancel disabled={!!deletingShelter}>{t.cancelButton}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => shelterToDelete && removeFavorite(shelterToDelete)}
               className="bg-red-600 hover:bg-red-700"
+              disabled={!!deletingShelter}
             >
-              {t.deleteButton}
+              {deletingShelter ? (
+                <>
+                  <Spinner size="small" className="mr-2" />
+                  {t.deleting}
+                </>
+              ) : (
+                t.deleteButton
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
