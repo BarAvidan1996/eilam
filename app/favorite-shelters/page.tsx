@@ -704,7 +704,11 @@ export default function FavoriteSheltersPage() {
             <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
               {t.cancel}
             </Button>
-            <Button onClick={saveEditDialog} disabled={isSaving}>
+            <Button
+              onClick={saveEditDialog}
+              disabled={isSaving}
+              className="bg-[#005C72] hover:bg-[#004A5C] dark:bg-[#D3E3FD] dark:hover:bg-[#B8D4F1] dark:text-gray-900"
+            >
               {isSaving ? (
                 <>
                   <Spinner size="small" className="mr-2" />
