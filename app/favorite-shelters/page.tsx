@@ -220,12 +220,12 @@ export default function FavoriteSheltersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [favorites, setFavorites] = useState<FavoriteShelter[]>([])
   const [selectedShelter, setSelectedShelter] = useState<FavoriteShelter | null>(null)
-  const [deletingShelter, setDeletingShelter] = useState<number | null>(null)
+  const [deletingShelter, setDeletingShelter] = useState<string | null>(null)
   const [editingShelter, setEditingShelter] = useState<FavoriteShelter | null>(null)
   const [selectedLabel, setSelectedLabel] = useState("בית")
   const [customLabel, setCustomLabel] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [copiedLink, setCopiedLink] = useState<number | null>(null)
+  const [copiedLink, setCopiedLink] = useState<string | null>(null)
   const shareTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [language, setLanguage] = useState("he")
   const [isRTL, setIsRTL] = useState(true)
@@ -282,20 +282,20 @@ export default function FavoriteSheltersPage() {
   }, [])
 
   const removeFavorite = async (shelter: FavoriteShelter) => {
-    if (!shelter.id) return
+    if (!shelter.place_id) return
 
-    setDeletingShelter(shelter.id)
+    setDeletingShelter(shelter.place_id)
     try {
       console.log("Deleting shelter:", shelter)
 
-      await favoriteShelterService.delete(shelter.id)
+      await favoriteShelterService.delete(shelter.place_id)
 
       console.log("Successfully deleted shelter from service")
 
-      const updatedFavorites = favorites.filter((f) => f.id !== shelter.id)
+      const updatedFavorites = favorites.filter((f) => f.place_id !== shelter.place_id)
       setFavorites(updatedFavorites)
 
-      if (selectedShelter && selectedShelter.id === shelter.id) {
+      if (selectedShelter && selectedShelter.place_id === shelter.place_id) {
         setSelectedShelter(updatedFavorites.length > 0 ? updatedFavorites[0] : null)
       }
 
@@ -349,7 +349,7 @@ export default function FavoriteSheltersPage() {
   const copyShareLink = (shelter: FavoriteShelter) => {
     const shareText = generateShareLink(shelter) // Just the link itself
     navigator.clipboard.writeText(shareText).then(() => {
-      setCopiedLink(shelter.id || null)
+      setCopiedLink(shelter.place_id || null)
 
       // Clear the "copied" status after 2 seconds
       if (shareTimeoutRef.current) {
@@ -392,7 +392,7 @@ export default function FavoriteSheltersPage() {
   }
 
   const saveEditDialog = async () => {
-    if (!editingShelter || !editingShelter.id) return
+    if (!editingShelter || !editingShelter.place_id) return
 
     setIsSaving(true)
     try {
@@ -406,14 +406,14 @@ export default function FavoriteSheltersPage() {
 
       console.log("Updated shelter data to save:", updatedShelter)
 
-      const result = await favoriteShelterService.update(editingShelter.id, updatedShelter)
+      const result = await favoriteShelterService.update(editingShelter.place_id, updatedShelter)
 
       console.log("Update result:", result)
 
       // Update the UI
-      setFavorites(favorites.map((s) => (s.id === editingShelter.id ? result : s)))
+      setFavorites(favorites.map((s) => (s.place_id === editingShelter.place_id ? result : s)))
 
-      if (selectedShelter && selectedShelter.id === editingShelter.id) {
+      if (selectedShelter && selectedShelter.place_id === editingShelter.place_id) {
         setSelectedShelter(result)
       }
 
@@ -488,9 +488,11 @@ export default function FavoriteSheltersPage() {
                 <div className="overflow-y-auto max-h-[500px]">
                   {favorites.map((shelter) => (
                     <div
-                      key={shelter.id}
+                      key={shelter.place_id}
                       className={`p-4 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 cursor-pointer transition-colors ${
-                        selectedShelter && selectedShelter.id === shelter.id ? "bg-purple-50 dark:bg-purple-900/20" : ""
+                        selectedShelter && selectedShelter.place_id === shelter.place_id
+                          ? "bg-purple-50 dark:bg-purple-900/20"
+                          : ""
                       }`}
                       onClick={() => setSelectedShelter(shelter)}
                     >
@@ -555,13 +557,13 @@ export default function FavoriteSheltersPage() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-8 w-8 text-gray-500 hover:text-red-600"
-                                  disabled={deletingShelter === shelter.id}
+                                  disabled={deletingShelter === shelter.place_id}
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     setShelterToDelete(shelter)
                                   }}
                                 >
-                                  {deletingShelter === shelter.id ? (
+                                  {deletingShelter === shelter.place_id ? (
                                     <div className="h-4 w-4 border-2 border-t-transparent border-red-500 rounded-full animate-spin"></div>
                                   ) : (
                                     <Trash2 size={16} />

@@ -1,7 +1,6 @@
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export interface FavoriteShelter {
-  id?: number
   user_id?: string
   place_id: string
   name: string
@@ -60,7 +59,7 @@ class FavoriteShelterService {
     }
   }
 
-  async create(shelter: Omit<FavoriteShelter, "id" | "user_id" | "created_at">): Promise<FavoriteShelter> {
+  async create(shelter: Omit<FavoriteShelter, "user_id" | "created_at">): Promise<FavoriteShelter> {
     try {
       const {
         data: { user },
@@ -104,7 +103,7 @@ class FavoriteShelterService {
     }
   }
 
-  async update(id: number, shelter: Partial<FavoriteShelter>): Promise<FavoriteShelter> {
+  async update(placeId: string, shelter: Partial<FavoriteShelter>): Promise<FavoriteShelter> {
     try {
       const {
         data: { user },
@@ -115,7 +114,7 @@ class FavoriteShelterService {
       }
 
       // Remove fields that shouldn't be updated
-      const { location, id: shelterId, user_id, created_at, ...updateData } = shelter
+      const { location, user_id, created_at, place_id, ...updateData } = shelter
 
       // Add lat/lng if location is provided
       if (location) {
@@ -123,13 +122,13 @@ class FavoriteShelterService {
         updateData.lng = location.lng
       }
 
-      console.log("Updating shelter with ID:", id)
+      console.log("Updating shelter with place_id:", placeId)
       console.log("Update data:", updateData)
 
       const { data, error } = await this.supabase
         .from("favorite_shelters")
         .update(updateData)
-        .eq("id", id)
+        .eq("place_id", placeId)
         .eq("user_id", user.id) // Security check
         .select()
         .single()
@@ -158,7 +157,7 @@ class FavoriteShelterService {
     }
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(placeId: string): Promise<void> {
     try {
       const {
         data: { user },
@@ -168,16 +167,20 @@ class FavoriteShelterService {
         throw new Error("User not authenticated")
       }
 
-      console.log("Deleting shelter with ID:", id, "for user:", user.id)
+      console.log("Deleting shelter with place_id:", placeId, "for user:", user.id)
 
-      const { error } = await this.supabase.from("favorite_shelters").delete().eq("id", id).eq("user_id", user.id) // Security check
+      const { error } = await this.supabase
+        .from("favorite_shelters")
+        .delete()
+        .eq("place_id", placeId)
+        .eq("user_id", user.id) // Security check
 
       if (error) {
         console.error("Error deleting favorite shelter:", error)
         throw error
       }
 
-      console.log("Successfully deleted shelter with ID:", id)
+      console.log("Successfully deleted shelter with place_id:", placeId)
     } catch (error) {
       console.error("Error in delete method:", error)
       throw error
@@ -185,34 +188,7 @@ class FavoriteShelterService {
   }
 
   async deleteByPlaceId(placeId: string): Promise<void> {
-    try {
-      const {
-        data: { user },
-      } = await this.supabase.auth.getUser()
-
-      if (!user) {
-        console.log("User not authenticated, cannot delete favorite")
-        return
-      }
-
-      console.log("Deleting shelter with place_id:", placeId, "for user:", user.id)
-
-      const { error } = await this.supabase
-        .from("favorite_shelters")
-        .delete()
-        .eq("place_id", placeId)
-        .eq("user_id", user.id)
-
-      if (error) {
-        console.error("Error deleting favorite shelter by place_id:", error)
-        throw error
-      }
-
-      console.log("Successfully deleted shelter with place_id:", placeId)
-    } catch (error) {
-      console.error("Error in deleteByPlaceId() method:", error)
-      throw error
-    }
+    return this.delete(placeId)
   }
 
   async getByPlaceId(placeId: string): Promise<FavoriteShelter | null> {
