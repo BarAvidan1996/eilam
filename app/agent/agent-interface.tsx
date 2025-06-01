@@ -525,8 +525,21 @@ export default function AgentInterface() {
                 <div className="mt-3 pt-3 border-t border-primary/20">
                   <div className="text-xs text-primary font-medium mb-1">מקורות:</div>
                   <ul className="text-xs text-muted-foreground list-disc list-inside">
-                    {result.result.sources.map((source: string, i: number) => (
-                      <li key={i}>{source}</li>
+                    {result.result.sources.map((source: any, i: number) => (
+                      <li key={i}>
+                        {source.storage_path && source.storage_path.startsWith("http") ? (
+                          <a
+                            href={source.storage_path}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            {source.title || source}
+                          </a>
+                        ) : (
+                          source.title || source
+                        )}
+                      </li>
                     ))}
                   </ul>
                 </div>
