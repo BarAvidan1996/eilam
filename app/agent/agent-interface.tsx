@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Progress } from "@/components/ui/progress"
 import { LocationSelector } from "@/components/location-selector"
 import {
   Bot,
@@ -28,6 +29,8 @@ import {
   ChevronUp,
   Info,
   AlertCircle,
+  ExternalLink,
+  Navigation,
 } from "lucide-react"
 import type { JSX } from "react"
 import { useTheme } from "next-themes"
@@ -68,28 +71,28 @@ interface ToolExecution {
 }
 
 interface LocationData {
-  type: "current" | "address"
+  type: "current" | "address" | "map"
   lat?: number
   lng?: number
   address?: string
   displayName?: string
 }
 
-// Parameter descriptions for tooltips
+// Parameter descriptions with units and data types
 const parameterDescriptions: Record<string, Record<string, string>> = {
   rag_chat: {
-    query: "השאלה או הבקשה למידע שתישלח למערכת המידע",
+    query: "השאלה או הבקשה למידע (טקסט חופשי)",
   },
   find_shelters: {
-    location: "המיקום לחיפוש מקלטים (כתובת או עיר)",
-    radius: "רדיוס החיפוש במטרים",
-    maxResults: "מספר מקסימלי של תוצאות להצגה",
-    lat: "קו רוחב גיאוגרפי",
-    lng: "קו אורך גיאוגרפי",
+    location: "מיקום לחיפוש - כתובת או שם מקום (טקסט)",
+    radius: "רדיוס החיפוש במטרים (מספר, ברירת מחדל: 1000)",
+    maxResults: "מספר מקסימלי של תוצאות (מספר, ברירת מחדל: 3)",
+    lat: "קו רוחב גיאוגרפי (מספר עשרונית)",
+    lng: "קו אורך גיאוגרפי (מספר עשרונית)",
   },
   recommend_equipment: {
-    familyProfile: "פרופיל המשפחה או האדם (למשל: משפחה עם ילדים, אדם עם סכרת)",
-    duration: "משך הזמן בשעות שעבורו נדרש הציוד",
+    familyProfile: "תיאור המשפחה או האדם (טקסט, למשל: משפחה עם ילדים, אדם עם סכרת)",
+    duration: "משך הזמן בשעות (מספר, ברירת מחדל: 72)",
   },
 }
 
@@ -112,23 +115,32 @@ export default function AgentInterface() {
   const [showLocationSelector, setShowLocationSelector] = useState(false)
   const [pendingLocationToolIndex, setPendingLocationToolIndex] = useState<number | null>(null)
   const [collapsedTools, setCollapsedTools] = useState<Set<number>>(new Set())
+  const [progress, setProgress] = useState(0)
   const { theme } = useTheme()
 
-  // Auto-approve tools with all required parameters
+  // Calculate progress
+  useEffect(() => {
+    if (executions.length > 0) {
+      const completed = executions.filter((exec) => exec.status === "completed" || exec.status === "skipped").length
+      const newProgress = (completed / executions.length) * 100
+      setProgress(newProgress)
+    } else {
+      setProgress(0)
+    }
+  }, [executions])
+
+  // Auto-approve tools with all required parameters (Nielsen: Reduce user memory load)
   useEffect(() => {
     if (executions.length > 0) {
       const updatedExecutions = executions.map((execution) => {
-        // Skip tools that are not pending or already have all required parameters
         if (execution.status !== "pending" || execution.tool.id === "find_shelters") {
           return execution
         }
 
-        // Check if all required parameters are filled
         const required = requiredParameters[execution.tool.id] || []
         const parameters = execution.editedParameters || execution.tool.parameters
         const allRequiredFilled = required.every((param) => parameters[param] && parameters[param] !== "")
 
-        // Auto-approve if all required parameters are filled
         if (allRequiredFilled) {
           return { ...execution, status: "approved" as ExecutionStatus }
         }
@@ -136,22 +148,23 @@ export default function AgentInterface() {
         return execution
       })
 
-      // Update executions if any were auto-approved
       if (JSON.stringify(updatedExecutions) !== JSON.stringify(executions)) {
         setExecutions(updatedExecutions)
       }
     }
   }, [executions])
 
-  // Auto-execute approved tools
+  // Auto-execute approved tools (Nielsen: Minimize user actions)
   useEffect(() => {
     const hasApproved = executions.some((exec) => exec.status === "approved")
     if (hasApproved && currentExecutionIndex === -1) {
-      executeNext()
+      const timer = setTimeout(() => {
+        executeNext()
+      }, 500) // Small delay for better UX
+      return () => clearTimeout(timer)
     }
-  }, [executions])
+  }, [executions, currentExecutionIndex])
 
-  // Create execution plan
   const createPlan = async () => {
     if (!prompt.trim()) return
 
@@ -160,17 +173,14 @@ export default function AgentInterface() {
     setPlan(null)
     setExecutions([])
     setCollapsedTools(new Set())
+    setProgress(0)
 
     try {
-      console.log("🚀 שולח בקשה לתכנון...")
-
       const response = await fetch("/api/agent/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       })
-
-      console.log("📡 תגובה התקבלה:", response.status)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -178,27 +188,38 @@ export default function AgentInterface() {
       }
 
       const planData = await response.json()
-      console.log("📋 נתוני תוכנית:", planData)
 
       if (planData.error) {
         throw new Error(planData.error)
       }
 
-      // Validate plan data
       if (!planData.tools || !Array.isArray(planData.tools)) {
-        console.error("❌ מבנה תוכנית לא תקין:", planData)
         throw new Error("Invalid plan structure received")
       }
 
       setPlan(planData)
 
-      // Initialize executions and check for location requirements
+      // Set default values for shelter search
       const initialExecutions: ToolExecution[] = planData.tools.map((tool: Tool) => {
-        // Check if this tool needs location and doesn't have specific coordinates
-        if (tool.id === "find_shelters" && (!tool.parameters.lat || !tool.parameters.lng)) {
+        if (tool.id === "find_shelters") {
+          const updatedTool = {
+            ...tool,
+            parameters: {
+              ...tool.parameters,
+              radius: tool.parameters.radius || 1000,
+              maxResults: tool.parameters.maxResults || 3,
+            },
+          }
+
+          if (!tool.parameters.lat || !tool.parameters.lng) {
+            return {
+              tool: updatedTool,
+              status: "waiting_location" as ExecutionStatus,
+            }
+          }
           return {
-            tool,
-            status: "waiting_location" as ExecutionStatus,
+            tool: updatedTool,
+            status: "pending" as ExecutionStatus,
           }
         }
         return {
@@ -209,8 +230,6 @@ export default function AgentInterface() {
 
       setExecutions(initialExecutions)
       setCurrentExecutionIndex(-1)
-
-      console.log("✅ תוכנית הוגדרה בהצלחה")
     } catch (error) {
       console.error("❌ שגיאה ביצירת תוכנית:", error)
       setPlanningError(error instanceof Error ? error.message : "שגיאה לא ידועה")
@@ -219,7 +238,6 @@ export default function AgentInterface() {
     }
   }
 
-  // Handle location selection
   const handleLocationSelected = (location: LocationData) => {
     if (pendingLocationToolIndex !== null) {
       setExecutions((prev) =>
@@ -234,7 +252,7 @@ export default function AgentInterface() {
             }
             return {
               ...exec,
-              status: "approved" as ExecutionStatus, // Auto-approve after location selection
+              status: "approved" as ExecutionStatus,
               editedParameters: updatedParameters,
             }
           }
@@ -246,17 +264,14 @@ export default function AgentInterface() {
     setPendingLocationToolIndex(null)
   }
 
-  // Request location for shelter search
   const requestLocation = (toolIndex: number) => {
     setPendingLocationToolIndex(toolIndex)
     setShowLocationSelector(true)
   }
 
-  // Approve tool for execution
   const approveTool = (index: number) => {
     const execution = executions[index]
 
-    // Check if this is a shelter search without location
     if (
       execution.tool.id === "find_shelters" &&
       (!execution.tool.parameters.lat || !execution.tool.parameters.lng) &&
@@ -269,17 +284,14 @@ export default function AgentInterface() {
     setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, status: "approved" } : exec)))
   }
 
-  // Skip tool
   const skipTool = (index: number) => {
     setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, status: "skipped" } : exec)))
   }
 
-  // Edit tool parameters
   const editTool = (index: number) => {
     setEditingTool(`${index}`)
   }
 
-  // Save edited parameters
   const saveEditedParameters = (index: number, newParams: Record<string, any>) => {
     setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, editedParameters: newParams } : exec)))
     setEditingTool(null)
@@ -334,7 +346,6 @@ export default function AgentInterface() {
     }
   }
 
-  // Execute next approved tool
   const executeNext = async () => {
     const nextIndex = executions.findIndex((exec) => exec.status === "approved")
     if (nextIndex === -1) return
@@ -369,7 +380,7 @@ export default function AgentInterface() {
         ),
       )
 
-      // Auto-collapse completed tools
+      // Auto-collapse completed tools (Nielsen: Reduce visual clutter)
       if (result.success) {
         const newCollapsedTools = new Set(collapsedTools)
         newCollapsedTools.add(nextIndex)
@@ -392,53 +403,96 @@ export default function AgentInterface() {
     }
   }
 
-  // Execute all approved tools
-  const executeAll = async () => {
-    const approvedIndices = executions
-      .map((exec, index) => (exec.status === "approved" ? index : -1))
-      .filter((index) => index !== -1)
-
-    for (const index of approvedIndices) {
-      await executeNext()
-    }
-  }
-
   const getStatusIcon = (status: ExecutionStatus) => {
     switch (status) {
       case "pending":
-        return <Clock className="h-4 w-4 text-gray-400" />
+        return <Clock className="h-4 w-4 text-muted-foreground" />
       case "approved":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
+        return <CheckCircle className="h-4 w-4 text-primary" />
       case "executing":
-        return <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+        return <Loader2 className="h-4 w-4 text-primary animate-spin" />
       case "completed":
-        return <CheckCircle className="h-4 w-4 text-green-600" />
+        return <CheckCircle className="h-4 w-4 text-primary" />
       case "failed":
-        return <XCircle className="h-4 w-4 text-red-500" />
+        return <XCircle className="h-4 w-4 text-destructive" />
       case "skipped":
-        return <XCircle className="h-4 w-4 text-gray-400" />
+        return <XCircle className="h-4 w-4 text-muted-foreground" />
       case "waiting_location":
-        return <MapPin className="h-4 w-4 text-orange-500" />
+        return <MapPin className="h-4 w-4 text-accent" />
     }
   }
 
   const getStatusColor = (status: ExecutionStatus) => {
     switch (status) {
       case "pending":
-        return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300"
+        return "bg-muted text-muted-foreground"
       case "approved":
-        return "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+        return "bg-primary/10 text-primary"
       case "executing":
-        return "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+        return "bg-primary/10 text-primary"
       case "completed":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+        return "bg-primary/10 text-primary"
       case "failed":
-        return "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+        return "bg-destructive/10 text-destructive"
       case "skipped":
-        return "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+        return "bg-muted text-muted-foreground"
       case "waiting_location":
-        return "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300"
+        return "bg-accent/10 text-accent"
     }
+  }
+
+  const renderShelterResults = (shelters: any[], searchLocation?: any) => {
+    if (!shelters || shelters.length === 0) {
+      return <div className="text-muted-foreground">לא נמצאו מקלטים באזור</div>
+    }
+
+    return (
+      <div className="space-y-3">
+        {shelters.map((shelter: any, i: number) => (
+          <div key={i} className="border rounded-lg p-3 bg-card">
+            <div className="flex justify-between items-start mb-2">
+              <div className="flex-1">
+                <div className="font-medium">{shelter.name}</div>
+                <div className="text-sm text-muted-foreground">{shelter.address}</div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(shelter.address)}`
+                  window.open(url, "_blank")
+                }}
+                className="ml-2"
+              >
+                <Navigation className="h-3 w-3 mr-1" />
+                נווט
+              </Button>
+            </div>
+            <div className="flex gap-4 text-xs text-muted-foreground">
+              <span>📍 {shelter.distance} ק"מ</span>
+              {shelter.duration && <span>🚶 {Math.round(shelter.duration / 60)} דק' הליכה</span>}
+              <span>🏷️ {shelter.type}</span>
+            </div>
+          </div>
+        ))}
+
+        {/* Map link for all shelters */}
+        {searchLocation && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              const shelterCoords = shelters.map((s) => `${s.location?.lat || 0},${s.location?.lng || 0}`).join("|")
+              const url = `https://www.google.com/maps/search/מקלט/@${searchLocation.lat},${searchLocation.lng},15z`
+              window.open(url, "_blank")
+            }}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            הצג את כל המקלטים במפה
+          </Button>
+        )}
+      </div>
+    )
   }
 
   const renderResult = (result: any) => {
@@ -449,14 +503,17 @@ export default function AgentInterface() {
     switch (type) {
       case "rag_chat":
         return (
-          <div className="space-y-2">
-            <div className="font-medium text-blue-700 dark:text-blue-400">💬 תשובת מערכת המידע:</div>
-            <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded text-sm">
-              <p className="whitespace-pre-wrap">{result.result.answer}</p>
+          <div className="space-y-3">
+            <div className="font-medium text-primary flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              תשובת מערכת המידע
+            </div>
+            <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
+              <p className="whitespace-pre-wrap leading-relaxed">{result.result.answer}</p>
               {result.result.sources && result.result.sources.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-blue-200 dark:border-blue-700">
-                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">מקורות:</div>
-                  <ul className="text-xs text-blue-600 dark:text-blue-400 list-disc list-inside">
+                <div className="mt-3 pt-3 border-t border-primary/20">
+                  <div className="text-xs text-primary font-medium mb-1">מקורות:</div>
+                  <ul className="text-xs text-muted-foreground list-disc list-inside">
                     {result.result.sources.map((source: string, i: number) => (
                       <li key={i}>{source}</li>
                     ))}
@@ -469,55 +526,44 @@ export default function AgentInterface() {
 
       case "shelter_search":
         return (
-          <div className="space-y-2">
-            <div className="font-medium text-green-700 dark:text-green-400">🏠 מקלטים שנמצאו:</div>
-            <div className="bg-green-50 dark:bg-green-900/30 p-3 rounded text-sm space-y-2">
-              {result.result.shelters && result.result.shelters.length > 0 ? (
-                result.result.shelters.map((shelter: any, i: number) => (
-                  <div
-                    key={i}
-                    className="border border-green-200 dark:border-green-700 rounded p-2 bg-white dark:bg-gray-800"
-                  >
-                    <div className="font-medium">{shelter.name}</div>
-                    <div className="text-gray-600 dark:text-gray-300">{shelter.address}</div>
-                    <div className="flex gap-4 text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      <span>📍 {shelter.distance} ק"מ</span>
-                      {shelter.duration && <span>🚶 {Math.round(shelter.duration / 60)} דק' הליכה</span>}
-                      <span>🏷️ {shelter.type}</span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-gray-500 dark:text-gray-400">לא נמצאו מקלטים באזור</div>
-              )}
+          <div className="space-y-3">
+            <div className="font-medium text-primary flex items-center gap-2">
+              <Home className="h-4 w-4" />
+              מקלטים שנמצאו ({result.result.shelters?.length || 0})
+            </div>
+            <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
+              {renderShelterResults(result.result.shelters, result.result.coordinates)}
             </div>
           </div>
         )
 
       case "equipment_recommendations":
         return (
-          <div className="space-y-2">
-            <div className="font-medium text-purple-700 dark:text-purple-400">🎒 המלצות ציוד:</div>
-            <div className="bg-purple-50 dark:bg-purple-900/30 p-3 rounded text-sm">
+          <div className="space-y-3">
+            <div className="font-medium text-primary flex items-center gap-2">
+              <Backpack className="h-4 w-4" />
+              המלצות ציוד
+            </div>
+            <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
               {result.result.recommendations && typeof result.result.recommendations === "object" ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {Object.entries(result.result.recommendations).map(([category, items]: [string, any]) => (
                     <div key={category}>
-                      <div className="font-medium text-purple-800 dark:text-purple-300 mb-1">{category}:</div>
+                      <div className="font-medium text-primary mb-2">{category}:</div>
                       {Array.isArray(items) ? (
-                        <ul className="list-disc list-inside text-purple-700 dark:text-purple-400 text-xs">
+                        <ul className="list-disc list-inside text-sm space-y-1">
                           {items.map((item: string, i: number) => (
                             <li key={i}>{item}</li>
                           ))}
                         </ul>
                       ) : (
-                        <div className="text-purple-700 dark:text-purple-400 text-xs">{String(items)}</div>
+                        <div className="text-sm">{String(items)}</div>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <pre className="whitespace-pre-wrap text-purple-800 dark:text-purple-300 text-xs">
+                <pre className="whitespace-pre-wrap text-sm">
                   {JSON.stringify(result.result.recommendations, null, 2)}
                 </pre>
               )}
@@ -527,7 +573,7 @@ export default function AgentInterface() {
 
       default:
         return (
-          <div className="text-sm bg-gray-50 dark:bg-gray-800 p-3 rounded">
+          <div className="text-sm bg-muted p-3 rounded">
             <pre className="text-xs overflow-auto">{JSON.stringify(result.result, null, 2)}</pre>
           </div>
         )
@@ -544,10 +590,14 @@ export default function AgentInterface() {
     setCollapsedTools(newCollapsedTools)
   }
 
+  const isRequired = (toolId: string, paramName: string) => {
+    const required = requiredParameters[toolId] || []
+    return required.includes(paramName)
+  }
+
   return (
     <TooltipProvider>
       <div className="max-w-4xl mx-auto p-4 space-y-6">
-        {/* Location Selector Modal */}
         <LocationSelector
           isVisible={showLocationSelector}
           onLocationSelected={handleLocationSelected}
@@ -557,36 +607,40 @@ export default function AgentInterface() {
           }}
         />
 
-        {/* Input Section */}
-        <Card className="border-2 border-blue-200 dark:border-blue-800 shadow-md">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900">
-            <CardTitle className="flex items-center gap-2">
-              <Bot className="h-5 w-5" />
-              סוכן AI לחירום - תכנון ובקרה
+        {/* Header */}
+        <Card className="border-2 border-primary/20 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5">
+            <CardTitle className="flex items-center gap-3">
+              <Bot className="h-6 w-6 text-primary" />
+              <div>
+                <div className="text-xl">סוכן AI לחירום</div>
+                <div className="text-sm font-normal text-muted-foreground">תכנון ובקרה אוטומטיים</div>
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             <Textarea
-              placeholder="תאר את המצב או מה שאתה צריך... (למשל: 'יש אזעקה ואני עם 2 ילדים')"
+              placeholder="תאר את המצב או מה שאתה צריך... (למשל: 'יש אזעקה ואני עם 2 ילדים בתל אביב')"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={3}
-              className="text-right"
+              className="text-right resize-none"
             />
             <Button
               onClick={createPlan}
               disabled={!prompt.trim() || isPlanning}
-              className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
+              className="w-full bg-primary hover:bg-primary/90 h-12"
+              size="lg"
             >
               {isPlanning ? (
                 <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <Brain className="h-4 w-4" />
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Brain className="h-5 w-5" />
                   מתכנן פעולות...
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4" />
+                  <Zap className="h-5 w-5" />
                   צור תוכנית פעולה
                 </div>
               )}
@@ -594,15 +648,30 @@ export default function AgentInterface() {
           </CardContent>
         </Card>
 
+        {/* Progress Bar */}
+        {executions.length > 0 && (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>התקדמות ביצוע</span>
+                  <span>{Math.round(progress)}%</span>
+                </div>
+                <Progress value={progress} className="h-2" />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Planning Status */}
         {isPlanning && (
-          <Card className="border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 shadow-md animate-pulse">
+          <Card className="border-primary/20 bg-primary/5 shadow-md animate-pulse">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
                 <div>
-                  <div className="font-medium text-blue-800 dark:text-blue-300">מתכנן פעולות...</div>
-                  <div className="text-sm text-blue-600 dark:text-blue-400">מנתח את המצב ובוחר כלים מתאימים</div>
+                  <div className="font-medium text-primary">מתכנן פעולות...</div>
+                  <div className="text-sm text-muted-foreground">מנתח את המצב ובוחר כלים מתאימים</div>
                 </div>
               </div>
             </CardContent>
@@ -619,22 +688,22 @@ export default function AgentInterface() {
 
         {/* Plan Analysis */}
         {plan && (
-          <Card className="border-green-200 dark:border-green-800 shadow-md">
-            <CardHeader className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950 dark:to-green-900">
+          <Card className="border-primary/20 shadow-md">
+            <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5">
               <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <CheckCircle className="h-5 w-5 text-primary" />
                 ניתוח המצב
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
-              <p className="text-gray-700 dark:text-gray-300">{plan.analysis}</p>
+              <p className="leading-relaxed">{plan.analysis}</p>
               {plan.needsClarification && (
-                <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800 rounded">
+                <div className="mt-4 p-4 bg-accent/10 border border-accent/20 rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                    <span className="font-medium text-yellow-800 dark:text-yellow-300">נדרשות הבהרות:</span>
+                    <AlertTriangle className="h-4 w-4 text-accent" />
+                    <span className="font-medium text-accent">נדרשות הבהרות:</span>
                   </div>
-                  <ul className="list-disc list-inside text-yellow-700 dark:text-yellow-400">
+                  <ul className="list-disc list-inside text-muted-foreground space-y-1">
                     {plan.clarificationQuestions.map((q, i) => (
                       <li key={i}>{q}</li>
                     ))}
@@ -647,55 +716,41 @@ export default function AgentInterface() {
 
         {/* Tools Execution Plan */}
         {executions.length > 0 && (
-          <Card className="shadow-md">
-            <CardHeader className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-              <CardTitle className="flex items-between justify-between">
-                <span>תוכנית ביצוע ({executions.length} כלים)</span>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={executeNext}
-                    disabled={!executions.some((e) => e.status === "approved")}
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-                  >
-                    בצע הבא
-                  </Button>
-                  <Button
-                    onClick={executeAll}
-                    disabled={!executions.some((e) => e.status === "approved")}
-                    size="sm"
-                    variant="outline"
-                    className="border-blue-600 text-blue-600 hover:bg-blue-50 dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/30"
-                  >
-                    בצע הכל
-                  </Button>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-6">
-              {executions.map((execution, index) => (
-                <ToolExecutionCard
-                  key={index}
-                  execution={execution}
-                  index={index}
-                  isEditing={editingTool === `${index}`}
-                  onApprove={() => approveTool(index)}
-                  onSkip={() => skipTool(index)}
-                  onEdit={() => editTool(index)}
-                  onSaveEdit={(params) => saveEditedParameters(index, params)}
-                  onCancelEdit={() => setEditingTool(null)}
-                  getStatusIcon={getStatusIcon}
-                  getStatusColor={getStatusColor}
-                  renderResult={renderResult}
-                  retryingTool={retryingTool}
-                  retryTool={retryTool}
-                  requestLocation={() => requestLocation(index)}
-                  isCollapsed={collapsedTools.has(index)}
-                  toggleCollapse={() => toggleCollapse(index)}
-                />
-              ))}
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card className="shadow-md">
+              <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5">
+                <CardTitle className="flex items-center justify-between">
+                  <span>תוכנית ביצוע ({executions.length} כלים)</span>
+                  <div className="text-sm text-muted-foreground">
+                    {executions.filter((e) => e.status === "completed").length} מתוך {executions.length} הושלמו
+                  </div>
+                </CardTitle>
+              </CardHeader>
+            </Card>
+
+            {executions.map((execution, index) => (
+              <ToolExecutionCard
+                key={index}
+                execution={execution}
+                index={index}
+                isEditing={editingTool === `${index}`}
+                onApprove={() => approveTool(index)}
+                onSkip={() => skipTool(index)}
+                onEdit={() => editTool(index)}
+                onSaveEdit={(params) => saveEditedParameters(index, params)}
+                onCancelEdit={() => setEditingTool(null)}
+                getStatusIcon={getStatusIcon}
+                getStatusColor={getStatusColor}
+                renderResult={renderResult}
+                retryingTool={retryingTool}
+                retryTool={retryTool}
+                requestLocation={() => requestLocation(index)}
+                isCollapsed={collapsedTools.has(index)}
+                toggleCollapse={() => toggleCollapse(index)}
+                isRequired={isRequired}
+              />
+            ))}
+          </div>
         )}
       </div>
     </TooltipProvider>
@@ -720,6 +775,7 @@ interface ToolExecutionCardProps {
   requestLocation: () => void
   isCollapsed: boolean
   toggleCollapse: () => void
+  isRequired: (toolId: string, paramName: string) => boolean
 }
 
 function ToolExecutionCard({
@@ -739,9 +795,9 @@ function ToolExecutionCard({
   requestLocation,
   isCollapsed,
   toggleCollapse,
+  isRequired,
 }: ToolExecutionCardProps) {
   const [editedParams, setEditedParams] = useState(execution.tool.parameters)
-  const { theme } = useTheme()
 
   const handleSave = () => {
     onSaveEdit(editedParams)
@@ -750,169 +806,180 @@ function ToolExecutionCard({
   const getToolIcon = (toolId: string) => {
     switch (toolId) {
       case "rag_chat":
-        return <Shield className="h-4 w-4" />
+        return <Shield className="h-5 w-5" />
       case "find_shelters":
-        return <Home className="h-4 w-4" />
+        return <Home className="h-5 w-5" />
       case "recommend_equipment":
-        return <Backpack className="h-4 w-4" />
+        return <Backpack className="h-5 w-5" />
       default:
-        return <Zap className="h-4 w-4" />
+        return <Zap className="h-5 w-5" />
     }
   }
 
-  // Get background color based on tool type and theme
-  const getToolBackground = (toolId: string) => {
+  const getToolColor = (toolId: string) => {
     switch (toolId) {
       case "rag_chat":
-        return "bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900"
+        return "text-primary"
       case "find_shelters":
-        return "bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950 dark:to-green-900"
+        return "text-primary"
       case "recommend_equipment":
-        return "bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900"
+        return "text-primary"
       default:
-        return "bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800"
+        return "text-primary"
     }
-  }
-
-  // Get border color based on tool type
-  const getToolBorder = (toolId: string) => {
-    switch (toolId) {
-      case "rag_chat":
-        return "border-blue-200 dark:border-blue-800"
-      case "find_shelters":
-        return "border-green-200 dark:border-green-800"
-      case "recommend_equipment":
-        return "border-purple-200 dark:border-purple-800"
-      default:
-        return "border-gray-200 dark:border-gray-700"
-    }
-  }
-
-  // Check if parameter is required
-  const isRequired = (toolId: string, paramName: string) => {
-    const required = requiredParameters[toolId] || []
-    return required.includes(paramName)
   }
 
   return (
     <Card
       className={cn(
-        "border-2 shadow-md transition-all duration-200",
-        getToolBorder(execution.tool.id),
-        execution.status === "executing" && "animate-pulse",
+        "border-2 shadow-md transition-all duration-300",
+        execution.status === "executing" && "border-primary/50 shadow-lg",
+        execution.status === "completed" && "border-primary/30",
+        execution.status === "failed" && "border-destructive/30",
+        isCollapsed && "opacity-75",
       )}
     >
       <CardHeader
-        className={cn("p-4 flex flex-row items-center justify-between", getToolBackground(execution.tool.id))}
+        className={cn(
+          "p-4 cursor-pointer transition-colors",
+          "bg-gradient-to-r from-primary/5 to-accent/5",
+          "hover:from-primary/10 hover:to-accent/10",
+        )}
+        onClick={toggleCollapse}
       >
-        <div className="flex items-center gap-3">
-          {getToolIcon(execution.tool.id)}
-          <Badge variant="outline" className="text-xs">
-            עדיפות {execution.tool.priority}
-          </Badge>
-          <h3 className="font-medium">{execution.tool.name}</h3>
-          <div className="flex items-center gap-1">
-            {getStatusIcon(execution.status)}
-            <Badge className={`text-xs ${getStatusColor(execution.status)}`}>
-              {execution.status === "pending" && "ממתין לאישור"}
-              {execution.status === "approved" && "מאושר"}
-              {execution.status === "executing" && "מבצע..."}
-              {execution.status === "completed" && "הושלם"}
-              {execution.status === "failed" && "נכשל"}
-              {execution.status === "skipped" && "דולג"}
-              {execution.status === "waiting_location" && "ממתין למיקום"}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className={getToolColor(execution.tool.id)}>{getToolIcon(execution.tool.id)}</div>
+            <Badge variant="outline" className="text-xs">
+              עדיפות {execution.tool.priority}
             </Badge>
+            <h3 className="font-medium">{execution.tool.name}</h3>
+            <div className="flex items-center gap-2">
+              {getStatusIcon(execution.status)}
+              <Badge className={`text-xs ${getStatusColor(execution.status)}`}>
+                {execution.status === "pending" && "ממתין לאישור"}
+                {execution.status === "approved" && "מאושר"}
+                {execution.status === "executing" && "מבצע..."}
+                {execution.status === "completed" && "הושלם"}
+                {execution.status === "failed" && "נכשל"}
+                {execution.status === "skipped" && "דולג"}
+                {execution.status === "waiting_location" && "ממתין למיקום"}
+              </Badge>
+            </div>
           </div>
-        </div>
 
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={toggleCollapse}
-            className="p-0 h-8 w-8 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
-          >
-            {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-          </Button>
-
-          {execution.status === "pending" && (
-            <>
-              <Button size="sm" variant="outline" onClick={onEdit}>
-                <Edit3 className="h-3 w-3 mr-1" />
-                ערוך
-              </Button>
+          <div className="flex items-center gap-2">
+            {execution.status === "pending" && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onEdit()
+                  }}
+                >
+                  <Edit3 className="h-3 w-3 mr-1" />
+                  ערוך
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onApprove()
+                  }}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  אשר
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onSkip()
+                  }}
+                >
+                  דלג
+                </Button>
+              </>
+            )}
+            {execution.status === "waiting_location" && (
               <Button
                 size="sm"
-                onClick={onApprove}
-                className="bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  requestLocation()
+                }}
+                className="bg-accent hover:bg-accent/90"
               >
-                <CheckCircle className="h-3 w-3 mr-1" />
-                אשר
+                <MapPin className="h-3 w-3 mr-1" />
+                בחר מיקום
               </Button>
-              <Button size="sm" variant="outline" onClick={onSkip}>
-                דלג
+            )}
+            {execution.status === "failed" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  retryTool(index)
+                }}
+                disabled={retryingTool === `${index}`}
+                className="border-destructive text-destructive hover:bg-destructive/10"
+              >
+                {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
               </Button>
-            </>
-          )}
-          {execution.status === "waiting_location" && (
-            <Button
-              size="sm"
-              onClick={requestLocation}
-              className="bg-orange-600 hover:bg-orange-700 dark:bg-orange-700 dark:hover:bg-orange-600"
-            >
-              <MapPin className="h-3 w-3 mr-1" />
-              בחר מיקום
+            )}
+
+            <Button size="sm" variant="ghost" className="p-1 h-8 w-8 rounded-full">
+              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
             </Button>
-          )}
-          {execution.status === "failed" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => retryTool(index)}
-              disabled={retryingTool === `${index}`}
-              className="border-red-600 text-red-600 hover:bg-red-50 dark:border-red-400 dark:text-red-400 dark:hover:bg-red-900/30"
-            >
-              {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
-            </Button>
-          )}
+          </div>
         </div>
       </CardHeader>
 
       {!isCollapsed && (
-        <CardContent className="p-4 space-y-4">
-          {/* Reasoning */}
-          <p className="text-sm text-gray-600 dark:text-gray-300">{execution.tool.reasoning}</p>
+        <CardContent className="p-4 space-y-4 animate-slide-down">
+          <p className="text-sm text-muted-foreground leading-relaxed">{execution.tool.reasoning}</p>
 
           {execution.status === "executing" && (
-            <div className="text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 p-2 rounded">
-              {execution.tool.id === "rag_chat" && "🔍 בודק מידע במערכת פיקוד העורף..."}
-              {execution.tool.id === "find_shelters" && "🏠 מחפש מקלטים באזור המבוקש..."}
-              {execution.tool.id === "recommend_equipment" && "🎒 מכין המלצות ציוד מותאמות..."}
+            <div className="text-sm text-primary bg-primary/10 p-3 rounded-lg border border-primary/20">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {execution.tool.id === "rag_chat" && "בודק מידע במערכת פיקוד העורף..."}
+                {execution.tool.id === "find_shelters" && "מחפש מקלטים באזור המבוקש..."}
+                {execution.tool.id === "recommend_equipment" && "מכין המלצות ציוד מותאמות..."}
+              </div>
             </div>
           )}
 
           {execution.status === "waiting_location" && (
-            <div className="text-sm text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 p-2 rounded">
-              📍 נדרש מיקום לחיפוש מקלטים. לחץ על "בחר מיקום" כדי להמשיך.
+            <div className="text-sm text-accent bg-accent/10 p-3 rounded-lg border border-accent/20">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                נדרש מיקום לחיפוש מקלטים. לחץ על "בחר מיקום" כדי להמשיך.
+              </div>
             </div>
           )}
 
           {/* Parameters */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h4 className="text-sm font-medium">פרמטרים:</h4>
             {isEditing ? (
-              <div className="space-y-3 p-3 bg-gray-50 dark:bg-gray-800 rounded">
+              <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
                 {Object.entries(editedParams).map(([key, value]) => (
-                  <div key={key}>
-                    <label className="block text-xs font-medium mb-1 flex items-center gap-1">
-                      {key}:
-                      {isRequired(execution.tool.id, key) && <span className="text-red-500 dark:text-red-400">*</span>}
+                  <div key={key} className="space-y-2">
+                    <label className="block text-sm font-medium flex items-center gap-2">
+                      {key}
+                      {isRequired(execution.tool.id, key) && <span className="text-destructive text-xs">*</span>}
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
-                        <TooltipContent>
-                          {parameterDescriptions[execution.tool.id]?.[key] || "פרמטר לכלי"}
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs">{parameterDescriptions[execution.tool.id]?.[key] || "פרמטר לכלי"}</p>
                         </TooltipContent>
                       </Tooltip>
                     </label>
@@ -928,48 +995,45 @@ function ToolExecutionCard({
                         "text-sm",
                         isRequired(execution.tool.id, key) &&
                           (!value || value === "") &&
-                          "border-red-300 dark:border-red-700",
+                          "border-destructive focus:border-destructive",
                       )}
+                      placeholder={
+                        key === "radius" ? "1000" : key === "maxResults" ? "3" : key === "duration" ? "72" : ""
+                      }
                     />
                     {isRequired(execution.tool.id, key) && (!value || value === "") && (
-                      <p className="text-xs text-red-500 dark:text-red-400 mt-1">שדה חובה</p>
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        שדה חובה
+                      </p>
                     )}
                   </div>
                 ))}
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleSave}
-                    className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600"
-                  >
-                    שמור
+                <div className="flex gap-2 pt-2">
+                  <Button size="sm" onClick={handleSave} className="bg-primary hover:bg-primary/90">
+                    שמור שינויים
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={onCancelEdit}
-                    className="border-gray-300 dark:border-gray-600"
-                  >
+                  <Button size="sm" variant="outline" onClick={onCancelEdit}>
                     בטל
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="text-sm bg-gray-50 dark:bg-gray-800 p-3 rounded">
+              <div className="bg-muted/30 p-3 rounded-lg border space-y-2">
                 {Object.entries(execution.editedParameters || execution.tool.parameters).map(([key, value]) => (
-                  <div key={key} className="flex justify-between items-center">
+                  <div key={key} className="flex justify-between items-center text-sm">
                     <span className="font-medium flex items-center gap-1">
                       {key}:
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Info className="h-3 w-3 text-gray-400 cursor-help" />
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                         </TooltipTrigger>
-                        <TooltipContent>
-                          {parameterDescriptions[execution.tool.id]?.[key] || "פרמטר לכלי"}
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p className="text-xs">{parameterDescriptions[execution.tool.id]?.[key] || "פרמטר לכלי"}</p>
                         </TooltipContent>
                       </Tooltip>
                     </span>
-                    <span>{value as string}</span>
+                    <span className="text-muted-foreground">{value as string}</span>
                   </div>
                 ))}
               </div>
@@ -978,16 +1042,17 @@ function ToolExecutionCard({
 
           {/* Results */}
           {execution.result && (
-            <div className="space-y-2">
-              <Separator className="my-4" />
+            <div className="space-y-3">
+              <Separator />
               <h4 className="text-sm font-medium">תוצאות:</h4>
               {execution.result.success ? (
                 renderResult(execution.result)
               ) : (
-                <div className="text-sm bg-red-50 dark:bg-red-900/30 p-3 rounded">
-                  <div className="text-red-700 dark:text-red-400 flex items-center gap-2">
+                <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
+                  <div className="text-destructive flex items-center gap-2">
                     <AlertCircle className="h-4 w-4" />
-                    שגיאה: {execution.result.error}
+                    <span className="font-medium">שגיאה:</span>
+                    <span>{execution.result.error}</span>
                   </div>
                 </div>
               )}
