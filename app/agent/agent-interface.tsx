@@ -9,7 +9,21 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { LocationSelector } from "@/components/location-selector"
-import { Bot, CheckCircle, XCircle, Edit3, Clock, AlertTriangle, Loader2, Brain, Zap, MapPin } from "lucide-react"
+import {
+  Bot,
+  CheckCircle,
+  XCircle,
+  Edit3,
+  Clock,
+  AlertTriangle,
+  Loader2,
+  Brain,
+  Zap,
+  MapPin,
+  Shield,
+  Home,
+  Backpack,
+} from "lucide-react"
 import type { JSX } from "react"
 
 interface Tool {
@@ -18,6 +32,7 @@ interface Tool {
   priority: number
   reasoning: string
   parameters: Record<string, any>
+  missingFields?: string[]
 }
 
 interface Plan {
@@ -64,6 +79,7 @@ export default function AgentInterface() {
   const [retryingTool, setRetryingTool] = useState<string | null>(null)
   const [showLocationSelector, setShowLocationSelector] = useState(false)
   const [pendingLocationToolIndex, setPendingLocationToolIndex] = useState<number | null>(null)
+  const [collapsedTools, setCollapsedTools] = useState<Set<number>>(new Set())
 
   // Create execution plan
   const createPlan = async () => {
@@ -435,6 +451,16 @@ export default function AgentInterface() {
     }
   }
 
+  const toggleCollapse = (index: number) => {
+    const newCollapsedTools = new Set(collapsedTools)
+    if (newCollapsedTools.has(index)) {
+      newCollapsedTools.delete(index)
+    } else {
+      newCollapsedTools.add(index)
+    }
+    setCollapsedTools(newCollapsedTools)
+  }
+
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       {/* Location Selector Modal */}
@@ -570,6 +596,8 @@ export default function AgentInterface() {
                 retryingTool={retryingTool}
                 retryTool={retryTool}
                 requestLocation={() => requestLocation(index)}
+                isCollapsed={collapsedTools.has(index)}
+                toggleCollapse={() => toggleCollapse(index)}
               />
             ))}
           </CardContent>
@@ -595,6 +623,8 @@ interface ToolExecutionCardProps {
   retryingTool: string | null
   retryTool: (index: number) => Promise<void>
   requestLocation: () => void
+  isCollapsed: boolean
+  toggleCollapse: () => void
 }
 
 function ToolExecutionCard({
@@ -612,6 +642,8 @@ function ToolExecutionCard({
   retryingTool,
   retryTool,
   requestLocation,
+  isCollapsed,
+  toggleCollapse,
 }: ToolExecutionCardProps) {
   const [editedParams, setEditedParams] = useState(execution.tool.parameters)
 
@@ -619,11 +651,25 @@ function ToolExecutionCard({
     onSaveEdit(editedParams)
   }
 
+  const getToolIcon = (toolId: string) => {
+    switch (toolId) {
+      case "rag_chat":
+        return <Shield className="h-4 w-4" />
+      case "find_shelters":
+        return <Home className="h-4 w-4" />
+      case "recommend_equipment":
+        return <Backpack className="h-4 w-4" />
+      default:
+        return <Zap className="h-4 w-4" />
+    }
+  }
+
   return (
-    <div className="border rounded-lg p-4 space-y-3">
+    <Card className="border rounded-lg p-4 space-y-3">
       {/* Tool Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <CardHeader className="flex items-center justify-between p-0">
+        <CardTitle className="flex items-center gap-3 p-0">
+          {getToolIcon(execution.tool.id)}
           <Badge variant="outline" className="text-xs">
             עדיפות {execution.tool.priority}
           </Badge>
@@ -640,106 +686,123 @@ function ToolExecutionCard({
               {execution.status === "waiting_location" && "ממתין למיקום"}
             </Badge>
           </div>
-        </div>
+        </CardTitle>
 
-        {execution.status === "pending" && (
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={onEdit}>
-              <Edit3 className="h-3 w-3" />
-            </Button>
-            <Button size="sm" onClick={onApprove}>
-              אשר
-            </Button>
-            <Button size="sm" variant="outline" onClick={onSkip}>
-              דלג
-            </Button>
-          </div>
-        )}
-        {execution.status === "waiting_location" && (
-          <Button size="sm" onClick={requestLocation}>
-            <MapPin className="h-3 w-3 mr-1" />
-            בחר מיקום
+        {execution.status === "completed" ? (
+          <Button size="sm" variant="ghost" onClick={toggleCollapse}>
+            {isCollapsed ? "הצג פרטי ביצוע" : "הסתר פרטי ביצוע"}
           </Button>
-        )}
-        {execution.status === "failed" && (
-          <Button size="sm" variant="outline" onClick={() => retryTool(index)} disabled={retryingTool === `${index}`}>
-            {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
-          </Button>
-        )}
-      </div>
-
-      {/* Reasoning */}
-      <p className="text-sm text-gray-600">{execution.tool.reasoning}</p>
-
-      {execution.status === "executing" && (
-        <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
-          {execution.tool.id === "rag_chat" && "🔍 בודק מידע במערכת פיקוד העורף..."}
-          {execution.tool.id === "find_shelters" && "🏠 מחפש מקלטים באזור המבוקש..."}
-          {execution.tool.id === "recommend_equipment" && "🎒 מכין המלצות ציוד מותאמות..."}
-        </div>
-      )}
-
-      {execution.status === "waiting_location" && (
-        <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded">
-          📍 נדרש מיקום לחיפוש מקלטים. לחץ על "בחר מיקום" כדי להמשיך.
-        </div>
-      )}
-
-      {/* Parameters */}
-      <div className="space-y-2">
-        <h4 className="text-sm font-medium">פרמטרים:</h4>
-        {isEditing ? (
-          <div className="space-y-3 p-3 bg-gray-50 rounded">
-            {Object.entries(editedParams).map(([key, value]) => (
-              <div key={key}>
-                <label className="block text-xs font-medium mb-1">{key}:</label>
-                <Input
-                  value={value as string}
-                  onChange={(e) =>
-                    setEditedParams((prev) => ({
-                      ...prev,
-                      [key]: e.target.value,
-                    }))
-                  }
-                  className="text-sm"
-                />
-              </div>
-            ))}
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSave}>
-                שמור
-              </Button>
-              <Button size="sm" variant="outline" onClick={onCancelEdit}>
-                בטל
-              </Button>
-            </div>
-          </div>
         ) : (
-          <div className="text-sm bg-gray-50 p-3 rounded">
-            {Object.entries(execution.editedParameters || execution.tool.parameters).map(([key, value]) => (
-              <div key={key} className="flex justify-between">
-                <span className="font-medium">{key}:</span>
-                <span>{value as string}</span>
-              </div>
-            ))}
+          <div className="flex gap-2">
+            {execution.status === "pending" && (
+              <>
+                <Button size="sm" variant="outline" onClick={onEdit}>
+                  <Edit3 className="h-3 w-3" />
+                </Button>
+                <Button size="sm" onClick={onApprove}>
+                  אשר
+                </Button>
+                <Button size="sm" variant="outline" onClick={onSkip}>
+                  דלג
+                </Button>
+              </>
+            )}
+            {execution.status === "waiting_location" && (
+              <Button size="sm" onClick={requestLocation}>
+                <MapPin className="h-3 w-3 mr-1" />
+                בחר מיקום
+              </Button>
+            )}
+            {execution.status === "failed" && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => retryTool(index)}
+                disabled={retryingTool === `${index}`}
+              >
+                {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
+              </Button>
+            )}
           </div>
         )}
-      </div>
+      </CardHeader>
 
-      {/* Results */}
-      {execution.result && (
-        <div className="space-y-2">
-          <Separator />
-          <h4 className="text-sm font-medium">תוצאות:</h4>
-          {execution.result.success ? (
-            renderResult(execution.result)
-          ) : (
-            <div className="text-sm bg-red-50 p-3 rounded">
-              <div className="text-red-700">❌ שגיאה: {execution.result.error}</div>
+      {!isCollapsed && (
+        <CardContent className="p-0">
+          {/* Reasoning */}
+          <p className="text-sm text-gray-600">{execution.tool.reasoning}</p>
+
+          {execution.status === "executing" && (
+            <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded">
+              {execution.tool.id === "rag_chat" && "🔍 בודק מידע במערכת פיקוד העורף..."}
+              {execution.tool.id === "find_shelters" && "🏠 מחפש מקלטים באזור המבוקש..."}
+              {execution.tool.id === "recommend_equipment" && "🎒 מכין המלצות ציוד מותאמות..."}
             </div>
           )}
-        </div>
+
+          {execution.status === "waiting_location" && (
+            <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded">
+              📍 נדרש מיקום לחיפוש מקלטים. לחץ על "בחר מיקום" כדי להמשיך.
+            </div>
+          )}
+
+          {/* Parameters */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">פרמטרים:</h4>
+            {isEditing ? (
+              <div className="space-y-3 p-3 bg-gray-50 rounded">
+                {Object.entries(editedParams).map(([key, value]) => (
+                  <div key={key}>
+                    <label className="block text-xs font-medium mb-1">{key}:</label>
+                    <Input
+                      value={value as string}
+                      onChange={(e) =>
+                        setEditedParams((prev) => ({
+                          ...prev,
+                          [key]: e.target.value,
+                        }))
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                ))}
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={handleSave}>
+                    שמור
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={onCancelEdit}>
+                    בטל
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm bg-gray-50 p-3 rounded">
+                {Object.entries(execution.editedParameters || execution.tool.parameters).map(([key, value]) => (
+                  <div key={key} className="flex justify-between">
+                    <span className="font-medium">{key}:</span>
+                    <span>{value as string}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Results */}
+          {execution.result && (
+            <div className="space-y-2">
+              <Separator />
+              <h4 className="text-sm font-medium">תוצאות:</h4>
+              {execution.result.success ? (
+                renderResult(execution.result)
+              ) : (
+                <div className="text-sm bg-red-50 p-3 rounded">
+                  <div className="text-red-700">❌ שגיאה: {execution.result.error}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
       )}
-    </div>
+    </Card>
   )
 }
