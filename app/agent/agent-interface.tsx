@@ -743,8 +743,10 @@ export default function AgentInterface() {
           <div className="space-y-4">
             <Card className="shadow-md">
               <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5">
-                <CardTitle className="flex items-center justify-between">
-                  <span>תוכנית ביצוע ({executions.length} כלים)</span>
+                <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+                  <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                    <span>תוכנית ביצוע ({executions.length} כלים)</span>
+                  </div>
                   <div className="text-sm text-muted-foreground">
                     {executions.filter((e) => e.status === "completed").length} מתוך {executions.length} הושלמו
                   </div>
@@ -880,8 +882,8 @@ function ToolExecutionCard({
         )}
         onClick={toggleCollapse}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <div className={getToolColor(execution.tool.id)}>{getToolIcon(execution.tool.id)}</div>
             <Badge variant="outline" className="text-xs">
               עדיפות {execution.tool.priority}
@@ -901,122 +903,130 @@ function ToolExecutionCard({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {execution.status === "pending" && (
-              <>
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
+              {execution.status === "pending" && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onSkip()
+                    }}
+                    className="text-xs sm:text-sm px-2 sm:px-3"
+                  >
+                    דלג
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit()
+                    }}
+                    className="text-xs sm:text-sm px-2 sm:px-3"
+                  >
+                    <Edit3 className="h-3 w-3 mr-1" />
+                    <span className="hidden sm:inline">ערוך</span>
+                    <span className="sm:hidden">ערוך</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onApprove()
+                    }}
+                    className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-2 sm:px-3"
+                  >
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    אשר
+                  </Button>
+                </>
+              )}
+              {execution.status === "executing" && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsExecutionStopped(true)
+                    setExecutions((prev) =>
+                      prev.map((exec, i) =>
+                        i === index
+                          ? { ...exec, status: "failed", result: { success: false, error: "הופסק על ידי המשתמש" } }
+                          : exec,
+                      ),
+                    )
+                    setCurrentExecutionIndex(-1)
+                  }}
+                  className="text-xs sm:text-sm px-2 sm:px-3"
+                >
+                  <XCircle className="h-3 w-3 mr-1" />
+                  עצור
+                </Button>
+              )}
+              {(execution.status === "completed" || execution.status === "failed") && (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit()
+                    }}
+                    className="text-xs sm:text-sm px-2 sm:px-3"
+                  >
+                    <Edit3 className="h-3 w-3 mr-1" />
+                    <span className="hidden sm:inline">ערוך</span>
+                    <span className="sm:hidden">ערוך</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      retryTool(index)
+                    }}
+                    disabled={retryingTool === `${index}`}
+                    className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-2 sm:px-3"
+                  >
+                    {retryingTool === `${index}` ? (
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    ) : (
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                    )}
+                    הרץ מחדש
+                  </Button>
+                </>
+              )}
+              {execution.status === "waiting_location" && (
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    requestLocation()
+                  }}
+                  className="bg-accent hover:bg-accent/90 text-xs sm:text-sm px-2 sm:px-3"
+                >
+                  <MapPin className="h-3 w-3 mr-1" />
+                  בחר מיקום
+                </Button>
+              )}
+              {execution.status === "failed" && (
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onSkip()
-                  }}
-                >
-                  דלג
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onEdit()
-                  }}
-                >
-                  <Edit3 className="h-3 w-3 mr-1" />
-                  ערוך
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onApprove()
-                  }}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  אשר
-                </Button>
-              </>
-            )}
-            {execution.status === "executing" && (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setIsExecutionStopped(true)
-                  setExecutions((prev) =>
-                    prev.map((exec, i) =>
-                      i === index
-                        ? { ...exec, status: "failed", result: { success: false, error: "הופסק על ידי המשתמש" } }
-                        : exec,
-                    ),
-                  )
-                  setCurrentExecutionIndex(-1)
-                }}
-              >
-                <XCircle className="h-3 w-3 mr-1" />
-                עצור
-              </Button>
-            )}
-            {(execution.status === "completed" || execution.status === "failed") && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onEdit()
-                  }}
-                >
-                  <Edit3 className="h-3 w-3 mr-1" />
-                  ערוך
-                </Button>
-                <Button
-                  size="sm"
                   onClick={(e) => {
                     e.stopPropagation()
                     retryTool(index)
                   }}
                   disabled={retryingTool === `${index}`}
-                  className="bg-primary hover:bg-primary/90"
+                  className="border-destructive text-destructive hover:bg-destructive/10 text-xs sm:text-sm px-2 sm:px-3"
                 >
-                  {retryingTool === `${index}` ? (
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                  ) : (
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                  )}
-                  הרץ מחדש
+                  {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
                 </Button>
-              </>
-            )}
-            {execution.status === "waiting_location" && (
-              <Button
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  requestLocation()
-                }}
-                className="bg-accent hover:bg-accent/90"
-              >
-                <MapPin className="h-3 w-3 mr-1" />
-                בחר מיקום
-              </Button>
-            )}
-            {execution.status === "failed" && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  retryTool(index)
-                }}
-                disabled={retryingTool === `${index}`}
-                className="border-destructive text-destructive hover:bg-destructive/10"
-              >
-                {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
-              </Button>
-            )}
+              )}
+            </div>
 
             <Button size="sm" variant="ghost" className="p-1 h-8 w-8 rounded-full">
               {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
