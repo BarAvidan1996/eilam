@@ -11,16 +11,30 @@ export function detectLanguage(text: string): "he" | "en" {
   return hebrewPattern.test(text) ? "he" : "en"
 }
 
-// Utility: estimate tokens
+// Utility: estimate tokens - IMPROVED
 function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4)
+  // Hebrew tends to use more tokens per character than English
+  const multiplier = /[\u0590-\u05FF]/.test(text) ? 0.4 : 0.25
+  return Math.ceil(text.length * multiplier)
 }
 
-// Utility: truncate by sentence
+// Utility: truncate by sentence - IMPROVED
 function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text
-  const lastStop = Math.max(text.lastIndexOf("."), text.lastIndexOf("!"), text.lastIndexOf("?"))
-  return lastStop > maxLength * 0.7 ? text.slice(0, lastStop + 1) : text.slice(0, maxLength) + "..."
+
+  // Try to find a sentence break
+  const lastStop = Math.max(
+    text.lastIndexOf(".", maxLength - 10),
+    text.lastIndexOf("!", maxLength - 10),
+    text.lastIndexOf("?", maxLength - 10),
+  )
+
+  if (lastStop > maxLength * 0.5) {
+    return text.slice(0, lastStop + 1)
+  }
+
+  // If no good sentence break, just truncate with ellipsis
+  return text.slice(0, maxLength) + "..."
 }
 
 // Step 1: Create embedding
@@ -41,7 +55,7 @@ export async function searchSimilarDocuments(embedding: number[], language: "he"
   return data || []
 }
 
-// Step 3: Generate answer from documents
+// Step 3: Generate answer from documents - IMPROVED TOKEN MANAGEMENT
 async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" | "en") {
   console.log("🤖 generateAnswerFromDocs - התחלה")
   console.log("  - שאלה:", question)
@@ -52,20 +66,37 @@ async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" 
     return null
   }
 
+  // IMPROVED: Better token management
+  const MAX_CONTEXT_TOKENS = 6000 // Leave room for the prompt and completion
   let context = ""
-  let len = 0
-  for (const doc of docs) {
-    const txt = `מקור: ${doc.title}\nתוכן: ${doc.plain_text}\n\n`
-    if (len + txt.length > 2000) {
-      const short = truncateText(doc.plain_text, 2000 - len - doc.title.length - 20)
-      context += `מקור: ${doc.title}\nתוכן: ${short}\n\n`
-      break
-    }
-    context += txt
-    len += txt.length
+  let contextTokens = 0
+
+  // Sort documents by similarity (highest first)
+  const sortedDocs = [...docs].sort((a, b) => b.similarity - a.similarity)
+
+  for (const doc of sortedDocs) {
+    // Estimate tokens for this document
+    const docTitle = `מקור: ${doc.title}\n`
+    const docTitleTokens = estimateTokens(docTitle)
+
+    // Calculate how much content we can include
+    const maxContentTokens = MAX_CONTEXT_TOKENS - contextTokens - docTitleTokens - 20 // buffer
+
+    if (maxContentTokens <= 0) break // Stop if we're out of token budget
+
+    // Truncate content to fit token budget
+    const truncatedContent = truncateText(doc.plain_text, maxContentTokens * 4) // Convert tokens to chars
+    const contentText = `תוכן: ${truncatedContent}\n\n`
+
+    context += docTitle + contentText
+    contextTokens += docTitleTokens + estimateTokens(contentText)
+
+    // Stop if we're getting close to the limit
+    if (contextTokens > MAX_CONTEXT_TOKENS * 0.9) break
   }
 
   console.log("📊 הקשר:", context.substring(0, 200) + "...")
+  console.log("📊 אומדן טוקנים:", contextTokens)
 
   const prompt =
     lang === "he"
@@ -94,22 +125,61 @@ Answer in English with sources.`
   console.log("📝 פרומפט סופי:", prompt.substring(0, 200) + "...")
 
   const totalTokens = estimateTokens(prompt)
-  if (totalTokens > 3500) throw new Error("Too many tokens")
+  console.log("📊 אומדן טוקנים סופי:", totalTokens)
 
-  console.log("🔄 שולח בקשה ל-OpenAI...")
+  if (totalTokens > 7500) {
+    console.warn("⚠️ אזהרה: חריגת טוקנים אפשרית, מקצר את הפרומפט")
+    // Use GPT-4o instead which has higher token limit
+    try {
+      const res = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        max_tokens: 500,
+      })
 
-  const res = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.1,
-    max_tokens: 500,
-  })
+      const answer = res.choices[0]?.message?.content || ""
+      console.log("✅ תשובה התקבלה (gpt-4o):", answer.substring(0, 200) + "...")
+      return answer
+    } catch (err) {
+      console.error("❌ שגיאה עם gpt-4o:", err)
+      throw err
+    }
+  }
 
-  const answer = res.choices[0]?.message?.content || ""
-  console.log("✅ תשובה התקבלה:", answer.substring(0, 200) + "...")
-  console.log("🏁 generateAnswerFromDocs - סיום")
+  console.log("🔄 שולח בקשה ל-OpenAI (gpt-4)...")
 
-  return answer
+  try {
+    const res = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.1,
+      max_tokens: 500,
+    })
+
+    const answer = res.choices[0]?.message?.content || ""
+    console.log("✅ תשובה התקבלה:", answer.substring(0, 200) + "...")
+    console.log("🏁 generateAnswerFromDocs - סיום")
+
+    return answer
+  } catch (err) {
+    console.error("❌ שגיאה עם gpt-4, מנסה gpt-4o:", err)
+
+    // Fallback to gpt-4o with more aggressive truncation
+    const shorterContext = truncateText(context, context.length * 0.6)
+    const shorterPrompt = prompt.replace(context, shorterContext)
+
+    const res = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: shorterPrompt }],
+      temperature: 0.1,
+      max_tokens: 500,
+    })
+
+    const answer = res.choices[0]?.message?.content || ""
+    console.log("✅ תשובה התקבלה (gpt-4o fallback):", answer.substring(0, 200) + "...")
+    return answer
+  }
 }
 
 // Step 4: Fallback general GPT-only
@@ -130,7 +200,7 @@ Question: ${question}
 Answer:`
 
   const res = await openai.chat.completions.create({
-    model: "gpt-4",
+    model: "gpt-4o", // Use gpt-4o for fallback (higher token limit)
     messages: [{ role: "user", content: prompt }],
     temperature: 0.1,
     max_tokens: 500,
@@ -193,7 +263,7 @@ async function routeQuery(question: string): Promise<"documents" | "tavily"> {
   return decision
 }
 
-// Step 6: Hybrid process
+// Step 6: Hybrid process - IMPROVED ERROR HANDLING
 export async function processRAGQuery(question: string): Promise<{
   answer: string
   sources: Array<{
@@ -211,49 +281,76 @@ export async function processRAGQuery(question: string): Promise<{
   const language = detectLanguage(question)
   console.log("🌐 שפה מזוהה:", language)
 
-  const route = await routeQuery(question)
-  console.log("📍 מסלול שנבחר:", route)
-
   try {
+    // First determine if we should use web search or documents
+    const route = await routeQuery(question)
+    console.log("📍 מסלול שנבחר:", route)
+
     if (route === "documents") {
       console.log("📚 מעבד דרך מסמכים פנימיים")
 
-      const embedding = await createEmbedding(question)
-      console.log("🔍 Embedding נוצר, אורך:", embedding.length)
+      try {
+        const embedding = await createEmbedding(question)
+        console.log("🔍 Embedding נוצר, אורך:", embedding.length)
 
-      const documents = await searchSimilarDocuments(embedding, language)
-      console.log("📄 מסמכים נמצאו:", documents.length)
+        const documents = await searchSimilarDocuments(embedding, language)
+        console.log("📄 מסמכים נמצאו:", documents.length)
 
-      if (documents.length > 0) {
-        console.log("📊 מסמכים עם דמיון:")
-        documents.forEach((doc, i) => {
-          console.log(`  ${i + 1}. ${doc.title} (${Math.round(doc.similarity * 100)}%)`)
-        })
-      }
+        if (documents.length > 0) {
+          console.log("📊 מסמכים עם דמיון:")
+          documents.forEach((doc, i) => {
+            console.log(`  ${i + 1}. ${doc.title} (${Math.round(doc.similarity * 100)}%)`)
+          })
+        }
 
-      const answer = await generateAnswerFromDocs(question, documents, language)
+        try {
+          const answer = await generateAnswerFromDocs(question, documents, language)
 
-      if (!answer || answer.length < 20) {
-        console.log("⚠️ תשובה חלשה ממסמכים, עובר ל-fallback כללי")
+          if (!answer || answer.length < 20) {
+            console.log("⚠️ תשובה חלשה ממסמכים, עובר ל-fallback כללי")
+            const fallbackAnswer = await generateFallbackAnswer(question, language)
+            return {
+              answer: fallbackAnswer,
+              sources: [],
+              usedFallback: true,
+              usedWebSearch: false,
+            }
+          }
+
+          return {
+            answer,
+            sources: documents.map((d) => ({
+              title: d.title,
+              file_name: d.file_name,
+              storage_path: d.storage_path,
+              similarity: Math.round(d.similarity * 100),
+            })),
+            usedFallback: false,
+            usedWebSearch: false,
+          }
+        } catch (docError) {
+          console.error("❌ שגיאה בייצור תשובה ממסמכים:", docError)
+          console.log("⚠️ עובר ל-fallback כללי")
+          const fallbackAnswer = await generateFallbackAnswer(question, language)
+          return {
+            answer: fallbackAnswer,
+            sources: [],
+            usedFallback: true,
+            usedWebSearch: false,
+            error: docError instanceof Error ? docError.message : JSON.stringify(docError),
+          }
+        }
+      } catch (embeddingError) {
+        console.error("❌ שגיאה ביצירת embedding:", embeddingError)
+        console.log("⚠️ עובר ל-fallback כללי")
         const fallbackAnswer = await generateFallbackAnswer(question, language)
         return {
           answer: fallbackAnswer,
           sources: [],
           usedFallback: true,
           usedWebSearch: false,
+          error: embeddingError instanceof Error ? embeddingError.message : JSON.stringify(embeddingError),
         }
-      }
-
-      return {
-        answer,
-        sources: documents.map((d) => ({
-          title: d.title,
-          file_name: d.file_name,
-          storage_path: d.storage_path,
-          similarity: Math.round(d.similarity * 100),
-        })),
-        usedFallback: false,
-        usedWebSearch: false,
       }
     } else {
       console.log("🌐 מעבד דרך חיפוש אינטרנטי")
@@ -261,15 +358,31 @@ export async function processRAGQuery(question: string): Promise<{
     }
   } catch (err) {
     console.error("❌ שגיאה כללית בתהליך RAG:", err)
-    return {
-      answer:
-        language === "he"
-          ? "מצטער, לא הצלחתי למצוא תשובה מהימנה לשאלה זו. מומלץ לבדוק באתר פיקוד העורף או לפנות לרשות מוסמכת."
-          : "Sorry, I couldn't find a reliable answer. Please check the Home Front Command website.",
-      sources: [],
-      usedFallback: true,
-      usedWebSearch: false,
-      error: err instanceof Error ? err.message : JSON.stringify(err),
+
+    // Last resort fallback
+    try {
+      const fallbackAnswer = await generateFallbackAnswer(question, language)
+      return {
+        answer: fallbackAnswer,
+        sources: [],
+        usedFallback: true,
+        usedWebSearch: false,
+        error: err instanceof Error ? err.message : JSON.stringify(err),
+      }
+    } catch (fallbackError) {
+      // If even the fallback fails, return a static message
+      return {
+        answer:
+          language === "he"
+            ? "מצטער, לא הצלחתי למצוא תשובה מהימנה לשאלה זו. מומלץ לבדוק באתר פיקוד העורף או לפנות לרשות מוסמכת."
+            : "Sorry, I couldn't find a reliable answer. Please check the Home Front Command website.",
+        sources: [],
+        usedFallback: true,
+        usedWebSearch: false,
+        error: `Original error: ${err instanceof Error ? err.message : JSON.stringify(err)}. Fallback error: ${
+          fallbackError instanceof Error ? fallbackError.message : JSON.stringify(fallbackError)
+        }`,
+      }
     }
   }
 }
