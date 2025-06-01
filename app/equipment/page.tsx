@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -29,6 +29,8 @@ import {
   X,
   Plus,
   Bell,
+  Loader2,
+  Brain,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
@@ -636,7 +638,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       description: t.itemAddedSuccessfully || "הפריט נוסף בהצלחה!",
       variant: "default",
     })
-    setNewItem({
+    setnewItem({
       name: "",
       category: "water_food",
       quantity: 1,
@@ -799,21 +801,24 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         </div>
       )}
       {!aiGeneratedProfile && !isListContextLoading ? (
-        <Card className="shadow-lg dark:bg-gray-800 mb-6">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-800 dark:text-white">{t.aiModalTitle}</CardTitle>
-            <CardDescription className="text-gray-600 dark:text-gray-300">{t.aiPromptDescription}</CardDescription>
+        <Card className="border-2 border-primary/20 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-primary/5 to-accent/5">
+            <CardTitle className="flex items-center gap-3">
+              <Sparkles className="h-6 w-6 text-primary" />
+              <div>
+                <div className="text-xl">{t.aiModalTitle}</div>
+                <div className="text-sm font-normal text-muted-foreground">{t.aiPromptDescription}</div>
+              </div>
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <Textarea
-                placeholder={t.aiPromptPlaceholder}
-                value={aiUserPrompt}
-                onChange={(e) => setAIUserPrompt(e.target.value)}
-                className="h-40 dark:bg-gray-700 dark:text-white dark:border-gray-600"
-                rows={8}
-              />
-            </div>
+          <CardContent className="space-y-4 pt-6">
+            <Textarea
+              placeholder={t.aiPromptPlaceholder}
+              value={aiUserPrompt}
+              onChange={(e) => setAIUserPrompt(e.target.value)}
+              rows={3}
+              className="text-right resize-none"
+            />
 
             {loadingState.isLoading && (
               <div className="my-4">
@@ -824,14 +829,21 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
             <Button
               onClick={handleSaveListAndGenerateItems}
               disabled={!aiUserPrompt.trim() || isAILoading}
-              className="w-full bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black flex items-center justify-center gap-2"
+              className="w-full bg-primary hover:bg-primary/90 h-12"
+              size="lg"
             >
               {isAILoading ? (
-                <div className="h-5 w-5 border-2 border-t-transparent border-white rounded-full animate-spin"></div>
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Brain className="h-5 w-5" />
+                  יוצר רשימה מותאמת אישית...
+                </div>
               ) : (
-                <ShieldCheck className="h-5 w-5" />
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5" />
+                  {t.aiGenerateButton}
+                </div>
               )}
-              {t.aiGenerateButton}
             </Button>
           </CardContent>
         </Card>
