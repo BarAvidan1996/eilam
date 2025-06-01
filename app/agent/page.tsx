@@ -1,10 +1,11 @@
-const AgentPage = () => {
+import AgentInterface from "./agent-interface"
+
+export default function AgentPage() {
   return (
-    <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">סוכן AI לחירום - תכנון ובקרה אוטומטיים</h1>
-      {/* Rest of the component content can go here */}
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="container mx-auto py-8">
+        <AgentInterface />
+      </div>
     </div>
   )
 }
-
-export default AgentPage
