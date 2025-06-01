@@ -32,8 +32,22 @@ export async function POST(request: NextRequest) {
           throw new Error("Missing or invalid query for RAG chat")
         }
 
-        // Enhanced RAG with context
-        const ragResult = await processRAGQuery(parameters.query.trim(), {
+        // Enhanced RAG with context - BUILD CONTEXTUAL QUERY
+        let contextualQuery = parameters.query.trim()
+
+        // Add context from plan if available
+        if (planContext?.analysis) {
+          contextualQuery = `הקשר: ${planContext.analysis}\n\nשאלה ספציפית: ${parameters.query.trim()}`
+        }
+
+        // Add session context if available
+        if (sessionId) {
+          contextualQuery = `[מזהה שיחה: ${sessionId}] ${contextualQuery}`
+        }
+
+        console.log("🔧 Contextual query:", contextualQuery)
+
+        const ragResult = await processRAGQuery(contextualQuery, {
           sessionId,
           planContext,
           toolParameters: parameters,
@@ -117,8 +131,15 @@ export async function POST(request: NextRequest) {
           throw new Error("Invalid duration - must be a positive number")
         }
 
-        // Enhanced equipment recommendations with context
-        const equipmentQuery = `המלץ על ציוד חירום עבור ${parameters.familyProfile || "משפחה כללית"} למשך ${parameters.duration || 72} שעות`
+        // Enhanced equipment recommendations with context - BUILD CONTEXTUAL QUERY
+        let equipmentQuery = `המלץ על ציוד חירום עבור ${parameters.familyProfile || "משפחה כללית"} למשך ${parameters.duration || 72} שעות`
+
+        // Add context from plan if available
+        if (planContext?.analysis) {
+          equipmentQuery = `הקשר: ${planContext.analysis}\n\nבקשה ספציפית: ${equipmentQuery}`
+        }
+
+        console.log("🔧 Equipment contextual query:", equipmentQuery)
 
         const equipmentResult = await processRAGQuery(equipmentQuery, {
           sessionId,

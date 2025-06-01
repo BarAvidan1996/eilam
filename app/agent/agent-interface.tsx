@@ -103,16 +103,16 @@ const requiredParameters: Record<string, string[]> = {
   recommend_equipment: ["familyProfile"],
 }
 
-// Function to extract address from prompt - IMPROVED
+// Function to extract address from prompt - IMPROVED AND FIXED
 const extractAddressFromPrompt = (prompt: string): string | null => {
   console.log("🔍 Extracting address from:", prompt)
 
-  // Look for specific address patterns in Hebrew
+  // Look for specific address patterns in Hebrew - FIXED PATTERNS
   const addressPatterns = [
-    // Full address with street name + number + city
-    /(?:ב|רחוב|שדרות)?\s*([א-ת\s]+)\s+(\d+)[א-ת]?\s*,?\s*([א-ת\s]+)/g,
-    // Street name + number + city without prefix
-    /([א-ת]+(?:\s+[א-ת]+)*)\s+(\d+)[א-ת]?\s*,?\s*(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
+    // Pattern for "אחד העם 10, תל אביב" - exact match for this case
+    /(?:בכתובת\s+)?([א-ת]+(?:\s+[א-ת]+)*)\s+(\d+)[א-ת]?\s*,?\s*(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
+    // Pattern for street + number + city
+    /(?:רחוב|שדרות)?\s*([א-ת]+(?:\s+[א-ת]+)*)\s+(\d+)[א-ת]?\s*,?\s*(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
     // City names alone
     /(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
   ]
@@ -663,7 +663,7 @@ export default function AgentInterface() {
 
   const toggleCollapse = (index: number) => {
     const newCollapsedTools = new Set(collapsedTools)
-    if (newCollapsedTools.has(index)) {
+    if (newCollapsedTools.has(index) {
       newCollapsedTools.delete(index)
     } else {
       newCollapsedTools.add(index)
@@ -687,7 +687,7 @@ export default function AgentInterface() {
 
   return (
     <TooltipProvider>
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
+      <div className=\"max-w-4xl mx-auto p-4 space-y-6">
         <LocationSelector
           isVisible={showLocationSelector}
           onLocationSelected={handleLocationSelected}

@@ -27,7 +27,7 @@ const PlanSchema = z.object({
   clarificationQuestions: z.array(z.string()),
 })
 
-// Enhanced location extraction function
+// Enhanced location extraction function - FIXED FOR "אחד העם 10, תל אביב"
 function extractLocationFromPrompt(prompt: string): string {
   console.log("📍 === EXTRACTING LOCATION ===")
   console.log("📍 Input prompt:", prompt)
@@ -64,6 +64,32 @@ function extractLocationFromPrompt(prompt: string): string {
     "רחובות",
   ]
 
+  // FIXED: Better patterns for "אחד העם 10, תל אביב"
+  const addressPatterns = [
+    // Pattern for "בכתובת אחד העם 10, תל אביב"
+    /(?:בכתובת\s+)?([א-ת]+(?:\s+[א-ת]+)*)\s+(\d+)[א-ת]?\s*,?\s*(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
+    // Pattern for street + number + city
+    /(?:רחוב|שדרות)?\s*([א-ת]+(?:\s+[א-ת]+)*)\s+(\d+)[א-ת]?\s*,?\s*(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
+  ]
+
+  // Try address patterns first
+  for (const pattern of addressPatterns) {
+    const matches = [...prompt.matchAll(pattern)]
+    if (matches.length > 0) {
+      const match = matches[0]
+      console.log("📍 Found address match:", match)
+
+      if (match.length >= 4) {
+        const street = match[1].trim()
+        const number = match[2]
+        const city = match[3].trim()
+        const fullAddress = `${street} ${number}, ${city}`
+        console.log("📍 Full address:", fullAddress)
+        return fullAddress
+      }
+    }
+  }
+
   // Try to find city names
   for (const city of cities) {
     if (promptLower.includes(city)) {
@@ -73,8 +99,8 @@ function extractLocationFromPrompt(prompt: string): string {
       const streetPatterns = [
         new RegExp(`רחוב\\s+([א-ת\\s]+)\\s*\\d*[,\\s]*${city}`, "i"),
         new RegExp(`([א-ת\\s]+)\\s*\\d+[,\\s]*${city}`, "i"),
-        /רחוב\s+([א-ת\s]+)\s*\d*/i,
-        /ב?רחוב\s+([א-ת\s]+)/i,
+        /רחוב\s+([א-ת\\s]+)\s*\d*/i,
+        /ב?רחוב\s+([א-ת\\s]+)/i,
       ]
 
       for (const pattern of streetPatterns) {
@@ -137,14 +163,19 @@ function createFallbackPlan(prompt: string) {
   ) {
     console.log("🔄 Detected emergency/shelter request")
 
-    // Add RAG chat for emergency instructions
+    // Add RAG chat for emergency instructions - ENHANCED QUERY
+    let emergencyQuery = "מה לעשות באזעקה - הוראות מיידיות"
+    if (promptLower.includes("לילה") || promptLower.includes("באמצע הלילה")) {
+      emergencyQuery = "מה לעשות באזעקה באמצע הלילה - הוראות מיידיות לשעות הלילה"
+    }
+
     tools.push({
       id: "rag_chat",
       name: "הוראות חירום מיידיות",
       priority: 1,
       reasoning: "🚨 מזהה מצב חירום - צריך הוראות מיידיות מפיקוד העורף",
       parameters: {
-        query: "מה לעשות באזעקה - הוראות מיידיות",
+        query: emergencyQuery,
       },
     })
 
@@ -187,7 +218,9 @@ function createFallbackPlan(prompt: string) {
     promptLower.includes("מה צריך") ||
     promptLower.includes("רשימה") ||
     promptLower.includes("הכנה") ||
-    promptLower.includes("לקחת")
+    promptLower.includes("לקחת") ||
+    promptLower.includes("מוכן") ||
+    promptLower.includes("קומה")
   ) {
     console.log("🔄 Detected equipment request")
 
@@ -195,8 +228,12 @@ function createFallbackPlan(prompt: string) {
     let familyProfile = null
     const missingFields = []
 
+    // Check for floor information
+    if (promptLower.includes("קומה רביעית") || promptLower.includes("קומה 4")) {
+      familyProfile = "אדם הגר בקומה רביעית"
+    }
     // Medical conditions
-    if (promptLower.includes("סכרת")) {
+    else if (promptLower.includes("סכרת")) {
       familyProfile = "אדם עם סכרת"
     } else if (promptLower.includes("לחץ דם")) {
       familyProfile = "אדם עם לחץ דם גבוה"
