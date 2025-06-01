@@ -109,7 +109,7 @@ function extractLocationFromPrompt(prompt: string): string {
   return "מיקום לא זוהה" // Don't default to Tel Aviv
 }
 
-// Fallback function to create plan manually
+// Enhanced fallback function with better medical condition detection
 function createFallbackPlan(prompt: string) {
   console.log("🔄 === CREATING FALLBACK PLAN ===")
   console.log("🔄 Input prompt:", prompt)
@@ -123,7 +123,9 @@ function createFallbackPlan(prompt: string) {
     promptLower.includes("מקלט") ||
     promptLower.includes("מקלטים") ||
     promptLower.includes("איפה") ||
-    promptLower.includes("לאן")
+    promptLower.includes("לאן") ||
+    promptLower.includes("ללא מקלט") ||
+    promptLower.includes("בלי מקלט")
   ) {
     console.log("🔄 Detected emergency/shelter request")
 
@@ -175,23 +177,40 @@ function createFallbackPlan(prompt: string) {
     promptLower.includes("ציוד") ||
     promptLower.includes("מה צריך") ||
     promptLower.includes("רשימה") ||
-    promptLower.includes("הכנה")
+    promptLower.includes("הכנה") ||
+    promptLower.includes("לקחת")
   ) {
     console.log("🔄 Detected equipment request")
 
+    // Enhanced family/medical profile detection
     let familyProfile = "משפחה כללית"
-    if (promptLower.includes("ילד")) {
+
+    // Medical conditions
+    if (promptLower.includes("סכרת")) {
+      familyProfile = "אדם עם סכרת"
+    } else if (promptLower.includes("לחץ דם")) {
+      familyProfile = "אדם עם לחץ דם גבוה"
+    } else if (promptLower.includes("אסתמה")) {
+      familyProfile = "אדם עם אסתמה"
+    } else if (promptLower.includes("חולה")) {
+      familyProfile = "אדם עם מצב רפואי מיוחד"
+    }
+    // Family composition
+    else if (promptLower.includes("ילד")) {
       const childCount = prompt.match(/(\d+)\s*ילד/i)
       familyProfile = childCount ? `משפחה עם ${childCount[1]} ילדים` : "משפחה עם ילדים"
+    } else if (promptLower.includes("תינוק")) {
+      familyProfile = "משפחה עם תינוק"
+    } else if (promptLower.includes("קשיש")) {
+      familyProfile = "משפחה עם קשישים"
     }
-    if (promptLower.includes("תינוק")) familyProfile = "משפחה עם תינוק"
 
     console.log("🔄 Family profile:", familyProfile)
 
     tools.push({
       id: "recommend_equipment",
       name: "המלצות ציוד חירום",
-      priority: 3,
+      priority: familyProfile.includes("סכרת") || familyProfile.includes("רפואי") ? 1 : 3,
       reasoning: `🎒 ממליץ על ציוד חירום מותאם ל${familyProfile}`,
       parameters: {
         familyProfile: familyProfile,
@@ -244,8 +263,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    // Check if we have OpenAI API key
-    const openaiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY
+    // Check if we have OpenAI API key (server-side only)
+    const openaiKey = process.env.OPENAI_API_KEY
     console.log("🤖 OpenAI API Key available:", !!openaiKey)
     if (openaiKey) {
       console.log("🤖 OpenAI API Key length:", openaiKey.length)
@@ -285,13 +304,13 @@ export async function POST(request: NextRequest) {
 דוגמאות:
 - "אני חולה סכרת ללא מקלט בבניין. מה הציוד שאני צריך לקחת למקלט, ואיפה המקלט הקרוב אליי?"
   → tools: [
-    { id: "recommend_equipment", parameters: { familyProfile: "אדם עם סכרת", duration: 72 } },
-    { id: "find_shelters", parameters: { location: "נדרש מיקום", radius: 2000, maxResults: 10 } }
+    { id: "recommend_equipment", parameters: { familyProfile: "אדם עם סכרת", duration: 72 }, priority: 1 },
+    { id: "find_shelters", parameters: { location: "נדרש מיקום", radius: 2000, maxResults: 10 }, priority: 2 }
   ]
   → needsClarification: true
   → clarificationQuestions: ["איפה אתה נמצא כרגע?"]
 
-חשוב: זהה צרכים מיוחדים כמו מחלות, גיל, וכו'.
+חשוב: זהה צרכים מיוחדים כמו מחלות, גיל, וכו'. תן עדיפות גבוהה לציוד רפואי.
 `,
       })
 

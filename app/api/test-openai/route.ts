@@ -6,15 +6,16 @@ export async function GET(request: NextRequest) {
   try {
     console.log("🧪 === TESTING OPENAI API ===")
 
-    // Check if we have API key
-    const openaiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY
+    // Check if we have API key (server-side only)
+    const openaiKey = process.env.OPENAI_API_KEY
     console.log("🧪 OpenAI API Key available:", !!openaiKey)
 
     if (!openaiKey) {
       return NextResponse.json({
         success: false,
         error: "No OpenAI API key found",
-        checkedVars: ["OPENAI_API_KEY", "NEXT_PUBLIC_OPENAI_API_KEY"],
+        checkedVars: ["OPENAI_API_KEY"],
+        note: "Only checking server-side environment variables",
       })
     }
 
