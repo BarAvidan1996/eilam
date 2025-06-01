@@ -103,96 +103,6 @@ const requiredParameters: Record<string, string[]> = {
   recommend_equipment: ["familyProfile"],
 }
 
-const createPlan = async () => {
-  if (!prompt.trim()) return
-
-  setIsPlanning(true)
-  setPlanningError(null)
-  setPlan(null)
-  setExecutions([])
-  setCollapsedTools(new Set())
-  setProgress(0)
-
-  try {
-    const response = await fetch("/api/agent/plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Server error: ${response.status} - ${errorText}`)
-    }
-
-    const planData = await response.json()
-
-    if (planData.error) {
-      throw new Error(planData.error)
-    }
-
-    if (!planData.tools || !Array.isArray(planData.tools)) {
-      throw new Error("Invalid plan structure received")
-    }
-
-    setPlan(planData)
-
-    // Set default values for shelter search
-    const initialExecutions: ToolExecution[] = planData.tools.map((tool: Tool) => {
-      if (tool.id === "find_shelters") {
-        const updatedTool = {
-          ...tool,
-          parameters: {
-            ...tool.parameters,
-            radius: tool.parameters.radius || 1000,
-            maxResults: tool.parameters.maxResults || 3,
-          },
-        }
-
-        // If we have location from AI, mark as pending, otherwise wait for location
-        if (tool.parameters.location && tool.parameters.location !== null) {
-          return {
-            tool: updatedTool,
-            status: "pending" as ExecutionStatus,
-          }
-        } else {
-          return {
-            tool: updatedTool,
-            status: "waiting_location" as ExecutionStatus,
-          }
-        }
-      }
-      return {
-        tool,
-        status: "pending" as ExecutionStatus,
-      }
-    })
-
-    setExecutions(initialExecutions)
-    setCurrentExecutionIndex(-1)
-  } catch (error) {
-    console.error("❌ שגיאה ביצירת תוכנית:", error)
-    setPlanningError(error instanceof Error ? error.message : "שגיאה לא ידועה")
-  } finally {
-    setIsPlanning(false)
-  }
-}
-
-const approveTool = (index: number) => {
-  const execution = executions[index]
-
-  if (execution.tool.id === "find_shelters") {
-    // Check if location is missing
-    if (!execution.tool.parameters.location || execution.tool.parameters.location === null) {
-      // Show location selector instead
-      requestLocation(index)
-      return
-    }
-  }
-
-  setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, status: "approved" } : exec)))
-}
-
 export default function AgentInterface() {
   const [prompt, setPrompt] = useState("")
   const [plan, setPlan] = useState<Plan | null>(null)
@@ -256,6 +166,81 @@ export default function AgentInterface() {
     }
   }, [executions, currentExecutionIndex])
 
+  const createPlan = async () => {
+    if (!prompt.trim()) return
+
+    setIsPlanning(true)
+    setPlanningError(null)
+    setPlan(null)
+    setExecutions([])
+    setCollapsedTools(new Set())
+    setProgress(0)
+
+    try {
+      const response = await fetch("/api/agent/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Server error: ${response.status} - ${errorText}`)
+      }
+
+      const planData = await response.json()
+
+      if (planData.error) {
+        throw new Error(planData.error)
+      }
+
+      if (!planData.tools || !Array.isArray(planData.tools)) {
+        throw new Error("Invalid plan structure received")
+      }
+
+      setPlan(planData)
+
+      // Set default values for shelter search
+      const initialExecutions: ToolExecution[] = planData.tools.map((tool: Tool) => {
+        if (tool.id === "find_shelters") {
+          const updatedTool = {
+            ...tool,
+            parameters: {
+              ...tool.parameters,
+              radius: tool.parameters.radius || 1000,
+              maxResults: tool.parameters.maxResults || 3,
+            },
+          }
+
+          // If we have location from AI, mark as pending, otherwise wait for location
+          if (tool.parameters.location && tool.parameters.location !== null) {
+            return {
+              tool: updatedTool,
+              status: "pending" as ExecutionStatus,
+            }
+          } else {
+            return {
+              tool: updatedTool,
+              status: "waiting_location" as ExecutionStatus,
+            }
+          }
+        }
+        return {
+          tool,
+          status: "pending" as ExecutionStatus,
+        }
+      })
+
+      setExecutions(initialExecutions)
+      setCurrentExecutionIndex(-1)
+    } catch (error) {
+      console.error("❌ שגיאה ביצירת תוכנית:", error)
+      setPlanningError(error instanceof Error ? error.message : "שגיאה לא ידועה")
+    } finally {
+      setIsPlanning(false)
+    }
+  }
+
   const handleLocationSelected = (location: LocationData) => {
     if (pendingLocationToolIndex !== null) {
       setExecutions((prev) =>
@@ -285,6 +270,21 @@ export default function AgentInterface() {
   const requestLocation = (toolIndex: number) => {
     setPendingLocationToolIndex(toolIndex)
     setShowLocationSelector(true)
+  }
+
+  const approveTool = (index: number) => {
+    const execution = executions[index]
+
+    if (execution.tool.id === "find_shelters") {
+      // Check if location is missing
+      if (!execution.tool.parameters.location || execution.tool.parameters.location === null) {
+        // Show location selector instead
+        requestLocation(index)
+        return
+      }
+    }
+
+    setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, status: "approved" } : exec)))
   }
 
   const skipTool = (index: number) => {
