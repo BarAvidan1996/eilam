@@ -26,15 +26,22 @@ export class ShelterSearchService {
 
   constructor() {
     this.apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API || process.env.GOOGLE_MAPS_API || ""
-    if (!this.apiKey) {
-      console.warn("Google Maps API key not found")
+    console.log("🏠 ShelterSearchService initialized")
+    console.log("🏠 Has API key:", !!this.apiKey)
+    if (this.apiKey) {
+      console.log("🏠 API key length:", this.apiKey.length)
+      console.log("🏠 API key prefix:", this.apiKey.substring(0, 10) + "...")
     }
   }
 
   // Geocode address to coordinates
   async geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+    console.log("🌍 === GEOCODING START ===")
+    console.log("🌍 Address:", address)
+    console.log("🌍 Has API key:", !!this.apiKey)
+
     if (!this.apiKey) {
-      console.log("⚠️ אין מפתח API - לא ניתן לבצע geocoding")
+      console.log("⚠️ No API key - cannot geocode")
       return null
     }
 
@@ -45,24 +52,31 @@ export class ShelterSearchService {
       url.searchParams.set("region", "il") // Bias to Israel
       url.searchParams.set("language", "he") // Hebrew language
 
-      console.log(`🌍 Geocoding: ${address}`)
+      console.log("🌍 Geocoding URL:", url.toString().replace(this.apiKey, "***API_KEY***"))
 
       const response = await fetch(url.toString())
+      console.log("🌍 Geocoding response status:", response.status)
+      console.log("🌍 Geocoding response ok:", response.ok)
+
       const data = await response.json()
+      console.log("🌍 Geocoding response data:", JSON.stringify(data, null, 2))
 
       if (data.status === "OK" && data.results.length > 0) {
         const result = data.results[0]
         const location = result.geometry.location
 
-        console.log(`✅ Geocoded to: ${location.lat}, ${location.lng}`)
-        console.log(`📍 Formatted address: ${result.formatted_address}`)
+        console.log("✅ Geocoded successfully:")
+        console.log("✅ Coordinates:", location.lat, location.lng)
+        console.log("✅ Formatted address:", result.formatted_address)
 
         return {
           lat: location.lat,
           lng: location.lng,
         }
       } else {
-        console.warn(`❌ Geocoding failed: ${data.status}`)
+        console.warn("❌ Geocoding failed:")
+        console.warn("❌ Status:", data.status)
+        console.warn("❌ Error message:", data.error_message)
         return null
       }
     } catch (error) {
@@ -75,51 +89,72 @@ export class ShelterSearchService {
   async searchShelters(params: SearchParams): Promise<ShelterResult[]> {
     const { location, radius, maxResults = 10 } = params
 
-    console.log(`🔍 חיפוש מקלטים ברדיוס ${radius}m מ-${location.lat},${location.lng}`)
+    console.log("🔍 === SHELTER SEARCH START ===")
+    console.log("🔍 Location:", location)
+    console.log("🔍 Radius:", radius)
+    console.log("🔍 Max results:", maxResults)
+    console.log("🔍 Has API key:", !!this.apiKey)
 
     if (!this.apiKey) {
-      console.log("⚠️ אין מפתח API - משתמש בנתוני דמו")
+      console.log("⚠️ No API key - using mock data")
       return this.getMockShelters(location, radius)
     }
 
     try {
       // Search with multiple keywords for better coverage
       const searchKeywords = ["מקלט ציבורי", "bomb shelter", "מקלט חירום", "מרחב מוגן", "ממ״ד", "ממ״ק"]
+      console.log("🔍 Search keywords:", searchKeywords)
 
       const allResults = new Map<string, any>() // Use Map to avoid duplicates by place_id
 
       // Search with each keyword
       for (const keyword of searchKeywords) {
         try {
+          console.log(`🔍 Searching with keyword: "${keyword}"`)
           const results = await this.searchByKeyword(location, radius, keyword)
+          console.log(`🔍 Found ${results.length} results for "${keyword}"`)
+
           results.forEach((result) => {
             if (!allResults.has(result.place_id)) {
               allResults.set(result.place_id, result)
+              console.log(`🔍 Added result: ${result.name}`)
+            } else {
+              console.log(`🔍 Duplicate result skipped: ${result.name}`)
             }
           })
         } catch (error) {
-          console.error(`שגיאה בחיפוש עם מילת מפתח "${keyword}":`, error)
+          console.error(`❌ Error searching with keyword "${keyword}":`, error)
         }
       }
 
       let shelters = Array.from(allResults.values())
+      console.log(`🔍 Total unique results before filtering: ${shelters.length}`)
 
       // Filter by name to ensure they're actually shelters
       shelters = this.filterShelterResults(shelters)
+      console.log(`🔍 Results after filtering: ${shelters.length}`)
 
       // Calculate distances
       shelters = this.calculateDistances(shelters, location)
+      console.log(`🔍 Results after distance calculation: ${shelters.length}`)
 
       // Sort by distance
       shelters.sort((a, b) => a.distance - b.distance)
+      console.log("🔍 Results sorted by distance")
 
       // Limit results
       shelters = shelters.slice(0, maxResults)
+      console.log(`🔍 Final results after limiting to ${maxResults}: ${shelters.length}`)
 
-      console.log(`✅ נמצאו ${shelters.length} מקלטים`)
+      console.log("✅ Final shelter results:")
+      shelters.forEach((shelter, i) => {
+        console.log(`✅ ${i + 1}. ${shelter.name} - ${shelter.distance}km`)
+      })
+
       return shelters
     } catch (error) {
-      console.error("❌ שגיאה בחיפוש מקלטים:", error)
+      console.error("❌ Shelter search error:", error)
+      console.log("🔄 Falling back to mock data")
       return this.getMockShelters(location, radius)
     }
   }
@@ -130,6 +165,8 @@ export class ShelterSearchService {
     radius: number,
     keyword: string,
   ): Promise<any[]> {
+    console.log(`🔍 === PLACES API SEARCH: "${keyword}" ===`)
+
     const url = new URL("https://maps.googleapis.com/maps/api/place/nearbysearch/json")
     url.searchParams.set("location", `${location.lat},${location.lng}`)
     url.searchParams.set("radius", radius.toString())
@@ -137,45 +174,81 @@ export class ShelterSearchService {
     url.searchParams.set("key", this.apiKey)
     url.searchParams.set("language", "he") // Hebrew results
 
+    console.log("🔍 Places API URL:", url.toString().replace(this.apiKey, "***API_KEY***"))
+
     const response = await fetch(url.toString())
+    console.log("🔍 Places API response status:", response.status)
+    console.log("🔍 Places API response ok:", response.ok)
+
     const data = await response.json()
+    console.log("🔍 Places API response:", JSON.stringify(data, null, 2))
 
     if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
+      console.error("❌ Places API error:", data.status, data.error_message)
       throw new Error(`Google Places API error: ${data.status} - ${data.error_message || "Unknown error"}`)
     }
 
-    return data.results || []
+    const results = data.results || []
+    console.log(`🔍 Places API returned ${results.length} results for "${keyword}"`)
+
+    return results
   }
 
   // Filter results to ensure they're actually shelters
   private filterShelterResults(results: any[]): any[] {
-    return results.filter((place) => {
+    console.log("🔍 === FILTERING SHELTER RESULTS ===")
+    console.log("🔍 Input results:", results.length)
+
+    const filtered = results.filter((place) => {
       const name = place.name?.toLowerCase() || ""
+      console.log(`🔍 Checking: "${place.name}"`)
 
       // Exact matches (highest priority)
       const exactMatches = ["מקלט", "bomb shelter", "מקלט ציבורי", "public shelter", "מרחב מוגן", "ממ״ד", "ממ״ק"]
 
-      const hasExactMatch = exactMatches.some((match) => name.includes(match.toLowerCase()))
+      const hasExactMatch = exactMatches.some((match) => {
+        const found = name.includes(match.toLowerCase())
+        if (found) console.log(`✅ Exact match found: "${match}"`)
+        return found
+      })
 
       // High probability matches
       const highProbabilityMatches = ["מקלט ", " מקלט", "shelter", "מרחב מוגן"]
 
-      const hasHighProbabilityMatch = highProbabilityMatches.some((match) => name.includes(match.toLowerCase()))
+      const hasHighProbabilityMatch = highProbabilityMatches.some((match) => {
+        const found = name.includes(match.toLowerCase())
+        if (found) console.log(`✅ High probability match found: "${match}"`)
+        return found
+      })
 
-      return hasExactMatch || hasHighProbabilityMatch
+      const isValid = hasExactMatch || hasHighProbabilityMatch
+      console.log(`🔍 Result: ${isValid ? "INCLUDED" : "EXCLUDED"}`)
+
+      return isValid
     })
+
+    console.log("🔍 Filtered results:", filtered.length)
+    return filtered
   }
 
   // Calculate straight-line distances
   private calculateDistances(shelters: any[], origin: { lat: number; lng: number }): ShelterResult[] {
-    return shelters.map((shelter) => {
+    console.log("🔍 === CALCULATING DISTANCES ===")
+    console.log("🔍 Origin:", origin)
+    console.log("🔍 Shelters to process:", shelters.length)
+
+    return shelters.map((shelter, index) => {
       const shelterLat = shelter.geometry.location.lat
       const shelterLng = shelter.geometry.location.lng
 
+      console.log(`🔍 Shelter ${index + 1}: ${shelter.name}`)
+      console.log(`🔍 Shelter coordinates: ${shelterLat}, ${shelterLng}`)
+
       // Calculate distance using Haversine formula
       const distance = this.calculateHaversineDistance(origin.lat, origin.lng, shelterLat, shelterLng)
+      console.log(`🔍 Calculated distance: ${distance}km`)
 
-      return {
+      const result: ShelterResult = {
         name: shelter.name || "מקלט",
         address: shelter.vicinity || shelter.formatted_address || "כתובת לא זמינה",
         location: {
@@ -187,6 +260,9 @@ export class ShelterSearchService {
         place_id: shelter.place_id,
         rating: shelter.rating,
       }
+
+      console.log(`✅ Processed shelter: ${result.name} - ${result.distance}km`)
+      return result
     })
   }
 
@@ -222,6 +298,10 @@ export class ShelterSearchService {
 
   // Enhanced mock data based on actual Israeli cities
   private getMockShelters(location: { lat: number; lng: number }, radius: number): ShelterResult[] {
+    console.log("🔄 === GENERATING MOCK SHELTERS ===")
+    console.log("🔄 Location:", location)
+    console.log("🔄 Radius:", radius)
+
     // Determine city based on coordinates (rough approximation)
     let cityName = "תל אביב"
     let mockShelters: ShelterResult[] = []
@@ -229,6 +309,8 @@ export class ShelterSearchService {
     // Rishon LeZion area (32.0853, 34.7818)
     if (location.lat > 32.05 && location.lat < 32.12 && location.lng > 34.75 && location.lng < 34.82) {
       cityName = "ראשון לציון"
+      console.log("🔄 Detected city: ראשון לציון")
+
       mockShelters = [
         {
           name: "מקלט ציבורי - מרכז עזריאלי ראשון לציון",
@@ -259,6 +341,8 @@ export class ShelterSearchService {
         },
       ]
     } else {
+      console.log("🔄 Detected city: תל אביב (default)")
+
       // Default Tel Aviv shelters
       mockShelters = [
         {
@@ -292,7 +376,14 @@ export class ShelterSearchService {
     }
 
     // Filter by radius (convert km to meters for comparison)
-    return mockShelters.filter((shelter) => shelter.distance * 1000 <= radius)
+    const filtered = mockShelters.filter((shelter) => {
+      const inRadius = shelter.distance * 1000 <= radius
+      console.log(`🔄 Shelter ${shelter.name}: ${shelter.distance}km - ${inRadius ? "INCLUDED" : "EXCLUDED"}`)
+      return inRadius
+    })
+
+    console.log(`🔄 Mock shelters generated: ${filtered.length}`)
+    return filtered
   }
 
   // Get walking duration using Google Directions API (optional enhancement)

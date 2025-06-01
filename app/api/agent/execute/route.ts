@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { shelterSearchService } from "@/lib/services/shelter-search-service"
 
 // Parameters validation schemas for each tool
 const ToolParametersSchemas = {
@@ -10,6 +11,8 @@ const ToolParametersSchemas = {
     location: z.string().min(1, "Location is required"),
     radius: z.number().optional().default(2000),
     maxResults: z.number().optional().default(10),
+    lat: z.number().optional(),
+    lng: z.number().optional(),
   }),
   recommend_equipment: z.object({
     familyProfile: z.string().min(1, "Family profile is required"),
@@ -18,17 +21,23 @@ const ToolParametersSchemas = {
 }
 
 export async function POST(request: NextRequest) {
+  let toolId: string | undefined = undefined
   try {
-    const { toolId, parameters } = await request.json()
+    const { toolId: reqToolId, parameters } = await request.json()
+    toolId = reqToolId
+
+    console.log("🔧 === EXECUTE API START ===")
+    console.log("🔧 Tool ID:", toolId)
+    console.log("🔧 Raw Parameters:", JSON.stringify(parameters, null, 2))
 
     if (!toolId) {
+      console.error("❌ No tool ID provided")
       return NextResponse.json({ error: "Tool ID is required" }, { status: 400 })
     }
 
-    console.log(`🔧 מבצע כלי: ${toolId}`, parameters)
-
     // Validate tool ID
     if (!Object.keys(ToolParametersSchemas).includes(toolId)) {
+      console.error("❌ Unknown tool ID:", toolId)
       return NextResponse.json({ error: `Unknown tool ID: ${toolId}` }, { status: 400 })
     }
 
@@ -48,11 +57,17 @@ export async function POST(request: NextRequest) {
     }
 
     const validatedParams = validationResult.data
+    console.log("✅ Validated Parameters:", JSON.stringify(validatedParams, null, 2))
 
     switch (toolId) {
       case "rag_chat": {
-        console.log("🔍 בודק מידע במערכת פיקוד העורף...")
+        console.log("🔍 === RAG CHAT EXECUTION ===")
+        console.log("🔍 Query:", validatedParams.query)
+
         try {
+          console.log("🔍 Calling RAG API...")
+          console.log("🔍 Base URL:", process.env.NEXT_PUBLIC_BASE_URL)
+
           // Call the existing RAG service
           const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/chat`, {
             method: "POST",
@@ -62,11 +77,17 @@ export async function POST(request: NextRequest) {
             }),
           })
 
+          console.log("🔍 RAG API Response Status:", response.status)
+          console.log("🔍 RAG API Response OK:", response.ok)
+
           if (!response.ok) {
-            throw new Error(`RAG API error: ${response.status}`)
+            const errorText = await response.text()
+            console.error("❌ RAG API Error Response:", errorText)
+            throw new Error(`RAG API error: ${response.status} - ${errorText}`)
           }
 
           const ragResult = await response.text()
+          console.log("✅ RAG Result:", ragResult.substring(0, 200) + "...")
 
           return NextResponse.json({
             success: true,
@@ -80,7 +101,9 @@ export async function POST(request: NextRequest) {
             timestamp: new Date().toISOString(),
           })
         } catch (error) {
-          console.error("❌ שגיאה ב-RAG:", error)
+          console.error("❌ RAG Error:", error)
+          console.log("🔄 Using RAG fallback...")
+
           // Fallback response
           return NextResponse.json({
             success: true,
@@ -105,71 +128,110 @@ export async function POST(request: NextRequest) {
       }
 
       case "find_shelters": {
-        console.log(`🏠 מחפש מקלטים באזור ${validatedParams.location}...`)
-        try {
-          // Call the shelter search API
-          const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/shelters/search`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(validatedParams),
-          })
+        console.log("🏠 === SHELTER SEARCH EXECUTION ===")
+        console.log("🏠 Location:", validatedParams.location)
+        console.log("🏠 Radius:", validatedParams.radius)
+        console.log("🏠 Has coordinates:", !!validatedParams.lat && !!validatedParams.lng)
 
-          if (!response.ok) {
-            throw new Error(`Shelter API error: ${response.status}`)
+        try {
+          let searchLocation: { lat: number; lng: number }
+
+          // Check if we already have coordinates
+          if (validatedParams.lat && validatedParams.lng) {
+            console.log("✅ Using provided coordinates")
+            searchLocation = {
+              lat: validatedParams.lat,
+              lng: validatedParams.lng,
+            }
+          } else {
+            console.log("🌍 Need to geocode address:", validatedParams.location)
+
+            // Geocode the location
+            const geocoded = await shelterSearchService.geocodeAddress(validatedParams.location)
+
+            if (!geocoded) {
+              console.error("❌ Geocoding failed for:", validatedParams.location)
+              throw new Error(`Could not geocode location: ${validatedParams.location}`)
+            }
+
+            console.log("✅ Geocoded to:", geocoded)
+            searchLocation = geocoded
           }
 
-          const shelterResult = await response.json()
+          console.log("🔍 Searching shelters with params:", {
+            location: searchLocation,
+            radius: validatedParams.radius,
+            maxResults: validatedParams.maxResults,
+          })
+
+          // Search for shelters
+          const shelters = await shelterSearchService.searchShelters({
+            location: searchLocation,
+            radius: validatedParams.radius || 2000,
+            maxResults: validatedParams.maxResults || 10,
+          })
+
+          console.log("✅ Found shelters:", shelters.length)
+          console.log(
+            "🏠 Shelter details:",
+            shelters.map((s) => ({ name: s.name, distance: s.distance })),
+          )
 
           return NextResponse.json({
             success: true,
             toolId,
             result: {
               type: "shelter_search",
-              shelters: shelterResult.shelters || [],
+              shelters,
               searchLocation: validatedParams.location,
+              coordinates: searchLocation,
               radius: validatedParams.radius,
               searchPerformed: true,
             },
             timestamp: new Date().toISOString(),
           })
         } catch (error) {
-          console.error("❌ שגיאה בחיפוש מקלטים:", error)
+          console.error("❌ Shelter search error:", error)
+          console.log("🔄 Using shelter search fallback...")
+
           // Return mock data as fallback
+          const mockShelters = [
+            {
+              name: "מקלט ציבורי - מרכז עזריאלי ראשון לציון",
+              address: "דרך בן גוריון 1, ראשון לציון",
+              distance: "0.8",
+              type: "קניון",
+              walkingTime: "10 דקות הליכה",
+            },
+            {
+              name: "ממ״ד - בית ספר רמז",
+              address: "רחוב רמז 15, ראשון לציון",
+              distance: "1.2",
+              type: "בית ספר",
+              walkingTime: "15 דקות הליכה",
+            },
+            {
+              name: "מרחב מוגן - מרכז קהילתי הדר",
+              address: "רחוב הדר 8, ראשון לציון",
+              distance: "1.8",
+              type: "מרכז קהילתי",
+              walkingTime: "22 דקות הליכה",
+            },
+          ]
+
+          console.log("🔄 Returning mock shelters:", mockShelters.length)
+
           return NextResponse.json({
             success: true,
             toolId,
             result: {
               type: "shelter_search",
-              shelters: [
-                {
-                  name: "מקלט ציבורי - דיזנגוף סנטר",
-                  address: "דיזנגוף 50, תל אביב",
-                  distance: "0.8",
-                  capacity: "500",
-                  type: "מקלט ציבורי",
-                  walkingTime: "10 דקות הליכה",
-                },
-                {
-                  name: "ממ״ד - בית ספר ביאליק",
-                  address: "ביאליק 25, תל אביב",
-                  distance: "1.2",
-                  capacity: "200",
-                  type: "ממ״ד",
-                  walkingTime: "15 דקות הליכה",
-                },
-                {
-                  name: "מרחב מוגן - קניון איילון",
-                  address: "איילון מול, תל אביב",
-                  distance: "1.8",
-                  capacity: "1000",
-                  type: "מרחב מוגן",
-                  walkingTime: "22 דקות הליכה",
-                },
-              ],
+              shelters: mockShelters,
               searchLocation: validatedParams.location,
               radius: validatedParams.radius,
               searchPerformed: true,
               usedFallback: true,
+              error: error instanceof Error ? error.message : "Unknown error",
             },
             timestamp: new Date().toISOString(),
           })
@@ -177,8 +239,14 @@ export async function POST(request: NextRequest) {
       }
 
       case "recommend_equipment": {
-        console.log(`🎒 מכין המלצות ציוד עבור ${validatedParams.familyProfile}...`)
+        console.log("🎒 === EQUIPMENT RECOMMENDATION EXECUTION ===")
+        console.log("🎒 Family Profile:", validatedParams.familyProfile)
+        console.log("🎒 Duration:", validatedParams.duration)
+
         try {
+          console.log("🎒 Calling equipment API...")
+          console.log("🎒 Base URL:", process.env.NEXT_PUBLIC_BASE_URL)
+
           // Call the equipment recommendations API
           const response = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/ai-recommendations`, {
             method: "POST",
@@ -189,11 +257,17 @@ export async function POST(request: NextRequest) {
             }),
           })
 
+          console.log("🎒 Equipment API Response Status:", response.status)
+          console.log("🎒 Equipment API Response OK:", response.ok)
+
           if (!response.ok) {
-            throw new Error(`Equipment API error: ${response.status}`)
+            const errorText = await response.text()
+            console.error("❌ Equipment API Error Response:", errorText)
+            throw new Error(`Equipment API error: ${response.status} - ${errorText}`)
           }
 
           const equipmentResult = await response.json()
+          console.log("✅ Equipment Result:", JSON.stringify(equipmentResult, null, 2))
 
           return NextResponse.json({
             success: true,
@@ -207,7 +281,9 @@ export async function POST(request: NextRequest) {
             timestamp: new Date().toISOString(),
           })
         } catch (error) {
-          console.error("❌ שגיאה בהמלצות ציוד:", error)
+          console.error("❌ Equipment error:", error)
+          console.log("🔄 Using equipment fallback...")
+
           // Return mock recommendations as fallback
           const isWithChildren = validatedParams.familyProfile.includes("ילד")
           const isWithBaby = validatedParams.familyProfile.includes("תינוק")
@@ -231,6 +307,8 @@ export async function POST(request: NextRequest) {
             baseRecommendations["🍼 ציוד לתינוקות"] = ["חיתולים", "מזון לתינוקות", "בקבוקים", "מוצצים", "שמיכת תינוק"]
           }
 
+          console.log("🔄 Returning mock equipment recommendations")
+
           return NextResponse.json({
             success: true,
             toolId,
@@ -247,15 +325,19 @@ export async function POST(request: NextRequest) {
       }
 
       default:
+        console.error("❌ Reached default case - this should not happen")
         return NextResponse.json({ error: "Unknown tool ID" }, { status: 400 })
     }
   } catch (error) {
-    console.error("❌ שגיאה בביצוע כלי:", error)
+    console.error("❌ === EXECUTE API ERROR ===")
+    console.error("❌ Error:", error)
+    console.error("❌ Stack:", error instanceof Error ? error.stack : "No stack")
+
     return NextResponse.json(
       {
         success: false,
         error: error instanceof Error ? error.message : "Execution failed",
-        toolId: request.body?.toolId || "unknown",
+        toolId: toolId || "unknown",
         timestamp: new Date().toISOString(),
       },
       { status: 500 },

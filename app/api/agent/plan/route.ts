@@ -21,6 +21,9 @@ const PlanSchema = z.object({
 
 // Enhanced location extraction function
 function extractLocationFromPrompt(prompt: string): string {
+  console.log("📍 === EXTRACTING LOCATION ===")
+  console.log("📍 Input prompt:", prompt)
+
   const promptLower = prompt.toLowerCase()
 
   // Israeli cities - comprehensive list
@@ -56,6 +59,8 @@ function extractLocationFromPrompt(prompt: string): string {
   // Try to find city names
   for (const city of cities) {
     if (promptLower.includes(city)) {
+      console.log(`📍 Found city: ${city}`)
+
       // Try to extract street address in the same city
       const streetPatterns = [
         new RegExp(`רחוב\\s+([א-ת\\s]+)\\s*\\d*[,\\s]*${city}`, "i"),
@@ -68,13 +73,19 @@ function extractLocationFromPrompt(prompt: string): string {
         const match = pattern.exec(prompt)
         if (match && match[1]) {
           const street = match[1].trim()
+          console.log(`📍 Found street: ${street}`)
+
           // Extract house number if exists
           const numberMatch = prompt.match(new RegExp(`${street}\\s*(\\d+)`, "i"))
           const houseNumber = numberMatch ? ` ${numberMatch[1]}` : ""
-          return `רחוב ${street}${houseNumber}, ${city}`
+          const fullAddress = `רחוב ${street}${houseNumber}, ${city}`
+
+          console.log(`📍 Full address: ${fullAddress}`)
+          return fullAddress
         }
       }
 
+      console.log(`📍 Using city only: ${city}`)
       return city
     }
   }
@@ -87,15 +98,22 @@ function extractLocationFromPrompt(prompt: string): string {
     if (match && match[1]) {
       const street = match[1].trim()
       const number = match[2] || ""
-      return `רחוב ${street} ${number}`.trim()
+      const address = `רחוב ${street} ${number}`.trim()
+
+      console.log(`📍 Found street without city: ${address}`)
+      return address
     }
   }
 
+  console.log("📍 No location found")
   return "מיקום לא זוהה" // Don't default to Tel Aviv
 }
 
 // Fallback function to create plan manually
 function createFallbackPlan(prompt: string) {
+  console.log("🔄 === CREATING FALLBACK PLAN ===")
+  console.log("🔄 Input prompt:", prompt)
+
   const promptLower = prompt.toLowerCase()
   const tools: any[] = []
 
@@ -107,6 +125,8 @@ function createFallbackPlan(prompt: string) {
     promptLower.includes("איפה") ||
     promptLower.includes("לאן")
   ) {
+    console.log("🔄 Detected emergency/shelter request")
+
     // Add RAG chat for emergency instructions
     tools.push({
       id: "rag_chat",
@@ -120,6 +140,7 @@ function createFallbackPlan(prompt: string) {
 
     // Extract location for shelter search
     const extractedLocation = extractLocationFromPrompt(prompt)
+    console.log("🔄 Extracted location:", extractedLocation)
 
     if (extractedLocation !== "מיקום לא זוהה") {
       tools.push({
@@ -156,12 +177,16 @@ function createFallbackPlan(prompt: string) {
     promptLower.includes("רשימה") ||
     promptLower.includes("הכנה")
   ) {
+    console.log("🔄 Detected equipment request")
+
     let familyProfile = "משפחה כללית"
     if (promptLower.includes("ילד")) {
       const childCount = prompt.match(/(\d+)\s*ילד/i)
       familyProfile = childCount ? `משפחה עם ${childCount[1]} ילדים` : "משפחה עם ילדים"
     }
     if (promptLower.includes("תינוק")) familyProfile = "משפחה עם תינוק"
+
+    console.log("🔄 Family profile:", familyProfile)
 
     tools.push({
       id: "recommend_equipment",
@@ -177,6 +202,8 @@ function createFallbackPlan(prompt: string) {
 
   // If no specific tools identified, add general RAG
   if (tools.length === 0) {
+    console.log("🔄 No specific tools identified - adding general RAG")
+
     tools.push({
       id: "rag_chat",
       name: "מידע כללי על חירום",
@@ -191,7 +218,7 @@ function createFallbackPlan(prompt: string) {
   const extractedLocation = extractLocationFromPrompt(prompt)
   const locationInfo = extractedLocation !== "מיקום לא זוהה" ? ` באזור ${extractedLocation}` : ""
 
-  return {
+  const plan = {
     analysis: `זוהה מצב חירום${locationInfo}. מתכנן ${tools.length} פעולות לטיפול מיידי במצב.`,
     tools,
     needsClarification: extractedLocation === "מיקום לא זוהה" && tools.some((t) => t.id === "find_shelters"),
@@ -200,19 +227,26 @@ function createFallbackPlan(prompt: string) {
         ? ["איפה אתה נמצא כרגע? (כתובת מדויקת או עיר)"]
         : [],
   }
+
+  console.log("🔄 Fallback plan created:", JSON.stringify(plan, null, 2))
+  return plan
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { prompt } = await request.json()
 
+    console.log("🤖 === PLAN API START ===")
+    console.log("🤖 Input prompt:", prompt)
+
     if (!prompt) {
+      console.error("❌ No prompt provided")
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
-    console.log("🤖 מתכנן פעולות עבור:", prompt)
-
     try {
+      console.log("🤖 Attempting AI generation...")
+
       // Try AI generation first with enhanced prompt
       const { object: plan } = await generateObject({
         model: openai("gpt-4o"),
@@ -250,7 +284,8 @@ export async function POST(request: NextRequest) {
 `,
       })
 
-      console.log("🔍 תוכנית AI שנוצרה:", JSON.stringify(plan, null, 2))
+      console.log("✅ AI generation successful")
+      console.log("🔍 AI plan:", JSON.stringify(plan, null, 2))
 
       // Validate tool IDs
       const validToolIds = ["rag_chat", "find_shelters", "recommend_equipment"]
@@ -258,7 +293,7 @@ export async function POST(request: NextRequest) {
 
       if (validatedTools.length !== plan.tools.length) {
         console.warn(
-          "⚠️ כלים לא תקינים סוננו:",
+          "⚠️ Invalid tools filtered out:",
           plan.tools.filter((tool) => !validToolIds.includes(tool.id)),
         )
       }
@@ -268,7 +303,7 @@ export async function POST(request: NextRequest) {
         tools: validatedTools,
       }
 
-      console.log("✅ תוכנית AI מאומתת נוצרה:", validatedPlan)
+      console.log("✅ AI plan validated:", JSON.stringify(validatedPlan, null, 2))
 
       return NextResponse.json({
         ...validatedPlan,
@@ -292,12 +327,11 @@ export async function POST(request: NextRequest) {
         ],
       })
     } catch (aiError) {
-      console.warn("⚠️ AI generation failed, using enhanced fallback:", aiError)
+      console.warn("⚠️ AI generation failed:", aiError)
+      console.log("🔄 Using enhanced fallback...")
 
       // Use enhanced fallback plan
       const fallbackPlan = createFallbackPlan(prompt)
-
-      console.log("🔄 תוכנית fallback משופרת נוצרה:", fallbackPlan)
 
       return NextResponse.json({
         ...fallbackPlan,
@@ -322,7 +356,10 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error("❌ שגיאה ביצירת תוכנית:", error)
+    console.error("❌ === PLAN API ERROR ===")
+    console.error("❌ Error:", error)
+    console.error("❌ Stack:", error instanceof Error ? error.stack : "No stack")
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Failed to create plan",
