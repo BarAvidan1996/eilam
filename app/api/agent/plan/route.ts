@@ -13,6 +13,7 @@ const PlanSchema = z.object({
       priority: z.number().min(1).max(10).describe("עדיפות (1 = הכי דחוף)"),
       reasoning: z.string().describe("הסבר למה הכלי הזה נחוץ"),
       parameters: z.record(z.any()).describe("פרמטרים לכלי"),
+      missingFields: z.array(z.string()).optional().describe("שדות חסרים שצריך לבקש מהמשתמש"),
     }),
   ),
   needsClarification: z.boolean().describe("האם נדרשות הבהרות נוספות"),
@@ -65,8 +66,8 @@ function extractLocationFromPrompt(prompt: string): string {
       const streetPatterns = [
         new RegExp(`רחוב\\s+([א-ת\\s]+)\\s*\\d*[,\\s]*${city}`, "i"),
         new RegExp(`([א-ת\\s]+)\\s*\\d+[,\\s]*${city}`, "i"),
-        /רחוב\s+([א-ת\s]+)\s*\d*/i,
-        /ב?רחוב\s+([א-ת\s]+)/i,
+        /רחוב\s+([א-ת\\s]+)\s*\d*/i,
+        /ב?רחוב\s+([א-ת\\s]+)/i,
       ]
 
       for (const pattern of streetPatterns) {
@@ -164,10 +165,11 @@ function createFallbackPlan(prompt: string) {
         priority: 2,
         reasoning: "🏠 מחפש מקלטים קרובים - נדרש מיקום מדויק",
         parameters: {
-          location: "נדרש מיקום",
+          location: null,
           radius: 2000,
           maxResults: 10,
         },
+        missingFields: ["location"],
       })
     }
   }
@@ -183,7 +185,8 @@ function createFallbackPlan(prompt: string) {
     console.log("🔄 Detected equipment request")
 
     // Enhanced family/medical profile detection
-    let familyProfile = "משפחה כללית"
+    let familyProfile = null
+    const missingFields = []
 
     // Medical conditions
     if (promptLower.includes("סכרת")) {
@@ -203,6 +206,9 @@ function createFallbackPlan(prompt: string) {
       familyProfile = "משפחה עם תינוק"
     } else if (promptLower.includes("קשיש")) {
       familyProfile = "משפחה עם קשישים"
+    } else {
+      familyProfile = null
+      missingFields.push("familyProfile")
     }
 
     console.log("🔄 Family profile:", familyProfile)
@@ -210,12 +216,15 @@ function createFallbackPlan(prompt: string) {
     tools.push({
       id: "recommend_equipment",
       name: "המלצות ציוד חירום",
-      priority: familyProfile.includes("סכרת") || familyProfile.includes("רפואי") ? 1 : 3,
-      reasoning: `🎒 ממליץ על ציוד חירום מותאם ל${familyProfile}`,
+      priority: familyProfile?.includes("סכרת") || familyProfile?.includes("רפואי") ? 1 : 3,
+      reasoning: familyProfile
+        ? `🎒 ממליץ על ציוד חירום מותאם ל${familyProfile}`
+        : "🎒 ממליץ על ציוד חירום - נדרש מידע על המשפחה",
       parameters: {
         familyProfile: familyProfile,
         duration: 72,
       },
+      missingFields: missingFields.length > 0 ? missingFields : undefined,
     })
   }
 
@@ -237,14 +246,29 @@ function createFallbackPlan(prompt: string) {
   const extractedLocation = extractLocationFromPrompt(prompt)
   const locationInfo = extractedLocation !== "מיקום לא זוהה" ? ` באזור ${extractedLocation}` : ""
 
+  // Check if any tool has missing fields
+  const needsClarification =
+    tools.some((tool) => tool.missingFields && tool.missingFields.length > 0) ||
+    (extractedLocation === "מיקום לא זוהה" && tools.some((t) => t.id === "find_shelters"))
+
+  // Generate clarification questions
+  const clarificationQuestions = []
+
+  // Add location question if needed
+  if (extractedLocation === "מיקום לא זוהה" && tools.some((t) => t.id === "find_shelters")) {
+    clarificationQuestions.push("איפה אתה נמצא כרגע? (כתובת מדויקת או עיר)")
+  }
+
+  // Add family profile question if needed
+  if (tools.some((t) => t.id === "recommend_equipment" && t.missingFields?.includes("familyProfile"))) {
+    clarificationQuestions.push("האם יש לך צרכים מיוחדים או מצב רפואי שצריך להתחשב בו?")
+  }
+
   const plan = {
     analysis: `זוהה מצב חירום${locationInfo}. מתכנן ${tools.length} פעולות לטיפול מיידי במצב.`,
     tools,
-    needsClarification: extractedLocation === "מיקום לא זוהה" && tools.some((t) => t.id === "find_shelters"),
-    clarificationQuestions:
-      extractedLocation === "מיקום לא זוהה" && tools.some((t) => t.id === "find_shelters")
-        ? ["איפה אתה נמצא כרגע? (כתובת מדויקת או עיר)"]
-        : [],
+    needsClarification,
+    clarificationQuestions,
   }
 
   console.log("🔄 Fallback plan created:", JSON.stringify(plan, null, 2))
@@ -301,16 +325,55 @@ export async function POST(request: NextRequest) {
 3. **recommend_equipment** - ממליץ על ציוד חירום
    פרמטרים: { "familyProfile": "תיאור המשפחה", "duration": 72 }
 
+הוראות חשובות:
+1. חלץ פרמטרים מדויקים מהטקסט - אל תשתמש בערכי ברירת מחדל אלא אם חסר מידע לחלוטין
+2. אם חסר מידע קריטי (כמו מיקום), סמן את השדה כ-null והוסף את שם השדה ל-missingFields
+3. הוסף שאלות הבהרה ספציפיות לכל מידע חסר
+
 דוגמאות:
 - "אני חולה סכרת ללא מקלט בבניין. מה הציוד שאני צריך לקחת למקלט, ואיפה המקלט הקרוב אליי?"
   → tools: [
-    { id: "recommend_equipment", parameters: { familyProfile: "אדם עם סכרת", duration: 72 }, priority: 1 },
-    { id: "find_shelters", parameters: { location: "נדרש מיקום", radius: 2000, maxResults: 10 }, priority: 2 }
+    { 
+      id: "recommend_equipment", 
+      parameters: { familyProfile: "אדם עם סכרת", duration: 72 }, 
+      priority: 1,
+      reasoning: "🎒 ממליץ על ציוד חירום מותאם לאדם עם סכרת"
+    },
+    { 
+      id: "find_shelters", 
+      parameters: { location: null, radius: 2000, maxResults: 10 }, 
+      priority: 2,
+      reasoning: "🏠 מחפש מקלטים קרובים - נדרש מיקום מדויק",
+      missingFields: ["location"]
+    }
   ]
   → needsClarification: true
   → clarificationQuestions: ["איפה אתה נמצא כרגע?"]
 
-חשוב: זהה צרכים מיוחדים כמו מחלות, גיל, וכו'. תן עדיפות גבוהה לציוד רפואי.
+- "יש לי תינוק בן שנה, אני גרה ברחוב ההגנה 5 חולון. הייתה אזעקה עכשיו"
+  → tools: [
+    { 
+      id: "rag_chat", 
+      parameters: { query: "מה לעשות באזעקה עם תינוק" }, 
+      priority: 1,
+      reasoning: "🚨 מזהה מצב חירום עם תינוק - צריך הוראות מיידיות"
+    },
+    { 
+      id: "find_shelters", 
+      parameters: { location: "רחוב ההגנה 5, חולון", radius: 2000, maxResults: 10 }, 
+      priority: 2,
+      reasoning: "🏠 מחפש מקלטים קרובים ברחוב ההגנה 5, חולון"
+    },
+    { 
+      id: "recommend_equipment", 
+      parameters: { familyProfile: "משפחה עם תינוק בן שנה", duration: 72 }, 
+      priority: 3,
+      reasoning: "🎒 ממליץ על ציוד חירום מותאם למשפחה עם תינוק"
+    }
+  ]
+  → needsClarification: false
+
+חשוב: זהה צרכים מיוחדים כמו מחלות, גיל, וכו'. תן עדיפות גבוהה לציוד רפואי. חלץ מידע מדויק מהטקסט.
 `,
       })
 
