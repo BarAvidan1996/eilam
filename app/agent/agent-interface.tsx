@@ -111,6 +111,8 @@ const extractAddressFromPrompt = (prompt: string): string | null => {
     /רחוב\s+([א-ת\s]+\d+[א-ת\s]*)/g, // "רחוב" + street name + number
     /שדרות\s+([א-ת\s]+\d+[א-ת\s]*)/g, // "שדרות" + street name + number
     /([א-ת\s]+\d+[א-ת\s]*,?\s*[א-ת\s]+)/g, // street name + number + city
+    /([א-ת]+\s+\d+)/g, // street name + number
+    /עיר\s+([א-ת\s]+)/g, // "עיר" + city
   ]
 
   for (const pattern of addressPatterns) {
@@ -137,6 +139,8 @@ export default function AgentInterface() {
   const [collapsedTools, setCollapsedTools] = useState<Set<number>>(new Set())
   const [progress, setProgress] = useState(0)
   const { theme } = useTheme()
+  const [isExecutionStopped, setIsExecutionStopped] = useState(false)
+  const [extractedLocation, setExtractedLocation] = useState<string | null>(null)
 
   // Calculate progress
   useEffect(() => {
@@ -304,13 +308,31 @@ export default function AgentInterface() {
   const approveTool = (index: number) => {
     const execution = executions[index]
 
-    if (
-      execution.tool.id === "find_shelters" &&
-      (!execution.tool.parameters.lat || !execution.tool.parameters.lng) &&
-      (!execution.editedParameters?.lat || !execution.editedParameters?.lng)
-    ) {
-      requestLocation(index)
-      return
+    if (execution.tool.id === "find_shelters") {
+      if (!extractedLocation) {
+        // Show error message that location is required
+        return
+      }
+
+      // Use extracted location if no coordinates provided
+      if (!execution.tool.parameters.lat || !execution.tool.parameters.lng) {
+        const updatedParameters = {
+          ...execution.tool.parameters,
+          location: extractedLocation,
+        }
+        setExecutions((prev) =>
+          prev.map((exec, i) =>
+            i === index
+              ? {
+                  ...exec,
+                  status: "approved" as ExecutionStatus,
+                  editedParameters: updatedParameters,
+                }
+              : exec,
+          ),
+        )
+        return
+      }
     }
 
     setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, status: "approved" } : exec)))
@@ -631,6 +653,15 @@ export default function AgentInterface() {
     return required.includes(paramName)
   }
 
+  useEffect(() => {
+    if (prompt.trim()) {
+      const extracted = extractAddressFromPrompt(prompt)
+      setExtractedLocation(extracted)
+    } else {
+      setExtractedLocation(null)
+    }
+  }, [prompt])
+
   return (
     <TooltipProvider>
       <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -784,6 +815,10 @@ export default function AgentInterface() {
                 isCollapsed={collapsedTools.has(index)}
                 toggleCollapse={() => toggleCollapse(index)}
                 isRequired={isRequired}
+                extractedLocation={extractedLocation}
+                setIsExecutionStopped={setIsExecutionStopped}
+                setExecutions={setExecutions}
+                setCurrentExecutionIndex={setCurrentExecutionIndex}
               />
             ))}
           </div>
@@ -812,6 +847,10 @@ interface ToolExecutionCardProps {
   isCollapsed: boolean
   toggleCollapse: () => void
   isRequired: (toolId: string, paramName: string) => boolean
+  extractedLocation: string | null
+  setIsExecutionStopped: (isStopped: boolean) => void
+  setExecutions: (executions: ToolExecution[]) => void
+  setCurrentExecutionIndex: (index: number) => void
 }
 
 function ToolExecutionCard({
@@ -832,6 +871,10 @@ function ToolExecutionCard({
   isCollapsed,
   toggleCollapse,
   isRequired,
+  extractedLocation,
+  setIsExecutionStopped,
+  setExecutions,
+  setCurrentExecutionIndex,
 }: ToolExecutionCardProps) {
   const [editedParams, setEditedParams] = useState(execution.tool.parameters)
 
@@ -912,6 +955,16 @@ function ToolExecutionCard({
                   variant="outline"
                   onClick={(e) => {
                     e.stopPropagation()
+                    onSkip()
+                  }}
+                >
+                  דלג
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation()
                     onEdit()
                   }}
                 >
@@ -925,19 +978,62 @@ function ToolExecutionCard({
                     onApprove()
                   }}
                   className="bg-primary hover:bg-primary/90"
+                  disabled={execution.tool.id === "find_shelters" && !extractedLocation}
                 >
                   <CheckCircle className="h-3 w-3 mr-1" />
                   אשר
                 </Button>
+              </>
+            )}
+            {execution.status === "executing" && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsExecutionStopped(true)
+                  setExecutions((prev) =>
+                    prev.map((exec, i) =>
+                      i === index
+                        ? { ...exec, status: "failed", result: { success: false, error: "הופסק על ידי המשתמש" } }
+                        : exec,
+                    ),
+                  )
+                  setCurrentExecutionIndex(-1)
+                }}
+              >
+                <XCircle className="h-3 w-3 mr-1" />
+                עצור
+              </Button>
+            )}
+            {(execution.status === "completed" || execution.status === "failed") && (
+              <>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onSkip()
+                    onEdit()
                   }}
                 >
-                  דלג
+                  <Edit3 className="h-3 w-3 mr-1" />
+                  ערוך
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    retryTool(index)
+                  }}
+                  disabled={retryingTool === `${index}`}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {retryingTool === `${index}` ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : (
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                  )}
+                  הרץ מחדש
                 </Button>
               </>
             )}
