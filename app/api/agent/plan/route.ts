@@ -244,10 +244,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 })
     }
 
+    // Check if we have OpenAI API key
+    const openaiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY
+    console.log("🤖 OpenAI API Key available:", !!openaiKey)
+    if (openaiKey) {
+      console.log("🤖 OpenAI API Key length:", openaiKey.length)
+      console.log("🤖 OpenAI API Key prefix:", openaiKey.substring(0, 10) + "...")
+    }
+
     try {
-      console.log("🤖 Attempting AI generation...")
+      console.log("🤖 === ATTEMPTING AI GENERATION ===")
+      console.log("🤖 Model: gpt-4o")
+      console.log("🤖 Mode: auto")
+      console.log("🤖 Temperature: 0.1")
 
       // Try AI generation first with enhanced prompt
+      const startTime = Date.now()
+
       const { object: plan } = await generateObject({
         model: openai("gpt-4o"),
         schema: PlanSchema,
@@ -269,27 +282,30 @@ export async function POST(request: NextRequest) {
 3. **recommend_equipment** - ממליץ על ציוד חירום
    פרמטרים: { "familyProfile": "תיאור המשפחה", "duration": 72 }
 
-הוראות חשובות לזיהוי מיקום:
-- חפש שמות ערים ישראליות: תל אביב, ירושלים, חיפה, באר שבע, ראשון לציון, פתח תקווה, אשדוד, נתניה, וכו'
-- חפש כתובות: "רחוב X", "X מספר Y", "בX"
-- אם יש כתובת מדויקת, השתמש בה במלואה
-- אל תשתמש בברירת מחדל "תל אביב" אם המיקום לא ברור
-
 דוגמאות:
-- "אזעקה בראשון לציון ברחוב הרצל 5" → location: "רחוב הרצל 5, ראשון לציון"
-- "מקלטים בחיפה" → location: "חיפה"
-- "איפה מקלטים?" → needsClarification: true
+- "אני חולה סכרת ללא מקלט בבניין. מה הציוד שאני צריך לקחת למקלט, ואיפה המקלט הקרוב אליי?"
+  → tools: [
+    { id: "recommend_equipment", parameters: { familyProfile: "אדם עם סכרת", duration: 72 } },
+    { id: "find_shelters", parameters: { location: "נדרש מיקום", radius: 2000, maxResults: 10 } }
+  ]
+  → needsClarification: true
+  → clarificationQuestions: ["איפה אתה נמצא כרגע?"]
 
-חשוב: זהה מיקומים בדיוק ואל תניח הנחות!
+חשוב: זהה צרכים מיוחדים כמו מחלות, גיל, וכו'.
 `,
       })
 
-      console.log("✅ AI generation successful")
-      console.log("🔍 AI plan:", JSON.stringify(plan, null, 2))
+      const endTime = Date.now()
+      console.log(`✅ AI generation successful in ${endTime - startTime}ms`)
+      console.log("🔍 AI plan raw:", JSON.stringify(plan, null, 2))
 
       // Validate tool IDs
       const validToolIds = ["rag_chat", "find_shelters", "recommend_equipment"]
-      const validatedTools = plan.tools.filter((tool) => validToolIds.includes(tool.id))
+      const validatedTools = plan.tools.filter((tool) => {
+        const isValid = validToolIds.includes(tool.id)
+        console.log(`🔍 Tool validation: ${tool.id} - ${isValid ? "VALID" : "INVALID"}`)
+        return isValid
+      })
 
       if (validatedTools.length !== plan.tools.length) {
         console.warn(
@@ -327,8 +343,33 @@ export async function POST(request: NextRequest) {
         ],
       })
     } catch (aiError) {
-      console.warn("⚠️ AI generation failed:", aiError)
-      console.log("🔄 Using enhanced fallback...")
+      console.error("❌ === AI GENERATION FAILED ===")
+      console.error("❌ Error type:", aiError?.constructor?.name)
+      console.error("❌ Error message:", aiError?.message)
+      console.error("❌ Error details:", aiError)
+
+      if (aiError?.cause) {
+        console.error("❌ Error cause:", aiError.cause)
+      }
+
+      if (aiError?.stack) {
+        console.error("❌ Error stack:", aiError.stack)
+      }
+
+      // Check specific error types
+      if (aiError?.message?.includes("API key")) {
+        console.error("❌ API KEY ISSUE DETECTED")
+      }
+
+      if (aiError?.message?.includes("quota")) {
+        console.error("❌ QUOTA ISSUE DETECTED")
+      }
+
+      if (aiError?.message?.includes("network")) {
+        console.error("❌ NETWORK ISSUE DETECTED")
+      }
+
+      console.log("🔄 === FALLING BACK TO MANUAL PLAN ===")
 
       // Use enhanced fallback plan
       const fallbackPlan = createFallbackPlan(prompt)
@@ -336,6 +377,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         ...fallbackPlan,
         source: "fallback",
+        error: aiError?.message || "AI generation failed",
         availableTools: [
           {
             id: "rag_chat",
@@ -356,7 +398,7 @@ export async function POST(request: NextRequest) {
       })
     }
   } catch (error) {
-    console.error("❌ === PLAN API ERROR ===")
+    console.error("❌ === PLAN API CRITICAL ERROR ===")
     console.error("❌ Error:", error)
     console.error("❌ Stack:", error instanceof Error ? error.stack : "No stack")
 
