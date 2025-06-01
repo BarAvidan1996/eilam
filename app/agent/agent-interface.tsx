@@ -103,25 +103,44 @@ const requiredParameters: Record<string, string[]> = {
   recommend_equipment: ["familyProfile"],
 }
 
-// Function to extract address from prompt
+// Function to extract address from prompt - IMPROVED
 const extractAddressFromPrompt = (prompt: string): string | null => {
-  // Look for address patterns in Hebrew
+  console.log("🔍 Extracting address from:", prompt)
+
+  // Look for specific address patterns in Hebrew
   const addressPatterns = [
-    /ב([א-ת\s]+\d+[א-ת\s]*)/g, // "ב" + street name + number
-    /רחוב\s+([א-ת\s]+\d+[א-ת\s]*)/g, // "רחוב" + street name + number
-    /שדרות\s+([א-ת\s]+\d+[א-ת\s]*)/g, // "שדרות" + street name + number
-    /([א-ת\s]+\d+[א-ת\s]*,?\s*[א-ת\s]+)/g, // street name + number + city
-    /([א-ת]+\s+\d+)/g, // street name + number
-    /עיר\s+([א-ת\s]+)/g, // "עיר" + city
+    // Full address with street name + number + city
+    /(?:ב|רחוב|שדרות)?\s*([א-ת\s]+)\s+(\d+)[א-ת]?\s*,?\s*([א-ת\s]+)/g,
+    // Street name + number + city without prefix
+    /([א-ת]+(?:\s+[א-ת]+)*)\s+(\d+)[א-ת]?\s*,?\s*(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
+    // City names alone
+    /(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
   ]
 
   for (const pattern of addressPatterns) {
-    const matches = prompt.match(pattern)
-    if (matches && matches.length > 0) {
-      return matches[0].replace(/^ב/, "").trim() // Remove leading "ב"
+    const matches = [...prompt.matchAll(pattern)]
+    if (matches.length > 0) {
+      const match = matches[0]
+      console.log("🔍 Found match:", match)
+
+      if (match.length >= 4) {
+        // Full address: street + number + city
+        const street = match[1].trim()
+        const number = match[2]
+        const city = match[3].trim()
+        const fullAddress = `${street} ${number}, ${city}`
+        console.log("🔍 Full address:", fullAddress)
+        return fullAddress
+      } else if (match.length >= 2) {
+        // City only or partial address
+        const address = match[1] || match[0]
+        console.log("🔍 Partial address:", address.trim())
+        return address.trim()
+      }
     }
   }
 
+  console.log("🔍 No address found")
   return null
 }
 
@@ -367,6 +386,8 @@ export default function AgentInterface() {
         body: JSON.stringify({
           toolId: execution.tool.id,
           parameters,
+          sessionId: "current-session", // TODO: Get from context
+          planContext: plan,
         }),
       })
 
@@ -417,6 +438,8 @@ export default function AgentInterface() {
         body: JSON.stringify({
           toolId: execution.tool.id,
           parameters,
+          sessionId: "current-session", // TODO: Get from context
+          planContext: plan,
         }),
       })
 
