@@ -19,20 +19,79 @@ const PlanSchema = z.object({
   clarificationQuestions: z.array(z.string()).describe("שאלות הבהרה אם נדרש"),
 })
 
-// Parameters validation schemas for each tool
-const ToolParametersSchemas = {
-  rag_chat: z.object({
-    query: z.string().describe("השאלה או הנושא לחיפוש"),
-  }),
-  find_shelters: z.object({
-    location: z.string().describe("מיקום לחיפוש"),
-    radius: z.number().optional().default(2000).describe("רדיוס חיפוש במטרים"),
-    maxResults: z.number().optional().default(10).describe("מספר תוצאות מקסימלי"),
-  }),
-  recommend_equipment: z.object({
-    familyProfile: z.string().describe("תיאור המשפחה"),
-    duration: z.number().optional().default(72).describe("משך זמן בשעות"),
-  }),
+// Enhanced location extraction function
+function extractLocationFromPrompt(prompt: string): string {
+  const promptLower = prompt.toLowerCase()
+
+  // Israeli cities - comprehensive list
+  const cities = [
+    "תל אביב",
+    "ירושלים",
+    "חיפה",
+    "באר שבע",
+    "ראשון לציון",
+    "פתח תקווה",
+    "אשדוד",
+    "נתניה",
+    "בני ברק",
+    "חולון",
+    "רמת גן",
+    "בת ים",
+    "אשקלון",
+    "הרצליה",
+    "כפר סבא",
+    "רעננה",
+    "הוד השרון",
+    "רמלה",
+    "לוד",
+    "מודיעין",
+    "קריית גת",
+    "קריית מלאכי",
+    "יבנה",
+    "גדרה",
+    "נס ציונה",
+    "רחובות",
+  ]
+
+  // Try to find city names
+  for (const city of cities) {
+    if (promptLower.includes(city)) {
+      // Try to extract street address in the same city
+      const streetPatterns = [
+        new RegExp(`רחוב\\s+([א-ת\\s]+)\\s*\\d*[,\\s]*${city}`, "i"),
+        new RegExp(`([א-ת\\s]+)\\s*\\d+[,\\s]*${city}`, "i"),
+        /רחוב\s+([א-ת\s]+)\s*\d*/i,
+        /ב?רחוב\s+([א-ת\s]+)/i,
+      ]
+
+      for (const pattern of streetPatterns) {
+        const match = pattern.exec(prompt)
+        if (match && match[1]) {
+          const street = match[1].trim()
+          // Extract house number if exists
+          const numberMatch = prompt.match(new RegExp(`${street}\\s*(\\d+)`, "i"))
+          const houseNumber = numberMatch ? ` ${numberMatch[1]}` : ""
+          return `רחוב ${street}${houseNumber}, ${city}`
+        }
+      }
+
+      return city
+    }
+  }
+
+  // Try to extract street without city
+  const streetPatterns = [/רחוב\s+([א-ת\\s]+)\s*(\d+)/i, /ב?רחוב\s+([א-ת\\s]+)/i, /([א-ת\\s]+)\s+(\d+)/i]
+
+  for (const pattern of streetPatterns) {
+    const match = pattern.exec(prompt)
+    if (match && match[1]) {
+      const street = match[1].trim()
+      const number = match[2] || ""
+      return `רחוב ${street} ${number}`.trim()
+    }
+  }
+
+  return "מיקום לא זוהה" // Don't default to Tel Aviv
 }
 
 // Fallback function to create plan manually
@@ -55,34 +114,39 @@ function createFallbackPlan(prompt: string) {
       priority: 1,
       reasoning: "🚨 מזהה מצב חירום - צריך הוראות מיידיות מפיקוד העורף",
       parameters: {
-        query: "מה לעשות באזעקה עם ילדים - הוראות מיידיות",
+        query: "מה לעשות באזעקה - הוראות מיידיות",
       },
     })
 
     // Extract location for shelter search
-    let location = "תל אביב" // default
-    if (promptLower.includes("תל אביב")) location = "תל אביב"
-    if (promptLower.includes("ירושלים")) location = "ירושלים"
-    if (promptLower.includes("חיפה")) location = "חיפה"
-    if (promptLower.includes("באר שבע")) location = "באר שבע"
+    const extractedLocation = extractLocationFromPrompt(prompt)
 
-    // Try to extract more specific location
-    const streetMatch = prompt.match(/רחוב\s+([א-ת\s]+)/i)
-    if (streetMatch) {
-      location = `${streetMatch[1].trim()}, ${location}`
+    if (extractedLocation !== "מיקום לא זוהה") {
+      tools.push({
+        id: "find_shelters",
+        name: "חיפוש מקלטים קרובים",
+        priority: 2,
+        reasoning: `🏠 מחפש מקלטים קרובים ב${extractedLocation}`,
+        parameters: {
+          location: extractedLocation,
+          radius: 2000,
+          maxResults: 10,
+        },
+      })
+    } else {
+      // Add shelter search but mark as needing location
+      tools.push({
+        id: "find_shelters",
+        name: "חיפוש מקלטים קרובים",
+        priority: 2,
+        reasoning: "🏠 מחפש מקלטים קרובים - נדרש מיקום מדויק",
+        parameters: {
+          location: "נדרש מיקום",
+          radius: 2000,
+          maxResults: 10,
+        },
+      })
     }
-
-    tools.push({
-      id: "find_shelters",
-      name: "חיפוש מקלטים קרובים",
-      priority: 2,
-      reasoning: `🏠 מחפש מקלטים קרובים באזור ${location} ברדיוס 2 ק"מ`,
-      parameters: {
-        location: location,
-        radius: 2000,
-        maxResults: 10,
-      },
-    })
   }
 
   // Check for equipment requests
@@ -124,11 +188,17 @@ function createFallbackPlan(prompt: string) {
     })
   }
 
+  const extractedLocation = extractLocationFromPrompt(prompt)
+  const locationInfo = extractedLocation !== "מיקום לא זוהה" ? ` באזור ${extractedLocation}` : ""
+
   return {
-    analysis: `זוהה מצב שדורש תגובה מיידית. מתכנן ${tools.length} פעולות לטיפול במצב.`,
+    analysis: `זוהה מצב חירום${locationInfo}. מתכנן ${tools.length} פעולות לטיפול מיידי במצב.`,
     tools,
-    needsClarification: false,
-    clarificationQuestions: [],
+    needsClarification: extractedLocation === "מיקום לא זוהה" && tools.some((t) => t.id === "find_shelters"),
+    clarificationQuestions:
+      extractedLocation === "מיקום לא זוהה" && tools.some((t) => t.id === "find_shelters")
+        ? ["איפה אתה נמצא כרגע? (כתובת מדויקת או עיר)"]
+        : [],
   }
 }
 
@@ -147,7 +217,7 @@ export async function POST(request: NextRequest) {
       const { object: plan } = await generateObject({
         model: openai("gpt-4o"),
         schema: PlanSchema,
-        mode: "auto", // Enhanced mode for better schema matching
+        mode: "auto",
         temperature: 0.1,
         prompt: `
 אתה סוכן AI מומחה לחירום ובטיחות בישראל. המשתמש פנה אליך עם הבקשה הבאה:
@@ -160,25 +230,23 @@ export async function POST(request: NextRequest) {
    פרמטרים: { "query": "השאלה או הנושא לחיפוש" }
 
 2. **find_shelters** - מחפש מקלטים לפי מיקום
-   פרמטרים: { "location": "שם המקום", "radius": 2000, "maxResults": 10 }
+   פרמטרים: { "location": "כתובת מדויקת או עיר", "radius": 2000, "maxResults": 10 }
 
 3. **recommend_equipment** - ממליץ על ציוד חירום
    פרמטרים: { "familyProfile": "תיאור המשפחה", "duration": 72 }
 
-כללים חשובים:
-- תן עדיפות גבוהה (1-3) לפעולות מיידיות ודחופות
-- עדיפות בינונית (4-6) לפעולות חשובות אך לא דחופות  
-- עדיפות נמוכה (7-10) לפעולות משלימות
-- השתמש רק ב-id הבאים: "rag_chat", "find_shelters", "recommend_equipment"
-- אם המיקום לא ברור, השתמש ב"תל אביב" כברירת מחדל
-- אם פרטי המשפחה לא ברורים, השתמש ב"משפחה כללית"
+הוראות חשובות לזיהוי מיקום:
+- חפש שמות ערים ישראליות: תל אביב, ירושלים, חיפה, באר שבע, ראשון לציון, פתח תקווה, אשדוד, נתניה, וכו'
+- חפש כתובות: "רחוב X", "X מספר Y", "בX"
+- אם יש כתובת מדויקת, השתמש בה במלואה
+- אל תשתמש בברירת מחדל "תל אביב" אם המיקום לא ברור
 
-דוגמאות לתרחישים:
-- אזעקה בתל אביב → rag_chat (הוראות) + find_shelters (מקלטים)
-- בקשת ציוד → recommend_equipment
-- שאלה כללית → rag_chat
+דוגמאות:
+- "אזעקה בראשון לציון ברחוב הרצל 5" → location: "רחוב הרצל 5, ראשון לציון"
+- "מקלטים בחיפה" → location: "חיפה"
+- "איפה מקלטים?" → needsClarification: true
 
-חשוב: תן תשובה מדויקת בעברית עם פרמטרים ספציפיים. וודא שכל השדות הנדרשים קיימים.
+חשוב: זהה מיקומים בדיוק ואל תניח הנחות!
 `,
       })
 
@@ -224,12 +292,12 @@ export async function POST(request: NextRequest) {
         ],
       })
     } catch (aiError) {
-      console.warn("⚠️ AI generation failed, using fallback:", aiError)
+      console.warn("⚠️ AI generation failed, using enhanced fallback:", aiError)
 
-      // Use fallback plan
+      // Use enhanced fallback plan
       const fallbackPlan = createFallbackPlan(prompt)
 
-      console.log("🔄 תוכנית fallback נוצרה:", fallbackPlan)
+      console.log("🔄 תוכנית fallback משופרת נוצרה:", fallbackPlan)
 
       return NextResponse.json({
         ...fallbackPlan,

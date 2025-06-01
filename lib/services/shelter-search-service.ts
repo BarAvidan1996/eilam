@@ -31,6 +31,46 @@ export class ShelterSearchService {
     }
   }
 
+  // Geocode address to coordinates
+  async geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+    if (!this.apiKey) {
+      console.log("⚠️ אין מפתח API - לא ניתן לבצע geocoding")
+      return null
+    }
+
+    try {
+      const url = new URL("https://maps.googleapis.com/maps/api/geocode/json")
+      url.searchParams.set("address", address)
+      url.searchParams.set("key", this.apiKey)
+      url.searchParams.set("region", "il") // Bias to Israel
+      url.searchParams.set("language", "he") // Hebrew language
+
+      console.log(`🌍 Geocoding: ${address}`)
+
+      const response = await fetch(url.toString())
+      const data = await response.json()
+
+      if (data.status === "OK" && data.results.length > 0) {
+        const result = data.results[0]
+        const location = result.geometry.location
+
+        console.log(`✅ Geocoded to: ${location.lat}, ${location.lng}`)
+        console.log(`📍 Formatted address: ${result.formatted_address}`)
+
+        return {
+          lat: location.lat,
+          lng: location.lng,
+        }
+      } else {
+        console.warn(`❌ Geocoding failed: ${data.status}`)
+        return null
+      }
+    } catch (error) {
+      console.error("❌ Geocoding error:", error)
+      return null
+    }
+  }
+
   // Main search function
   async searchShelters(params: SearchParams): Promise<ShelterResult[]> {
     const { location, radius, maxResults = 10 } = params
@@ -95,6 +135,7 @@ export class ShelterSearchService {
     url.searchParams.set("radius", radius.toString())
     url.searchParams.set("keyword", keyword)
     url.searchParams.set("key", this.apiKey)
+    url.searchParams.set("language", "he") // Hebrew results
 
     const response = await fetch(url.toString())
     const data = await response.json()
@@ -179,46 +220,76 @@ export class ShelterSearchService {
     return "מקלט ציבורי"
   }
 
-  // Mock data for fallback
+  // Enhanced mock data based on actual Israeli cities
   private getMockShelters(location: { lat: number; lng: number }, radius: number): ShelterResult[] {
-    const mockShelters: ShelterResult[] = [
-      {
-        name: "מקלט ציבורי - בית ספר אלון",
-        address: "רחוב אלון 15, תל אביב",
-        location: {
-          lat: location.lat + 0.002,
-          lng: location.lng + 0.001,
+    // Determine city based on coordinates (rough approximation)
+    let cityName = "תל אביב"
+    let mockShelters: ShelterResult[] = []
+
+    // Rishon LeZion area (32.0853, 34.7818)
+    if (location.lat > 32.05 && location.lat < 32.12 && location.lng > 34.75 && location.lng < 34.82) {
+      cityName = "ראשון לציון"
+      mockShelters = [
+        {
+          name: "מקלט ציבורי - מרכז עזריאלי ראשון לציון",
+          address: "דרך בן גוריון 1, ראשון לציון",
+          location: { lat: location.lat + 0.002, lng: location.lng + 0.001 },
+          distance: 0.3,
+          type: "קניון",
+          place_id: "mock_rishon_1",
+          rating: 4.2,
         },
-        distance: 0.3,
-        type: "בית ספר",
-        place_id: "mock_1",
-        rating: 4.2,
-      },
-      {
-        name: "מרחב מוגן - מרכז קהילתי",
-        address: "רחוב דיזנגוף 45, תל אביב",
-        location: {
-          lat: location.lat - 0.001,
-          lng: location.lng + 0.002,
+        {
+          name: "ממ״ד - בית ספר רמז",
+          address: "רחוב רמז 15, ראשון לציון",
+          location: { lat: location.lat - 0.001, lng: location.lng + 0.002 },
+          distance: 0.5,
+          type: "בית ספר",
+          place_id: "mock_rishon_2",
+          rating: 4.0,
         },
-        distance: 0.7,
-        type: "מרכז קהילתי",
-        place_id: "mock_2",
-        rating: 4.0,
-      },
-      {
-        name: "מקלט ציבורי - קניון",
-        address: "רחוב בן יהודה 120, תל אביב",
-        location: {
-          lat: location.lat + 0.003,
-          lng: location.lng - 0.001,
+        {
+          name: "מרחב מוגן - מרכז קהילתי הדר",
+          address: "רחוב הדר 8, ראשון לציון",
+          location: { lat: location.lat + 0.003, lng: location.lng - 0.001 },
+          distance: 0.8,
+          type: "מרכז קהילתי",
+          place_id: "mock_rishon_3",
+          rating: 4.1,
         },
-        distance: 1.2,
-        type: "קניון",
-        place_id: "mock_3",
-        rating: 4.5,
-      },
-    ]
+      ]
+    } else {
+      // Default Tel Aviv shelters
+      mockShelters = [
+        {
+          name: "מקלט ציבורי - דיזנגוף סנטר",
+          address: "דיזנגוף 50, תל אביב",
+          location: { lat: location.lat + 0.002, lng: location.lng + 0.001 },
+          distance: 0.8,
+          type: "מקלט ציבורי",
+          place_id: "mock_ta_1",
+          rating: 4.3,
+        },
+        {
+          name: "ממ״ד - בית ספר ביאליק",
+          address: "ביאליק 25, תל אביב",
+          location: { lat: location.lat - 0.001, lng: location.lng + 0.002 },
+          distance: 1.2,
+          type: "ממ״ד",
+          place_id: "mock_ta_2",
+          rating: 4.0,
+        },
+        {
+          name: "מרחב מוגן - קניון איילון",
+          address: "איילון מול, תל אביב",
+          location: { lat: location.lat + 0.003, lng: location.lng - 0.001 },
+          distance: 1.8,
+          type: "מרחב מוגן",
+          place_id: "mock_ta_3",
+          rating: 4.2,
+        },
+      ]
+    }
 
     // Filter by radius (convert km to meters for comparison)
     return mockShelters.filter((shelter) => shelter.distance * 1000 <= radius)
@@ -237,6 +308,7 @@ export class ShelterSearchService {
       url.searchParams.set("destination", `${destination.lat},${destination.lng}`)
       url.searchParams.set("mode", "walking")
       url.searchParams.set("key", this.apiKey)
+      url.searchParams.set("language", "he")
 
       const response = await fetch(url.toString())
       const data = await response.json()
