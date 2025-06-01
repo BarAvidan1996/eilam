@@ -103,6 +103,26 @@ const requiredParameters: Record<string, string[]> = {
   recommend_equipment: ["familyProfile"],
 }
 
+// Function to extract address from prompt
+const extractAddressFromPrompt = (prompt: string): string | null => {
+  // Look for address patterns in Hebrew
+  const addressPatterns = [
+    /ב([א-ת\s]+\d+[א-ת\s]*)/g, // "ב" + street name + number
+    /רחוב\s+([א-ת\s]+\d+[א-ת\s]*)/g, // "רחוב" + street name + number
+    /שדרות\s+([א-ת\s]+\d+[א-ת\s]*)/g, // "שדרות" + street name + number
+    /([א-ת\s]+\d+[א-ת\s]*,?\s*[א-ת\s]+)/g, // street name + number + city
+  ]
+
+  for (const pattern of addressPatterns) {
+    const matches = prompt.match(pattern)
+    if (matches && matches.length > 0) {
+      return matches[0].replace(/^ב/, "").trim() // Remove leading "ב"
+    }
+  }
+
+  return null
+}
+
 export default function AgentInterface() {
   const [prompt, setPrompt] = useState("")
   const [plan, setPlan] = useState<Plan | null>(null)
@@ -199,6 +219,9 @@ export default function AgentInterface() {
 
       setPlan(planData)
 
+      // Extract address from prompt if available
+      const extractedAddress = extractAddressFromPrompt(prompt)
+
       // Set default values for shelter search
       const initialExecutions: ToolExecution[] = planData.tools.map((tool: Tool) => {
         if (tool.id === "find_shelters") {
@@ -208,18 +231,27 @@ export default function AgentInterface() {
               ...tool.parameters,
               radius: 1000,
               maxResults: 3,
+              // Pre-fill location if extracted from prompt
+              location: extractedAddress || tool.parameters.location || "",
             },
           }
 
-          if (!tool.parameters.lat || !tool.parameters.lng) {
+          // If we have coordinates or extracted address, mark as pending, otherwise wait for location
+          if (tool.parameters.lat && tool.parameters.lng) {
+            return {
+              tool: updatedTool,
+              status: "pending" as ExecutionStatus,
+            }
+          } else if (extractedAddress) {
+            return {
+              tool: updatedTool,
+              status: "pending" as ExecutionStatus,
+            }
+          } else {
             return {
               tool: updatedTool,
               status: "waiting_location" as ExecutionStatus,
             }
-          }
-          return {
-            tool: updatedTool,
-            status: "pending" as ExecutionStatus,
           }
         }
         return {
@@ -459,7 +491,10 @@ export default function AgentInterface() {
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(shelter.address)}`
+                  // Create proper navigation URL with origin and destination
+                  const origin = searchLocation ? `${searchLocation.lat},${searchLocation.lng}` : "current+location"
+                  const destination = `${shelter.location.lat},${shelter.location.lng}`
+                  const url = `https://www.google.com/maps/dir/${origin}/${destination}`
                   window.open(url, "_blank")
                 }}
                 className="ml-2"
@@ -469,9 +504,10 @@ export default function AgentInterface() {
               </Button>
             </div>
             <div className="flex gap-4 text-xs text-muted-foreground">
-              <span>📍 {shelter.distance} ק"מ</span>
+              <span>📍 {shelter.distance.toFixed(1)} ק"מ</span>
               {shelter.duration && <span>🚶 {Math.round(shelter.duration / 60)} דק' הליכה</span>}
               <span>🏷️ {shelter.type}</span>
+              {shelter.rating && <span>⭐ {shelter.rating}</span>}
             </div>
           </div>
         ))}
@@ -482,7 +518,7 @@ export default function AgentInterface() {
             variant="outline"
             className="w-full"
             onClick={() => {
-              const shelterCoords = shelters.map((s) => `${s.location?.lat || 0},${s.location?.lng || 0}`).join("|")
+              const origin = `${searchLocation.lat},${searchLocation.lng}`
               const url = `https://www.google.com/maps/search/מקלט/@${searchLocation.lat},${searchLocation.lng},15z`
               window.open(url, "_blank")
             }}

@@ -139,6 +139,19 @@ export class ShelterSearchService {
       shelters = this.calculateDistances(shelters, location)
       console.log(`🔍 Results after distance calculation: ${shelters.length}`)
 
+      // Calculate walking duration for each shelter
+      for (const shelter of shelters) {
+        try {
+          const duration = await this.getWalkingDuration(location, shelter.location)
+          if (duration) {
+            shelter.duration = duration
+            console.log(`🚶 Walking duration to ${shelter.name}: ${Math.round(duration / 60)} minutes`)
+          }
+        } catch (error) {
+          console.error(`❌ Error calculating walking duration for ${shelter.name}:`, error)
+        }
+      }
+
       // Sort by distance from origin
       shelters.sort((a, b) => a.distance - b.distance)
       console.log("🔍 Results sorted by distance from origin")
@@ -320,6 +333,11 @@ export class ShelterSearchService {
           address: "דרך בן גוריון 1, ראשון לציון",
           location: { lat: origin.lat + 0.002, lng: origin.lng + 0.001 },
           distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.002, origin.lng + 0.001),
+          duration: Math.round(
+            ((this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.002, origin.lng + 0.001) * 1000) /
+              5) *
+              60,
+          ), // ~5 km/h walking speed
           type: "קניון",
           place_id: "mock_rishon_1",
           rating: 4.2,
@@ -329,6 +347,11 @@ export class ShelterSearchService {
           address: "רחוב רמז 15, ראשון לציון",
           location: { lat: origin.lat - 0.001, lng: origin.lng + 0.002 },
           distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat - 0.001, origin.lng + 0.002),
+          duration: Math.round(
+            ((this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat - 0.001, origin.lng + 0.002) * 1000) /
+              5) *
+              60,
+          ),
           type: "בית ספר",
           place_id: "mock_rishon_2",
           rating: 4.0,
@@ -338,6 +361,11 @@ export class ShelterSearchService {
           address: "רחוב הדר 8, ראשון לציון",
           location: { lat: origin.lat + 0.003, lng: origin.lng - 0.001 },
           distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.003, origin.lng - 0.001),
+          duration: Math.round(
+            ((this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.003, origin.lng - 0.001) * 1000) /
+              5) *
+              60,
+          ),
           type: "מרכז קהילתי",
           place_id: "mock_rishon_3",
           rating: 4.1,
@@ -353,6 +381,11 @@ export class ShelterSearchService {
           address: "דיזנגוף 50, תל אביב",
           location: { lat: origin.lat + 0.002, lng: origin.lng + 0.001 },
           distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.002, origin.lng + 0.001),
+          duration: Math.round(
+            ((this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.002, origin.lng + 0.001) * 1000) /
+              5) *
+              60,
+          ),
           type: "מקלט ציבורי",
           place_id: "mock_ta_1",
           rating: 4.3,
@@ -362,6 +395,11 @@ export class ShelterSearchService {
           address: "ביאליק 25, תל אביב",
           location: { lat: origin.lat - 0.001, lng: origin.lng + 0.002 },
           distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat - 0.001, origin.lng + 0.002),
+          duration: Math.round(
+            ((this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat - 0.001, origin.lng + 0.002) * 1000) /
+              5) *
+              60,
+          ),
           type: "ממ״ד",
           place_id: "mock_ta_2",
           rating: 4.0,
@@ -371,6 +409,11 @@ export class ShelterSearchService {
           address: "איילון מול, תל אביב",
           location: { lat: origin.lat + 0.003, lng: origin.lng - 0.001 },
           distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.003, origin.lng - 0.001),
+          duration: Math.round(
+            ((this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.003, origin.lng - 0.001) * 1000) /
+              5) *
+              60,
+          ),
           type: "מרחב מוגן",
           place_id: "mock_ta_3",
           rating: 4.2,
