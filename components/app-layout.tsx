@@ -60,7 +60,7 @@ const translations = {
     newChat: "צ'אט חירום חדש",
     findShelter: "חיפוש מקלט",
     createEquipmentList: "יצירת רשימת ציוד",
-    aiAgent: "סוכן AI (בקרוב)",
+    aiAgent: "סוכן AI",
     language: "שפה",
     languages: {
       he: "עברית",
@@ -84,7 +84,7 @@ const translations = {
     newChat: "New Emergency Chat",
     findShelter: "Find Shelter",
     createEquipmentList: "Create Equipment List",
-    aiAgent: "AI Agent (Coming Soon)",
+    aiAgent: "AI Agent",
     language: "Language",
     languages: {
       he: "עברית",
@@ -108,7 +108,7 @@ const translations = {
     newChat: "محادثة طوارئ جديدة",
     findShelter: "البحث عن ملجأ",
     createEquipmentList: "إنشاء قائمة معدات",
-    aiAgent: "وكيل الذكاء الاصطناعي (قريبا)",
+    aiAgent: "وكيل الذكاء الاصطناعي",
     language: "لغة",
     languages: {
       he: "עברית",
@@ -132,7 +132,7 @@ const translations = {
     newChat: "Новый чат для чрезвычайных ситуаций",
     findShelter: "Найти убежище",
     createEquipmentList: "Создать список оборудования",
-    aiAgent: "ИИ-агент (Скоро)",
+    aiAgent: "ИИ-агент",
     language: "Язык",
     languages: {
       he: "עברית",
@@ -334,9 +334,6 @@ export default function AppLayout({ children }) {
   ]
 
   const newActionItems = [
-    { name: t.newChat, path: "/chat?new=true", icon: MessageSquare }, // הוספת פרמטר new=true
-    { name: t.findShelter, path: "/shelters", icon: MapPin },
-    { name: t.createEquipmentList, path: "/equipment", icon: ListChecks },
     {
       name: t.aiAgent,
       path: "/agent",
@@ -344,6 +341,9 @@ export default function AppLayout({ children }) {
       disabled: false,
       className: "text-purple-500 dark:text-purple-400",
     },
+    { name: t.newChat, path: "/chat?new=true", icon: MessageSquare }, // הוספת פרמטר new=true
+    { name: t.findShelter, path: "/shelters", icon: MapPin },
+    { name: t.createEquipmentList, path: "/equipment", icon: ListChecks },
   ]
 
   const sidebarBgColor = theme === "dark" ? "bg-gray-800" : "bg-white"
@@ -439,12 +439,12 @@ export default function AppLayout({ children }) {
                 disabled={item.disabled}
                 className={cn(
                   "cursor-pointer",
-                  index === 3 ? "dark:text-purple-400" : theme === "dark" ? "text-white" : "text-gray-800",
+                  index === 0 ? "dark:text-purple-400" : theme === "dark" ? "text-white" : "text-gray-800",
                 )}
               >
                 <Link
                   href={!item.disabled ? item.path : "#"}
-                  className={cn("flex items-center gap-2 w-full", index === 3 ? item.className : "")}
+                  className={cn("flex items-center gap-2 w-full", index === 0 ? item.className : "")}
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{item.name}</span>
