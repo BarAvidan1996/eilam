@@ -27,122 +27,6 @@ const PlanSchema = z.object({
   clarificationQuestions: z.array(z.string()),
 })
 
-// Enhanced location extraction function - FIXED FOR "אחד העם 10, תל אביב"
-function extractLocationFromPrompt(prompt: string): string {
-  console.log("📍 === EXTRACTING LOCATION ===")
-  console.log("📍 Input prompt:", prompt)
-
-  const promptLower = prompt.toLowerCase()
-
-  // Israeli cities - comprehensive list
-  const cities = [
-    "תל אביב",
-    "ירושלים",
-    "חיפה",
-    "באר שבע",
-    "ראשון לציון",
-    "פתח תקווה",
-    "אשדוד",
-    "נתניה",
-    "בני ברק",
-    "חולון",
-    "רמת גן",
-    "בת ים",
-    "אשקלון",
-    "הרצליה",
-    "כפר סבא",
-    "רעננה",
-    "הוד השרון",
-    "רמלה",
-    "לוד",
-    "מודיעין",
-    "קריית גת",
-    "קריית מלאכי",
-    "יבנה",
-    "גדרה",
-    "נס ציונה",
-    "רחובות",
-  ]
-
-  // FIXED: Better patterns for "אחד העם 10, תל אביב"
-  const addressPatterns = [
-    // Pattern for "בכתובת אחד העם 10, תל אביב"
-    /(?:בכתובת\s+)?([א-ת]+(?:\s+[א-ת]+)*)\s+(\d+)[א-ת]?\s*,?\s*(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
-    // Pattern for street + number + city
-    /(?:רחוב|שדרות)?\s*([א-ת]+(?:\s+[א-ת]+)*)\s+(\d+)[א-ת]?\s*,?\s*(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
-  ]
-
-  // Try address patterns first
-  for (const pattern of addressPatterns) {
-    const matches = [...prompt.matchAll(pattern)]
-    if (matches.length > 0) {
-      const match = matches[0]
-      console.log("📍 Found address match:", match)
-
-      if (match.length >= 4) {
-        const street = match[1].trim()
-        const number = match[2]
-        const city = match[3].trim()
-        const fullAddress = `${street} ${number}, ${city}`
-        console.log("📍 Full address:", fullAddress)
-        return fullAddress
-      }
-    }
-  }
-
-  // Try to find city names
-  for (const city of cities) {
-    if (promptLower.includes(city)) {
-      console.log(`📍 Found city: ${city}`)
-
-      // Try to extract street address in the same city
-      const streetPatterns = [
-        new RegExp(`רחוב\\s+([א-ת\\s]+)\\s*\\d*[,\\s]*${city}`, "i"),
-        new RegExp(`([א-ת\\s]+)\\s*\\d+[,\\s]*${city}`, "i"),
-        /רחוב\s+([א-ת\\s]+)\s*\d*/i,
-        /ב?רחוב\s+([א-ת\\s]+)/i,
-      ]
-
-      for (const pattern of streetPatterns) {
-        const match = pattern.exec(prompt)
-        if (match && match[1]) {
-          const street = match[1].trim()
-          console.log(`📍 Found street: ${street}`)
-
-          // Extract house number if exists
-          const numberMatch = prompt.match(new RegExp(`${street}\\s*(\\d+)`, "i"))
-          const houseNumber = numberMatch ? ` ${numberMatch[1]}` : ""
-          const fullAddress = `רחוב ${street}${houseNumber}, ${city}`
-
-          console.log(`📍 Full address: ${fullAddress}`)
-          return fullAddress
-        }
-      }
-
-      console.log(`📍 Using city only: ${city}`)
-      return city
-    }
-  }
-
-  // Try to extract street without city
-  const streetPatterns = [/רחוב\s+([א-ת\\s]+)\s*(\d+)/i, /ב?רחוב\s+([א-ת\\s]+)/i, /([א-ת\\s]+)\s+(\d+)/i]
-
-  for (const pattern of streetPatterns) {
-    const match = pattern.exec(prompt)
-    if (match && match[1]) {
-      const street = match[1].trim()
-      const number = match[2] || ""
-      const address = `רחוב ${street} ${number}`.trim()
-
-      console.log(`📍 Found street without city: ${address}`)
-      return address
-    }
-  }
-
-  console.log("📍 No location found")
-  return "מיקום לא זוהה"
-}
-
 // Enhanced fallback function with better medical condition detection
 function createFallbackPlan(prompt: string) {
   console.log("🔄 === CREATING FALLBACK PLAN ===")
@@ -157,13 +41,11 @@ function createFallbackPlan(prompt: string) {
     promptLower.includes("מקלט") ||
     promptLower.includes("מקלטים") ||
     promptLower.includes("איפה") ||
-    promptLower.includes("לאן") ||
-    promptLower.includes("ללא מקלט") ||
-    promptLower.includes("בלי מקלט")
+    promptLower.includes("לאן")
   ) {
     console.log("🔄 Detected emergency/shelter request")
 
-    // Add RAG chat for emergency instructions - ENHANCED QUERY
+    // Add RAG chat for emergency instructions
     let emergencyQuery = "מה לעשות באזעקה - הוראות מיידיות"
     if (promptLower.includes("לילה") || promptLower.includes("באמצע הלילה")) {
       emergencyQuery = "מה לעשות באזעקה באמצע הלילה - הוראות מיידיות לשעות הלילה"
@@ -179,103 +61,52 @@ function createFallbackPlan(prompt: string) {
       },
     })
 
-    // Extract location for shelter search
-    const extractedLocation = extractLocationFromPrompt(prompt)
-    console.log("🔄 Extracted location:", extractedLocation)
-
-    if (extractedLocation !== "מיקום לא זוהה") {
-      tools.push({
-        id: "find_shelters",
-        name: "חיפוש מקלטים קרובים",
-        priority: 2,
-        reasoning: `🏠 מחפש מקלטים קרובים ב${extractedLocation}`,
-        parameters: {
-          location: extractedLocation,
-          radius: 2000,
-          maxResults: 10,
-        },
-      })
-    } else {
-      // Add shelter search but mark as needing location
-      tools.push({
-        id: "find_shelters",
-        name: "חיפוש מקלטים קרובים",
-        priority: 2,
-        reasoning: "🏠 מחפש מקלטים קרובים - נדרש מיקום מדויק",
-        parameters: {
-          location: null,
-          radius: 2000,
-          maxResults: 10,
-        },
-        missingFields: ["location"],
-      })
-    }
+    // Add shelter search - let AI extract location
+    tools.push({
+      id: "find_shelters",
+      name: "חיפוש מקלטים קרובים",
+      priority: 2,
+      reasoning: "🏠 מחפש מקלטים קרובים",
+      parameters: {
+        location: null,
+        radius: 2000,
+        maxResults: 10,
+      },
+      missingFields: ["location"],
+    })
   }
 
   // Check for equipment requests
   if (
     promptLower.includes("ציוד") ||
     promptLower.includes("מה צריך") ||
-    promptLower.includes("רשימה") ||
-    promptLower.includes("הכנה") ||
-    promptLower.includes("לקחת") ||
     promptLower.includes("מוכן") ||
     promptLower.includes("קומה")
   ) {
     console.log("🔄 Detected equipment request")
 
-    // Enhanced family/medical profile detection
     let familyProfile = null
-    const missingFields = []
-
-    // Check for floor information
     if (promptLower.includes("קומה רביעית") || promptLower.includes("קומה 4")) {
       familyProfile = "אדם הגר בקומה רביעית"
+    } else if (promptLower.includes("ילד")) {
+      familyProfile = "משפחה עם ילדים"
     }
-    // Medical conditions
-    else if (promptLower.includes("סכרת")) {
-      familyProfile = "אדם עם סכרת"
-    } else if (promptLower.includes("לחץ דם")) {
-      familyProfile = "אדם עם לחץ דם גבוה"
-    } else if (promptLower.includes("אסתמה")) {
-      familyProfile = "אדם עם אסתמה"
-    } else if (promptLower.includes("חולה")) {
-      familyProfile = "אדם עם מצב רפואי מיוחד"
-    }
-    // Family composition
-    else if (promptLower.includes("ילד")) {
-      const childCount = prompt.match(/(\d+)\s*ילד/i)
-      familyProfile = childCount ? `משפחה עם ${childCount[1]} ילדים` : "משפחה עם ילדים"
-    } else if (promptLower.includes("תינוק")) {
-      familyProfile = "משפחה עם תינוק"
-    } else if (promptLower.includes("קשיש")) {
-      familyProfile = "משפחה עם קשישים"
-    } else {
-      familyProfile = null
-      missingFields.push("familyProfile")
-    }
-
-    console.log("🔄 Family profile:", familyProfile)
 
     tools.push({
       id: "recommend_equipment",
       name: "המלצות ציוד חירום",
-      priority: familyProfile?.includes("סכרת") || familyProfile?.includes("רפואי") ? 1 : 3,
-      reasoning: familyProfile
-        ? `🎒 ממליץ על ציוד חירום מותאם ל${familyProfile}`
-        : "🎒 ממליץ על ציוד חירום - נדרש מידע על המשפחה",
+      priority: 3,
+      reasoning: familyProfile ? `🎒 ממליץ על ציוד חירום מותאם ל${familyProfile}` : "🎒 ממליץ על ציוד חירום",
       parameters: {
         familyProfile: familyProfile,
         duration: 72,
       },
-      missingFields: missingFields.length > 0 ? missingFields : undefined,
+      missingFields: familyProfile ? undefined : ["familyProfile"],
     })
   }
 
   // If no specific tools identified, add general RAG
   if (tools.length === 0) {
-    console.log("🔄 No specific tools identified - adding general RAG")
-
     tools.push({
       id: "rag_chat",
       name: "מידע כללי על חירום",
@@ -287,32 +118,13 @@ function createFallbackPlan(prompt: string) {
     })
   }
 
-  const extractedLocation = extractLocationFromPrompt(prompt)
-  const locationInfo = extractedLocation !== "מיקום לא זוהה" ? ` באזור ${extractedLocation}` : ""
-
-  // Check if any tool has missing fields
-  const needsClarification =
-    tools.some((tool) => tool.missingFields && tool.missingFields.length > 0) ||
-    (extractedLocation === "מיקום לא זוהה" && tools.some((t) => t.id === "find_shelters"))
-
-  // Generate clarification questions
-  const clarificationQuestions = []
-
-  // Add location question if needed
-  if (extractedLocation === "מיקום לא זוהה" && tools.some((t) => t.id === "find_shelters")) {
-    clarificationQuestions.push("איפה אתה נמצא כרגע? (כתובת מדויקת או עיר)")
-  }
-
-  // Add family profile question if needed
-  if (tools.some((t) => t.id === "recommend_equipment" && t.missingFields?.includes("familyProfile"))) {
-    clarificationQuestions.push("האם יש לך צרכים מיוחדים או מצב רפואי שצריך להתחשב בו?")
-  }
-
   const plan = {
-    analysis: `זוהה מצב חירום${locationInfo}. מתכנן ${tools.length} פעולות לטיפול מיידי במצב.`,
+    analysis: `זוהה מצב חירום. מתכנן ${tools.length} פעולות לטיפול מיידי במצב.`,
     tools,
-    needsClarification,
-    clarificationQuestions,
+    needsClarification: tools.some((tool) => tool.missingFields && tool.missingFields.length > 0),
+    clarificationQuestions: tools.some((t) => t.missingFields?.includes("location"))
+      ? ["איפה אתה נמצא כרגע? (כתובת מדויקת או עיר)"]
+      : [],
   }
 
   console.log("🔄 Fallback plan created:", JSON.stringify(plan, null, 2))
@@ -387,46 +199,46 @@ export async function POST(request: NextRequest) {
    פרמטרים: { "query": "השאלה או הנושא לחיפוש" }
 
 2. **find_shelters** - מחפש מקלטים לפי מיקום
-   פרמטרים: { "location": "כתובת מדויקת או עיר" או null אם לא ידוע, "radius": 2000, "maxResults": 10 }
+   פרמטרים: { "location": "כתובת מדויקת או עיר", "radius": 2000, "maxResults": 10 }
 
 3. **recommend_equipment** - ממליץ על ציוד חירום
-   פרמטרים: { "familyProfile": "תיאור המשפחה" או null אם לא ידוע, "duration": 72 }
+   פרמטרים: { "familyProfile": "תיאור המשפחה", "duration": 72 }
+
+**חשוב מאוד:** אם המשתמש מזכיר כתובת (רחוב + מספר + עיר), חלץ אותה במדויק ושים ב-location.
+דוגמאות לכתובות:
+- "אחד העם 10, תל אביב" → location: "אחד העם 10, תל אביב"
+- "רחוב הרצל 25 חיפה" → location: "הרצל 25, חיפה"
+- "דיזנגוף 100 תל אביב" → location: "דיזנגוף 100, תל אביב"
+
+אם יש רק עיר, השתמש בעיר. אם אין מיקום כלל, השתמש ב-null.
 
 דוגמה:
-Input: "אני חולה סכרת ללא מקלט בבניין. מה הציוד שאני צריך לקחת למקלט, ואיפה המקלט הקרוב אליי?"
+Input: "אני נמצא עכשיו בכתובת אחד העם 10, תל אביב. איפה המקלט הקרוב ביותר?"
 
 Output:
 {
-  "analysis": "זוהה מצב חירום עם אדם עם סכרת שזקוק למקלט וציוד מיוחד",
+  "analysis": "זוהה בקשה לחיפוש מקלט קרוב לכתובת אחד העם 10, תל אביב",
   "tools": [
-    {
-      "id": "recommend_equipment",
-      "name": "המלצות ציוד חירום לחולה סכרת",
-      "priority": 1,
-      "reasoning": "🎒 ממליץ על ציוד חירום מותאם לאדם עם סכרת",
-      "parameters": {
-        "familyProfile": "אדם עם סכרת",
-        "duration": 72
-      }
-    },
     {
       "id": "find_shelters",
       "name": "חיפוש מקלטים קרובים",
-      "priority": 2,
-      "reasoning": "🏠 מחפש מקלטים קרובים - נדרש מיקום מדויק",
+      "priority": 1,
+      "reasoning": "🏠 מחפש מקלטים קרובים לכתובת אחד העם 10, תל אביב",
       "parameters": {
-        "location": null,
-        "radius": 2000,
-        "maxResults": 10
-      },
-      "missingFields": ["location"]
+        "location": "אחד העם 10, תל אביב",
+        "radius": 1000,
+        "maxResults": 5
+      }
     }
   ],
-  "needsClarification": true,
-  "clarificationQuestions": ["איפה אתה נמצא כרגע?"]
+  "needsClarification": false,
+  "clarificationQuestions": []
 }
 
-חשוב: זהה צרכים מיוחדים כמו מחלות, גיל, וכו'. אם חסר מידע, השתמש ב-null ו-missingFields.
+זהה גם צרכים מיוחדים:
+- "קומה רביעית" → familyProfile: "אדם הגר בקומה רביעית"
+- "אזעקה בלילה" → query: "מה לעשות באזעקה באמצע הלילה"
+- "עם ילדים" → familyProfile: "משפחה עם ילדים"
 `,
       })
 

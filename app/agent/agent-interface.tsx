@@ -103,45 +103,94 @@ const requiredParameters: Record<string, string[]> = {
   recommend_equipment: ["familyProfile"],
 }
 
-// Function to extract address from prompt - IMPROVED AND FIXED
-const extractAddressFromPrompt = (prompt: string): string | null => {
-  console.log("🔍 Extracting address from:", prompt)
+const createPlan = async () => {
+  if (!prompt.trim()) return
 
-  // Look for specific address patterns in Hebrew - FIXED PATTERNS
-  const addressPatterns = [
-    // Pattern for "אחד העם 10, תל אביב" - exact match for this case
-    /(?:בכתובת\s+)?([א-ת]+(?:\s+[א-ת]+)*)\s+(\d+)[א-ת]?\s*,?\s*(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
-    // Pattern for street + number + city
-    /(?:רחוב|שדרות)?\s*([א-ת]+(?:\s+[א-ת]+)*)\s+(\d+)[א-ת]?\s*,?\s*(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
-    // City names alone
-    /(תל\s*אביב|ירושלים|חיפה|באר\s*שבע|ראשון\s*לציון|פתח\s*תקווה|אשדוד|נתניה)/gi,
-  ]
+  setIsPlanning(true)
+  setPlanningError(null)
+  setPlan(null)
+  setExecutions([])
+  setCollapsedTools(new Set())
+  setProgress(0)
 
-  for (const pattern of addressPatterns) {
-    const matches = [...prompt.matchAll(pattern)]
-    if (matches.length > 0) {
-      const match = matches[0]
-      console.log("🔍 Found match:", match)
+  try {
+    const response = await fetch("/api/agent/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    })
 
-      if (match.length >= 4) {
-        // Full address: street + number + city
-        const street = match[1].trim()
-        const number = match[2]
-        const city = match[3].trim()
-        const fullAddress = `${street} ${number}, ${city}`
-        console.log("🔍 Full address:", fullAddress)
-        return fullAddress
-      } else if (match.length >= 2) {
-        // City only or partial address
-        const address = match[1] || match[0]
-        console.log("🔍 Partial address:", address.trim())
-        return address.trim()
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Server error: ${response.status} - ${errorText}`)
+    }
+
+    const planData = await response.json()
+
+    if (planData.error) {
+      throw new Error(planData.error)
+    }
+
+    if (!planData.tools || !Array.isArray(planData.tools)) {
+      throw new Error("Invalid plan structure received")
+    }
+
+    setPlan(planData)
+
+    // Set default values for shelter search
+    const initialExecutions: ToolExecution[] = planData.tools.map((tool: Tool) => {
+      if (tool.id === "find_shelters") {
+        const updatedTool = {
+          ...tool,
+          parameters: {
+            ...tool.parameters,
+            radius: tool.parameters.radius || 1000,
+            maxResults: tool.parameters.maxResults || 3,
+          },
+        }
+
+        // If we have location from AI, mark as pending, otherwise wait for location
+        if (tool.parameters.location && tool.parameters.location !== null) {
+          return {
+            tool: updatedTool,
+            status: "pending" as ExecutionStatus,
+          }
+        } else {
+          return {
+            tool: updatedTool,
+            status: "waiting_location" as ExecutionStatus,
+          }
+        }
       }
+      return {
+        tool,
+        status: "pending" as ExecutionStatus,
+      }
+    })
+
+    setExecutions(initialExecutions)
+    setCurrentExecutionIndex(-1)
+  } catch (error) {
+    console.error("❌ שגיאה ביצירת תוכנית:", error)
+    setPlanningError(error instanceof Error ? error.message : "שגיאה לא ידועה")
+  } finally {
+    setIsPlanning(false)
+  }
+}
+
+const approveTool = (index: number) => {
+  const execution = executions[index]
+
+  if (execution.tool.id === "find_shelters") {
+    // Check if location is missing
+    if (!execution.tool.parameters.location || execution.tool.parameters.location === null) {
+      // Show location selector instead
+      requestLocation(index)
+      return
     }
   }
 
-  console.log("🔍 No address found")
-  return null
+  setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, status: "approved" } : exec)))
 }
 
 export default function AgentInterface() {
@@ -159,7 +208,6 @@ export default function AgentInterface() {
   const [progress, setProgress] = useState(0)
   const { theme } = useTheme()
   const [isExecutionStopped, setIsExecutionStopped] = useState(false)
-  const [extractedLocation, setExtractedLocation] = useState<string | null>(null)
 
   // Calculate progress
   useEffect(() => {
@@ -208,91 +256,6 @@ export default function AgentInterface() {
     }
   }, [executions, currentExecutionIndex])
 
-  const createPlan = async () => {
-    if (!prompt.trim()) return
-
-    setIsPlanning(true)
-    setPlanningError(null)
-    setPlan(null)
-    setExecutions([])
-    setCollapsedTools(new Set())
-    setProgress(0)
-
-    try {
-      const response = await fetch("/api/agent/plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Server error: ${response.status} - ${errorText}`)
-      }
-
-      const planData = await response.json()
-
-      if (planData.error) {
-        throw new Error(planData.error)
-      }
-
-      if (!planData.tools || !Array.isArray(planData.tools)) {
-        throw new Error("Invalid plan structure received")
-      }
-
-      setPlan(planData)
-
-      // Extract address from prompt if available
-      const extractedAddress = extractAddressFromPrompt(prompt)
-
-      // Set default values for shelter search
-      const initialExecutions: ToolExecution[] = planData.tools.map((tool: Tool) => {
-        if (tool.id === "find_shelters") {
-          const updatedTool = {
-            ...tool,
-            parameters: {
-              ...tool.parameters,
-              radius: 1000,
-              maxResults: 3,
-              // Pre-fill location if extracted from prompt
-              location: extractedAddress || tool.parameters.location || "",
-            },
-          }
-
-          // If we have coordinates or extracted address, mark as pending, otherwise wait for location
-          if (tool.parameters.lat && tool.parameters.lng) {
-            return {
-              tool: updatedTool,
-              status: "pending" as ExecutionStatus,
-            }
-          } else if (extractedAddress) {
-            return {
-              tool: updatedTool,
-              status: "pending" as ExecutionStatus,
-            }
-          } else {
-            return {
-              tool: updatedTool,
-              status: "waiting_location" as ExecutionStatus,
-            }
-          }
-        }
-        return {
-          tool,
-          status: "pending" as ExecutionStatus,
-        }
-      })
-
-      setExecutions(initialExecutions)
-      setCurrentExecutionIndex(-1)
-    } catch (error) {
-      console.error("❌ שגיאה ביצירת תוכנית:", error)
-      setPlanningError(error instanceof Error ? error.message : "שגיאה לא ידועה")
-    } finally {
-      setIsPlanning(false)
-    }
-  }
-
   const handleLocationSelected = (location: LocationData) => {
     if (pendingLocationToolIndex !== null) {
       setExecutions((prev) =>
@@ -322,39 +285,6 @@ export default function AgentInterface() {
   const requestLocation = (toolIndex: number) => {
     setPendingLocationToolIndex(toolIndex)
     setShowLocationSelector(true)
-  }
-
-  const approveTool = (index: number) => {
-    const execution = executions[index]
-
-    if (execution.tool.id === "find_shelters") {
-      if (!extractedLocation) {
-        // Show error message that location is required
-        return
-      }
-
-      // Use extracted location if no coordinates provided
-      if (!execution.tool.parameters.lat || !execution.tool.parameters.lng) {
-        const updatedParameters = {
-          ...execution.tool.parameters,
-          location: extractedLocation,
-        }
-        setExecutions((prev) =>
-          prev.map((exec, i) =>
-            i === index
-              ? {
-                  ...exec,
-                  status: "approved" as ExecutionStatus,
-                  editedParameters: updatedParameters,
-                }
-              : exec,
-          ),
-        )
-        return
-      }
-    }
-
-    setExecutions((prev) => prev.map((exec, i) => (i === index ? { ...exec, status: "approved" } : exec)))
   }
 
   const skipTool = (index: number) => {
@@ -676,15 +606,6 @@ export default function AgentInterface() {
     return required.includes(paramName)
   }
 
-  useEffect(() => {
-    if (prompt.trim()) {
-      const extracted = extractAddressFromPrompt(prompt)
-      setExtractedLocation(extracted)
-    } else {
-      setExtractedLocation(null)
-    }
-  }, [prompt])
-
   return (
     <TooltipProvider>
       <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -838,7 +759,6 @@ export default function AgentInterface() {
                 isCollapsed={collapsedTools.has(index)}
                 toggleCollapse={() => toggleCollapse(index)}
                 isRequired={isRequired}
-                extractedLocation={extractedLocation}
                 setIsExecutionStopped={setIsExecutionStopped}
                 setExecutions={setExecutions}
                 setCurrentExecutionIndex={setCurrentExecutionIndex}
@@ -870,7 +790,6 @@ interface ToolExecutionCardProps {
   isCollapsed: boolean
   toggleCollapse: () => void
   isRequired: (toolId: string, paramName: string) => boolean
-  extractedLocation: string | null
   setIsExecutionStopped: (isStopped: boolean) => void
   setExecutions: (executions: ToolExecution[]) => void
   setCurrentExecutionIndex: (index: number) => void
@@ -894,7 +813,6 @@ function ToolExecutionCard({
   isCollapsed,
   toggleCollapse,
   isRequired,
-  extractedLocation,
   setIsExecutionStopped,
   setExecutions,
   setCurrentExecutionIndex,
@@ -1001,7 +919,6 @@ function ToolExecutionCard({
                     onApprove()
                   }}
                   className="bg-primary hover:bg-primary/90"
-                  disabled={execution.tool.id === "find_shelters" && !extractedLocation}
                 >
                   <CheckCircle className="h-3 w-3 mr-1" />
                   אשר
