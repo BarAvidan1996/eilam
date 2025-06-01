@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { MessageSquare, MapPin, ListChecks, ArrowRight, ArrowLeft } from "lucide-react"
+import { MessageSquare, MapPin, ListChecks, ArrowRight, ArrowLeft, Bot, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -22,6 +22,11 @@ const baseTranslations = {
   en: {
     greeting: "Hello",
     whatToDo: "What would you like to do today?",
+    emergencyAgent: {
+      title: "Emergency Agent",
+      description: "Get instant help with complex emergency situations using AI-powered assistance",
+      cta: "Start",
+    },
     emergencyChat: {
       title: "Emergency Chat",
       description: "Ask questions and receive immediate information about emergency situations",
@@ -42,6 +47,11 @@ const baseTranslations = {
   he: {
     greeting: "שלום",
     whatToDo: "מה תרצה לעשות היום?",
+    emergencyAgent: {
+      title: "סוכן חירום",
+      description: "קבל עזרה מיידית במצבי חירום מורכבים באמצעות בינה מלאכותית מתקדמת",
+      cta: "התחל",
+    },
     emergencyChat: {
       title: "צ'אט חירום",
       description: "שאל שאלות וקבל מידע מיידי על מצבי חירום",
@@ -62,6 +72,11 @@ const baseTranslations = {
   ar: {
     greeting: "مرحبا",
     whatToDo: "ماذا تود أن تفعل اليوم؟",
+    emergencyAgent: {
+      title: "وكيل الطوارئ",
+      description: "احصل على مساعدة فورية في حالات الطوارئ المعقدة باستخدام الذكاء الاصطناعي المتقدم",
+      cta: "ابدأ",
+    },
     emergencyChat: {
       title: "دردشة الطوارئ",
       description: "اطرح أسئلة واحصل على معلومات فورية حول حالات الطوارئ",
@@ -82,6 +97,11 @@ const baseTranslations = {
   ru: {
     greeting: "Здравствуйте",
     whatToDo: "Что бы вы хотели сделать сегодня?",
+    emergencyAgent: {
+      title: "Агент экстренных ситуаций",
+      description: "Получите мгновенную помощь в сложных чрезвычайных ситуациях с помощью передового ИИ",
+      cta: "Начать",
+    },
     emergencyChat: {
       title: "Экстренный чат",
       description: "Задавайте вопросы и получайте немедленную информацию о чрезвычайных ситуациях",
@@ -192,6 +212,14 @@ export default function DashboardPage() {
 
   const features = [
     {
+      title: t.emergencyAgent.title,
+      description: t.emergencyAgent.description,
+      icon: Bot,
+      page: "/agent",
+      cta: t.emergencyAgent.cta,
+      isPrimary: true, // This makes it the CTA card
+    },
+    {
       title: t.emergencyChat.title,
       description: t.emergencyChat.description,
       icon: MessageSquare,
@@ -241,31 +269,68 @@ export default function DashboardPage() {
         <p className="text-lg text-gray-600 dark:text-gray-300 mt-2">{t.whatToDo}</p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 w-full max-w-5xl">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8 w-full max-w-7xl">
         {features.map((feature) => (
           <Card
             key={feature.title}
             className={cn(
-              "bg-white dark:bg-gray-800 shadow-xl hover:shadow-2xl transition-shadow duration-300 rounded-xl overflow-hidden flex flex-col",
+              "shadow-xl hover:shadow-2xl transition-all duration-300 rounded-xl overflow-hidden flex flex-col relative",
               feature.disabled && "opacity-50 cursor-not-allowed",
+              feature.isPrimary
+                ? // Primary CTA card styling
+                  "bg-gradient-to-br from-[#ea5c3e] to-[#ea5c3e]/80 dark:from-[#cc9999] dark:to-[#cc9999]/80 text-white dark:text-black border-2 border-[#ea5c3e]/30 dark:border-[#cc9999]/30 transform hover:scale-105"
+                : // Regular card styling
+                  "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750",
             )}
           >
-            <CardHeader className="items-center text-center pt-8">
-              <div className="p-4 bg-[#ea5c3e]/10 dark:bg-[#cc9999]/20 rounded-full mb-4 inline-block">
-                <feature.icon className="w-8 h-8 text-[#ea5c3e] dark:text-[#cc9999]" />
+            {feature.isPrimary && (
+              <div className="absolute top-2 right-2">
+                <Sparkles className="w-5 h-5 text-white/80 dark:text-black/80 animate-pulse" />
               </div>
-              <CardTitle className="text-2xl font-semibold text-gray-800 dark:text-white">{feature.title}</CardTitle>
+            )}
+            <CardHeader className="items-center text-center pt-8">
+              <div
+                className={cn(
+                  "p-4 rounded-full mb-4 inline-block",
+                  feature.isPrimary ? "bg-white/20 dark:bg-black/20" : "bg-[#ea5c3e]/10 dark:bg-[#cc9999]/20",
+                )}
+              >
+                <feature.icon
+                  className={cn(
+                    "w-8 h-8",
+                    feature.isPrimary ? "text-white dark:text-black" : "text-[#ea5c3e] dark:text-[#cc9999]",
+                  )}
+                />
+              </div>
+              <CardTitle
+                className={cn(
+                  "text-2xl font-semibold",
+                  feature.isPrimary ? "text-white dark:text-black" : "text-gray-800 dark:text-white",
+                )}
+              >
+                {feature.title}
+              </CardTitle>
             </CardHeader>
             <CardContent className="text-center pb-8 flex flex-col flex-grow">
               <div className="flex-grow">
-                <CardDescription className="text-gray-600 dark:text-gray-300 mb-6 text-base min-h-[4.5rem]">
+                <CardDescription
+                  className={cn(
+                    "mb-6 text-base min-h-[4.5rem]",
+                    feature.isPrimary ? "text-white/90 dark:text-black/90" : "text-gray-600 dark:text-gray-300",
+                  )}
+                >
                   {feature.description}
                 </CardDescription>
               </div>
               <Link href={!feature.disabled ? feature.page : "#"} className="mt-auto">
                 <Button
                   size="lg"
-                  className="w-full bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b1c9f8] dark:text-black"
+                  className={cn(
+                    "w-full font-semibold",
+                    feature.isPrimary
+                      ? "bg-white/20 hover:bg-white/30 text-white border-2 border-white/30 hover:border-white/50 dark:bg-black/20 dark:hover:bg-black/30 dark:text-black dark:border-black/30 dark:hover:border-black/50"
+                      : "bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b1c9f8] dark:text-black",
+                  )}
                   disabled={feature.disabled}
                 >
                   {feature.cta}{" "}
