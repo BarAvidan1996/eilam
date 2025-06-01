@@ -42,39 +42,30 @@ export async function searchSimilarDocuments(embedding: number[], language: "he"
 }
 
 // Step 3: Generate answer from documents
-async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" | "en", context?: any) {
+async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" | "en") {
   console.log("🤖 generateAnswerFromDocs - התחלה")
   console.log("  - שאלה:", question)
   console.log("  - מסמכים:", docs.length)
-  console.log("  - הקשר:", context)
 
   if (docs.length === 0) {
     console.log("❌ אין מסמכים - מחזיר null")
     return null
   }
 
-  let contextInfo = ""
-  if (context?.toolParameters) {
-    contextInfo = `\nהקשר נוסף: ${JSON.stringify(context.toolParameters)}`
-  }
-  if (context?.planContext) {
-    contextInfo += `\nתוכנית: ${JSON.stringify(context.planContext)}`
-  }
-
-  let documentContext = ""
+  let context = ""
   let len = 0
   for (const doc of docs) {
     const txt = `מקור: ${doc.title}\nתוכן: ${doc.plain_text}\n\n`
     if (len + txt.length > 2000) {
       const short = truncateText(doc.plain_text, 2000 - len - doc.title.length - 20)
-      documentContext += `מקור: ${doc.title}\nתוכן: ${short}\n\n`
+      context += `מקור: ${doc.title}\nתוכן: ${short}\n\n`
       break
     }
-    documentContext += txt
+    context += txt
     len += txt.length
   }
 
-  console.log("📊 הקשר מסמכים:", documentContext.substring(0, 200) + "...")
+  console.log("📊 הקשר:", context.substring(0, 200) + "...")
 
   const prompt =
     lang === "he"
@@ -88,22 +79,19 @@ async function generateAnswerFromDocs(question: string, docs: any[], lang: "he" 
 
 תשתמש קודם כל במידע של ההקשר הרלוונטי כדי לענות בעברית ברורה וידידותית לציבור, אך אם לא נמצא שם מידע מספר עלייך להשתמש בידע הכללי שלך.
 
-${contextInfo}
-
 הקשר רלוונטי:
-${documentContext}
+${context}
 
 שאלה:
 ${question}
 
-תשובה מפורטת וספציפית:`
+תשובה:`
       : `You are an AI assistant. Use only the following information.
-${contextInfo}
-${documentContext}
+${context}
 Question: ${question}
 Answer in English with sources.`
 
-  console.log("📝 פרומפט סופי:", prompt.substring(0, 300) + "...")
+  console.log("📝 פרומפט סופי:", prompt.substring(0, 200) + "...")
 
   const totalTokens = estimateTokens(prompt)
   if (totalTokens > 3500) throw new Error("Too many tokens")
@@ -125,26 +113,18 @@ Answer in English with sources.`
 }
 
 // Step 4: Fallback general GPT-only
-async function generateFallbackAnswer(question: string, lang: "he" | "en", context?: any) {
+async function generateFallbackAnswer(question: string, lang: "he" | "en") {
   console.log("🔄 generateFallbackAnswer - התחלה")
-  console.log("🔄 Context:", context)
-
-  let contextInfo = ""
-  if (context?.toolParameters) {
-    contextInfo = `הקשר: ${JSON.stringify(context.toolParameters)}\n`
-  }
 
   const prompt =
     lang === "he"
       ? `אתה עוזר חכם של פיקוד העורף. ענה על השאלה הבאה בהתבסס על הידע הכללי שלך:
 
-${contextInfo}
 שאלה: ${question}
 
-תשובה מפורטת וספציפית:`
+תשובה:`
       : `You are a Home Front Command assistant. Answer the following question based on your general knowledge:
 
-${contextInfo}
 Question: ${question}
 
 Answer:`
@@ -167,22 +147,13 @@ Answer:`
 }
 
 // Step 5: Router - decide between 'documents' and 'tavily'
-async function routeQuery(question: string, context?: any): Promise<"documents" | "tavily"> {
+async function routeQuery(question: string): Promise<"documents" | "tavily"> {
   console.log("🧭 Router - מחליט על מסלול עבור:", question)
-  console.log("🧭 Context:", context)
-
-  // If we have specific context, use it to improve routing
-  if (context?.specificContext === "equipment_recommendations") {
-    console.log("🧭 Router החליט: documents (equipment context)")
-    return "documents"
-  }
 
   const prompt = `
 אתה עוזר חכם של פיקוד העורף.
 מטרתך היא להחליט אם השאלה של המשתמש דורשת מידע עדכני מהאינטרנט או שאפשר להשיב עליה ממסמכי הדרכה קיימים.
 
-${context?.planContext ? `הקשר נוסף: ${JSON.stringify(context.planContext)}` : ""}
-${context?.toolParameters ? `פרמטרי כלי: ${JSON.stringify(context.toolParameters)}` : ""}
 
 שאלות שדורשות אינטרנט (כתוב: tavily):
 - שאלות על מצב נוכחי, אירועים אחרונים, זמנים ספציפיים
@@ -200,7 +171,6 @@ ${context?.toolParameters ? `פרמטרי כלי: ${JSON.stringify(context.toolP
 - "יש אזעקה ואני לא יודעת לאן ללכת"
 - "איך מוצאים מקלט?"
 - "מה לעשות במצב חירום?"
-- "מה לעשות באזעקה בלילה?" - זה documents!
 - שאלות על הכנה, ציוד, נהלים, הוראות בטיחות
 
 כלל זהב: אם השאלה מתחילה ב"יש", "איך", "מה לעשות", "לאן", "איפה" (ללא זמן ספציפי) - זה documents
@@ -224,16 +194,7 @@ ${context?.toolParameters ? `פרמטרי כלי: ${JSON.stringify(context.toolP
 }
 
 // Step 6: Hybrid process
-export async function processRAGQuery(
-  question: string,
-  context?: {
-    sessionId?: string
-    planContext?: any
-    toolParameters?: any
-    enhancedPrompt?: boolean
-    specificContext?: string
-  },
-): Promise<{
+export async function processRAGQuery(question: string): Promise<{
   answer: string
   sources: Array<{
     title: string
@@ -246,13 +207,11 @@ export async function processRAGQuery(
   error?: string
 }> {
   console.log("🚀 processRAGQuery - התחלה עבור:", question)
-  console.log("🚀 Context:", context)
 
   const language = detectLanguage(question)
   console.log("🌐 שפה מזוהה:", language)
 
-  // Enhanced routing with context
-  const route = await routeQuery(question, context)
+  const route = await routeQuery(question)
   console.log("📍 מסלול שנבחר:", route)
 
   try {
@@ -272,12 +231,11 @@ export async function processRAGQuery(
         })
       }
 
-      // Enhanced answer generation with context
-      const answer = await generateAnswerFromDocs(question, documents, language, context)
+      const answer = await generateAnswerFromDocs(question, documents, language)
 
       if (!answer || answer.length < 20) {
         console.log("⚠️ תשובה חלשה ממסמכים, עובר ל-fallback כללי")
-        const fallbackAnswer = await generateFallbackAnswer(question, language, context)
+        const fallbackAnswer = await generateFallbackAnswer(question, language)
         return {
           answer: fallbackAnswer,
           sources: [],
@@ -299,7 +257,7 @@ export async function processRAGQuery(
       }
     } else {
       console.log("🌐 מעבד דרך חיפוש אינטרנטי")
-      return await processViaTavily(question, language, context)
+      return await processViaTavily(question, language)
     }
   } catch (err) {
     console.error("❌ שגיאה כללית בתהליך RAG:", err)
@@ -317,20 +275,20 @@ export async function processRAGQuery(
 }
 
 // Step 7: Tavily-based Web Answer
-async function processViaTavily(question: string, language: "he" | "en", context?: any) {
+async function processViaTavily(question: string, language: "he" | "en") {
   console.log("🌐 processViaTavily - התחלה")
-  console.log("🌐 Context:", context)
 
   const searchResults = await searchWebViaTavily(question)
   if (!searchResults.success || searchResults.results.length === 0) {
     console.log("⚠️ Tavily לא מצא תוצאות, מנסה חיפוש כללי")
 
+    // ננסה חיפוש כללי יותר
     const generalQuery = question.replace(/מתי|איפה|כמה/, "").trim()
     const retryResults = await searchWebViaTavily(generalQuery)
 
     if (retryResults.success && retryResults.results.length > 0) {
       console.log("✅ חיפוש כללי הצליח")
-      const webAnswer = await generateAnswerFromWeb(question, retryResults.results, language, context)
+      const webAnswer = await generateAnswerFromWeb(question, retryResults.results, language)
       return {
         answer: webAnswer + "\n\n(מידע זה מבוסס על חיפוש כללי)",
         sources: retryResults.results.map((res) => ({
@@ -345,7 +303,7 @@ async function processViaTavily(question: string, language: "he" | "en", context
     }
 
     console.log("⚠️ גם חיפוש כללי נכשל, עובר ל-fallback")
-    const fallbackAnswer = await generateFallbackAnswer(question, language, context)
+    const fallbackAnswer = await generateFallbackAnswer(question, language)
     return {
       answer: fallbackAnswer,
       sources: [],
@@ -356,7 +314,7 @@ async function processViaTavily(question: string, language: "he" | "en", context
 
   console.log("✅ Tavily מצא תוצאות:", searchResults.results.length)
 
-  const webAnswer = await generateAnswerFromWeb(question, searchResults.results, language, context)
+  const webAnswer = await generateAnswerFromWeb(question, searchResults.results, language)
   return {
     answer: webAnswer,
     sources: searchResults.results.map((res) => ({
