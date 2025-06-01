@@ -24,6 +24,7 @@ interface LocationSelectorProps {
 declare global {
   interface Window {
     google: any
+    initMap?: () => void
   }
 }
 
@@ -34,54 +35,86 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
   const [showMap, setShowMap] = useState(false)
   const [predictions, setPredictions] = useState<any[]>([])
   const [isLoadingPredictions, setIsLoadingPredictions] = useState(false)
+  const [isGoogleMapsLoaded, setIsGoogleMapsLoaded] = useState(false)
 
   const mapRef = useRef<HTMLDivElement>(null)
   const autocompleteService = useRef<any>(null)
   const map = useRef<any>(null)
   const marker = useRef<any>(null)
 
-  // Initialize Google Maps services
+  // Load Google Maps API
   useEffect(() => {
-    if (window.google && window.google.maps) {
+    if (!window.google && !document.querySelector('script[src*="maps.googleapis.com"]')) {
+      const script = document.createElement("script")
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API}&libraries=places&language=he&region=IL`
+      script.async = true
+      script.defer = true
+      script.onload = () => {
+        console.log("🗺️ Google Maps API loaded successfully")
+        setIsGoogleMapsLoaded(true)
+        if (window.google && window.google.maps) {
+          autocompleteService.current = new window.google.maps.places.AutocompleteService()
+        }
+      }
+      script.onerror = () => {
+        console.error("❌ Failed to load Google Maps API")
+        setLocationError("שגיאה בטעינת מפות Google")
+      }
+      document.head.appendChild(script)
+    } else if (window.google && window.google.maps) {
+      setIsGoogleMapsLoaded(true)
       autocompleteService.current = new window.google.maps.places.AutocompleteService()
     }
   }, [])
 
   // Initialize map when showing map picker
   useEffect(() => {
-    if (showMap && mapRef.current && window.google && window.google.maps) {
+    if (showMap && mapRef.current && isGoogleMapsLoaded && window.google && window.google.maps) {
+      console.log("🗺️ Initializing map...")
+
       // Default to Tel Aviv center
       const defaultCenter = { lat: 32.0853, lng: 34.7818 }
 
-      map.current = new window.google.maps.Map(mapRef.current, {
-        center: defaultCenter,
-        zoom: 13,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-      })
+      try {
+        map.current = new window.google.maps.Map(mapRef.current, {
+          center: defaultCenter,
+          zoom: 13,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          zoomControl: true,
+          mapTypeId: window.google.maps.MapTypeId.ROADMAP,
+        })
 
-      marker.current = new window.google.maps.Marker({
-        position: defaultCenter,
-        map: map.current,
-        draggable: true,
-        title: "בחר מיקום על המפה",
-      })
+        marker.current = new window.google.maps.Marker({
+          position: defaultCenter,
+          map: map.current,
+          draggable: true,
+          title: "בחר מיקום על המפה",
+          animation: window.google.maps.Animation.DROP,
+        })
 
-      // Handle map click
-      map.current.addListener("click", (event: any) => {
-        const lat = event.latLng.lat()
-        const lng = event.latLng.lng()
-        marker.current.setPosition({ lat, lng })
-      })
+        // Handle map click
+        map.current.addListener("click", (event: any) => {
+          const lat = event.latLng.lat()
+          const lng = event.latLng.lng()
+          console.log("🗺️ Map clicked at:", lat, lng)
+          marker.current.setPosition({ lat, lng })
+        })
 
-      // Handle marker drag
-      marker.current.addListener("dragend", () => {
-        const position = marker.current.getPosition()
-        console.log("Marker moved to:", position.lat(), position.lng())
-      })
+        // Handle marker drag
+        marker.current.addListener("dragend", () => {
+          const position = marker.current.getPosition()
+          console.log("🗺️ Marker moved to:", position.lat(), position.lng())
+        })
+
+        console.log("✅ Map initialized successfully")
+      } catch (error) {
+        console.error("❌ Error initializing map:", error)
+        setLocationError("שגיאה באתחול המפה")
+      }
     }
-  }, [showMap])
+  }, [showMap, isGoogleMapsLoaded])
 
   if (!isVisible) return null
 
@@ -103,6 +136,7 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
       })
 
       const { latitude, longitude } = position.coords
+      console.log("📍 Current location:", latitude, longitude)
 
       // Get address from coordinates using reverse geocoding
       let displayName = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
@@ -115,6 +149,7 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
 
         if (data.results && data.results.length > 0) {
           displayName = data.results[0].formatted_address
+          console.log("📍 Reverse geocoded address:", displayName)
         }
       } catch (geocodeError) {
         console.warn("Failed to get address from coordinates:", geocodeError)
@@ -153,22 +188,30 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
 
   const handleAddressInput = async (value: string) => {
     setManualAddress(value)
+    console.log("🔍 Address input:", value)
 
-    if (value.length > 2 && autocompleteService.current) {
+    if (value.length > 2 && autocompleteService.current && isGoogleMapsLoaded) {
       setIsLoadingPredictions(true)
 
       const request = {
         input: value,
         componentRestrictions: { country: "il" },
         language: "he",
+        types: ["geocode", "establishment"], // Include both addresses and places
       }
 
+      console.log("🔍 Requesting predictions for:", value)
+
       autocompleteService.current.getPlacePredictions(request, (predictions: any[], status: any) => {
+        console.log("🔍 Predictions status:", status)
+        console.log("🔍 Predictions received:", predictions)
+
         setIsLoadingPredictions(false)
-        if (status === window.google.maps.places.PlacesServiceStatus.OK) {
-          setPredictions(predictions || [])
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+          setPredictions(predictions)
         } else {
           setPredictions([])
+          console.warn("🔍 No predictions or error:", status)
         }
       })
     } else {
@@ -177,6 +220,7 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
   }
 
   const selectPrediction = async (prediction: any) => {
+    console.log("📍 Selected prediction:", prediction)
     setManualAddress(prediction.description)
     setPredictions([])
 
@@ -186,6 +230,7 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
         `https://maps.googleapis.com/maps/api/geocode/json?place_id=${prediction.place_id}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API}&language=he`,
       )
       const data = await response.json()
+      console.log("📍 Geocoding result:", data)
 
       if (data.results && data.results.length > 0) {
         const result = data.results[0]
@@ -212,12 +257,14 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
     }
 
     setLocationError(null)
+    console.log("📍 Manual geocoding for:", manualAddress)
 
     try {
       const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(manualAddress)}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API}&language=he`,
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(manualAddress)}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API}&language=he&region=il`,
       )
       const data = await response.json()
+      console.log("📍 Manual geocoding result:", data)
 
       if (data.results && data.results.length > 0) {
         const result = data.results[0]
@@ -239,17 +286,34 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
     }
   }
 
-  const handleMapSelection = () => {
+  const handleMapSelection = async () => {
     if (marker.current) {
       const position = marker.current.getPosition()
       const lat = position.lat()
       const lng = position.lng()
+      console.log("🗺️ Map selection:", lat, lng)
+
+      // Try to get address for the selected point
+      let displayName = `נקודה שנבחרה על המפה (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+
+      try {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API}&language=he`,
+        )
+        const data = await response.json()
+
+        if (data.results && data.results.length > 0) {
+          displayName = data.results[0].formatted_address
+        }
+      } catch (error) {
+        console.warn("Failed to reverse geocode map selection:", error)
+      }
 
       onLocationSelected({
         type: "map",
         lat,
         lng,
-        displayName: `נקודה שנבחרה על המפה (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+        displayName,
       })
     }
   }
@@ -331,7 +395,7 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
                     <button
                       key={prediction.place_id}
                       onClick={() => selectPrediction(prediction)}
-                      className="w-full text-right p-3 hover:bg-muted transition-colors border-b last:border-b-0"
+                      className="w-full text-right p-3 hover:bg-muted transition-colors border-b last:border-b-0 focus:bg-muted focus:outline-none"
                     >
                       <div className="font-medium">{prediction.structured_formatting.main_text}</div>
                       <div className="text-sm text-muted-foreground">
@@ -366,13 +430,30 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
               בחירה על המפה
             </h3>
             {!showMap ? (
-              <Button onClick={() => setShowMap(true)} variant="outline" className="w-full" size="lg">
+              <Button
+                onClick={() => setShowMap(true)}
+                variant="outline"
+                className="w-full"
+                size="lg"
+                disabled={!isGoogleMapsLoaded}
+              >
                 <Map className="h-4 w-4 mr-2" />
-                פתח מפה לבחירת מיקום
+                {isGoogleMapsLoaded ? "פתח מפה לבחירת מיקום" : "טוען מפות Google..."}
               </Button>
             ) : (
               <div className="space-y-3">
-                <div ref={mapRef} className="w-full h-64 rounded-lg border" style={{ minHeight: "256px" }} />
+                <div
+                  ref={mapRef}
+                  className="w-full h-64 rounded-lg border bg-muted flex items-center justify-center"
+                  style={{ minHeight: "256px" }}
+                >
+                  {!isGoogleMapsLoaded && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      טוען מפה...
+                    </div>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <Button onClick={handleMapSelection} className="flex-1 bg-primary hover:bg-primary/90">
                     בחר מיקום זה

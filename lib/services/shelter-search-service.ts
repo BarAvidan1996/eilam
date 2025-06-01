@@ -85,19 +85,20 @@ export class ShelterSearchService {
     }
   }
 
-  // Main search function
+  // Main search function with proper defaults
   async searchShelters(params: SearchParams): Promise<ShelterResult[]> {
-    const { location, radius, maxResults = 10 } = params
+    // Set proper defaults
+    const { location, radius = 1000, maxResults = 3 } = params
 
     console.log("🔍 === SHELTER SEARCH START ===")
-    console.log("🔍 Location:", location)
-    console.log("🔍 Radius:", radius)
+    console.log("🔍 Search origin location:", location)
+    console.log("🔍 Radius:", radius, "meters")
     console.log("🔍 Max results:", maxResults)
     console.log("🔍 Has API key:", !!this.apiKey)
 
     if (!this.apiKey) {
       console.log("⚠️ No API key - using mock data")
-      return this.getMockShelters(location, radius)
+      return this.getMockShelters(location, radius, maxResults)
     }
 
     try {
@@ -134,13 +135,13 @@ export class ShelterSearchService {
       shelters = this.filterShelterResults(shelters)
       console.log(`🔍 Results after filtering: ${shelters.length}`)
 
-      // Calculate distances
+      // Calculate distances from the ORIGIN location
       shelters = this.calculateDistances(shelters, location)
       console.log(`🔍 Results after distance calculation: ${shelters.length}`)
 
-      // Sort by distance
+      // Sort by distance from origin
       shelters.sort((a, b) => a.distance - b.distance)
-      console.log("🔍 Results sorted by distance")
+      console.log("🔍 Results sorted by distance from origin")
 
       // Limit results
       shelters = shelters.slice(0, maxResults)
@@ -148,14 +149,14 @@ export class ShelterSearchService {
 
       console.log("✅ Final shelter results:")
       shelters.forEach((shelter, i) => {
-        console.log(`✅ ${i + 1}. ${shelter.name} - ${shelter.distance}km`)
+        console.log(`✅ ${i + 1}. ${shelter.name} - ${shelter.distance}km from origin`)
       })
 
       return shelters
     } catch (error) {
       console.error("❌ Shelter search error:", error)
       console.log("🔄 Falling back to mock data")
-      return this.getMockShelters(location, radius)
+      return this.getMockShelters(location, radius, maxResults)
     }
   }
 
@@ -166,6 +167,7 @@ export class ShelterSearchService {
     keyword: string,
   ): Promise<any[]> {
     console.log(`🔍 === PLACES API SEARCH: "${keyword}" ===`)
+    console.log(`🔍 Searching around origin: ${location.lat}, ${location.lng}`)
 
     const url = new URL("https://maps.googleapis.com/maps/api/place/nearbysearch/json")
     url.searchParams.set("location", `${location.lat},${location.lng}`)
@@ -189,7 +191,7 @@ export class ShelterSearchService {
     }
 
     const results = data.results || []
-    console.log(`🔍 Places API returned ${results.length} results for "${keyword}"`)
+    console.log(`🔍 Places API returned ${results.length} results for "${keyword}" around origin`)
 
     return results
   }
@@ -231,10 +233,10 @@ export class ShelterSearchService {
     return filtered
   }
 
-  // Calculate straight-line distances
+  // Calculate straight-line distances from ORIGIN
   private calculateDistances(shelters: any[], origin: { lat: number; lng: number }): ShelterResult[] {
-    console.log("🔍 === CALCULATING DISTANCES ===")
-    console.log("🔍 Origin:", origin)
+    console.log("🔍 === CALCULATING DISTANCES FROM ORIGIN ===")
+    console.log("🔍 Origin (search location):", origin)
     console.log("🔍 Shelters to process:", shelters.length)
 
     return shelters.map((shelter, index) => {
@@ -244,9 +246,9 @@ export class ShelterSearchService {
       console.log(`🔍 Shelter ${index + 1}: ${shelter.name}`)
       console.log(`🔍 Shelter coordinates: ${shelterLat}, ${shelterLng}`)
 
-      // Calculate distance using Haversine formula
+      // Calculate distance using Haversine formula FROM ORIGIN TO SHELTER
       const distance = this.calculateHaversineDistance(origin.lat, origin.lng, shelterLat, shelterLng)
-      console.log(`🔍 Calculated distance: ${distance}km`)
+      console.log(`🔍 Distance from origin to shelter: ${distance}km`)
 
       const result: ShelterResult = {
         name: shelter.name || "מקלט",
@@ -261,7 +263,7 @@ export class ShelterSearchService {
         rating: shelter.rating,
       }
 
-      console.log(`✅ Processed shelter: ${result.name} - ${result.distance}km`)
+      console.log(`✅ Processed shelter: ${result.name} - ${result.distance}km from origin`)
       return result
     })
   }
@@ -296,18 +298,19 @@ export class ShelterSearchService {
     return "מקלט ציבורי"
   }
 
-  // Enhanced mock data based on actual Israeli cities
-  private getMockShelters(location: { lat: number; lng: number }, radius: number): ShelterResult[] {
+  // Enhanced mock data with proper distance calculation from origin
+  private getMockShelters(origin: { lat: number; lng: number }, radius: number, maxResults: number): ShelterResult[] {
     console.log("🔄 === GENERATING MOCK SHELTERS ===")
-    console.log("🔄 Location:", location)
-    console.log("🔄 Radius:", radius)
+    console.log("🔄 Origin:", origin)
+    console.log("🔄 Radius:", radius, "meters")
+    console.log("🔄 Max results:", maxResults)
 
     // Determine city based on coordinates (rough approximation)
     let cityName = "תל אביב"
     let mockShelters: ShelterResult[] = []
 
     // Rishon LeZion area (32.0853, 34.7818)
-    if (location.lat > 32.05 && location.lat < 32.12 && location.lng > 34.75 && location.lng < 34.82) {
+    if (origin.lat > 32.05 && origin.lat < 32.12 && origin.lng > 34.75 && origin.lng < 34.82) {
       cityName = "ראשון לציון"
       console.log("🔄 Detected city: ראשון לציון")
 
@@ -315,8 +318,8 @@ export class ShelterSearchService {
         {
           name: "מקלט ציבורי - מרכז עזריאלי ראשון לציון",
           address: "דרך בן גוריון 1, ראשון לציון",
-          location: { lat: location.lat + 0.002, lng: location.lng + 0.001 },
-          distance: 0.3,
+          location: { lat: origin.lat + 0.002, lng: origin.lng + 0.001 },
+          distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.002, origin.lng + 0.001),
           type: "קניון",
           place_id: "mock_rishon_1",
           rating: 4.2,
@@ -324,8 +327,8 @@ export class ShelterSearchService {
         {
           name: "ממ״ד - בית ספר רמז",
           address: "רחוב רמז 15, ראשון לציון",
-          location: { lat: location.lat - 0.001, lng: location.lng + 0.002 },
-          distance: 0.5,
+          location: { lat: origin.lat - 0.001, lng: origin.lng + 0.002 },
+          distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat - 0.001, origin.lng + 0.002),
           type: "בית ספר",
           place_id: "mock_rishon_2",
           rating: 4.0,
@@ -333,8 +336,8 @@ export class ShelterSearchService {
         {
           name: "מרחב מוגן - מרכז קהילתי הדר",
           address: "רחוב הדר 8, ראשון לציון",
-          location: { lat: location.lat + 0.003, lng: location.lng - 0.001 },
-          distance: 0.8,
+          location: { lat: origin.lat + 0.003, lng: origin.lng - 0.001 },
+          distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.003, origin.lng - 0.001),
           type: "מרכז קהילתי",
           place_id: "mock_rishon_3",
           rating: 4.1,
@@ -343,13 +346,13 @@ export class ShelterSearchService {
     } else {
       console.log("🔄 Detected city: תל אביב (default)")
 
-      // Default Tel Aviv shelters
+      // Default Tel Aviv shelters - calculate real distances from origin
       mockShelters = [
         {
           name: "מקלט ציבורי - דיזנגוף סנטר",
           address: "דיזנגוף 50, תל אביב",
-          location: { lat: location.lat + 0.002, lng: location.lng + 0.001 },
-          distance: 0.8,
+          location: { lat: origin.lat + 0.002, lng: origin.lng + 0.001 },
+          distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.002, origin.lng + 0.001),
           type: "מקלט ציבורי",
           place_id: "mock_ta_1",
           rating: 4.3,
@@ -357,8 +360,8 @@ export class ShelterSearchService {
         {
           name: "ממ״ד - בית ספר ביאליק",
           address: "ביאליק 25, תל אביב",
-          location: { lat: location.lat - 0.001, lng: location.lng + 0.002 },
-          distance: 1.2,
+          location: { lat: origin.lat - 0.001, lng: origin.lng + 0.002 },
+          distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat - 0.001, origin.lng + 0.002),
           type: "ממ״ד",
           place_id: "mock_ta_2",
           rating: 4.0,
@@ -366,8 +369,8 @@ export class ShelterSearchService {
         {
           name: "מרחב מוגן - קניון איילון",
           address: "איילון מול, תל אביב",
-          location: { lat: location.lat + 0.003, lng: location.lng - 0.001 },
-          distance: 1.8,
+          location: { lat: origin.lat + 0.003, lng: origin.lng - 0.001 },
+          distance: this.calculateHaversineDistance(origin.lat, origin.lng, origin.lat + 0.003, origin.lng - 0.001),
           type: "מרחב מוגן",
           place_id: "mock_ta_3",
           rating: 4.2,
@@ -377,13 +380,20 @@ export class ShelterSearchService {
 
     // Filter by radius (convert km to meters for comparison)
     const filtered = mockShelters.filter((shelter) => {
-      const inRadius = shelter.distance * 1000 <= radius
-      console.log(`🔄 Shelter ${shelter.name}: ${shelter.distance}km - ${inRadius ? "INCLUDED" : "EXCLUDED"}`)
+      const distanceInMeters = shelter.distance * 1000
+      const inRadius = distanceInMeters <= radius
+      console.log(
+        `🔄 Shelter ${shelter.name}: ${shelter.distance}km (${distanceInMeters}m) - ${inRadius ? "INCLUDED" : "EXCLUDED"}`,
+      )
       return inRadius
     })
 
-    console.log(`🔄 Mock shelters generated: ${filtered.length}`)
-    return filtered
+    // Sort by distance and limit results
+    const sorted = filtered.sort((a, b) => a.distance - b.distance)
+    const limited = sorted.slice(0, maxResults)
+
+    console.log(`🔄 Mock shelters generated: ${limited.length} (filtered from ${mockShelters.length})`)
+    return limited
   }
 
   // Get walking duration using Google Directions API (optional enhancement)

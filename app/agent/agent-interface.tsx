@@ -206,8 +206,8 @@ export default function AgentInterface() {
             ...tool,
             parameters: {
               ...tool.parameters,
-              radius: tool.parameters.radius || 1000,
-              maxResults: tool.parameters.maxResults || 3,
+              radius: 1000,
+              maxResults: 3,
             },
           }
 
