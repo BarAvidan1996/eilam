@@ -3,21 +3,28 @@ import { generateObject } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { z } from "zod"
 
-// Enhanced Schema with more flexible validation
+// Simplified Schema - more flexible
 const PlanSchema = z.object({
-  analysis: z.string().describe("ניתוח המצב והבנת הצרכים"),
+  analysis: z.string(),
   tools: z.array(
     z.object({
-      id: z.string().describe("מזהה הכלי (rag_chat, find_shelters, recommend_equipment)"),
-      name: z.string().describe("שם הכלי בעברית"),
-      priority: z.number().min(1).max(10).describe("עדיפות (1 = הכי דחוף)"),
-      reasoning: z.string().describe("הסבר למה הכלי הזה נחוץ"),
-      parameters: z.record(z.any()).describe("פרמטרים לכלי"),
-      missingFields: z.array(z.string()).optional().describe("שדות חסרים שצריך לבקש מהמשתמש"),
+      id: z.enum(["rag_chat", "find_shelters", "recommend_equipment"]),
+      name: z.string(),
+      priority: z.number(),
+      reasoning: z.string(),
+      parameters: z.object({
+        query: z.string().optional(),
+        location: z.string().nullable().optional(),
+        radius: z.number().optional(),
+        maxResults: z.number().optional(),
+        familyProfile: z.string().nullable().optional(),
+        duration: z.number().optional(),
+      }),
+      missingFields: z.array(z.string()).optional(),
     }),
   ),
-  needsClarification: z.boolean().describe("האם נדרשות הבהרות נוספות"),
-  clarificationQuestions: z.array(z.string()).describe("שאלות הבהרה אם נדרש"),
+  needsClarification: z.boolean(),
+  clarificationQuestions: z.array(z.string()),
 })
 
 // Enhanced location extraction function
@@ -66,8 +73,8 @@ function extractLocationFromPrompt(prompt: string): string {
       const streetPatterns = [
         new RegExp(`רחוב\\s+([א-ת\\s]+)\\s*\\d*[,\\s]*${city}`, "i"),
         new RegExp(`([א-ת\\s]+)\\s*\\d+[,\\s]*${city}`, "i"),
-        /רחוב\s+([א-ת\\s]+)\s*\d*/i,
-        /ב?רחוב\s+([א-ת\\s]+)/i,
+        /רחוב\s+([א-ת\s]+)\s*\d*/i,
+        /ב?רחוב\s+([א-ת\s]+)/i,
       ]
 
       for (const pattern of streetPatterns) {
@@ -107,7 +114,7 @@ function extractLocationFromPrompt(prompt: string): string {
   }
 
   console.log("📍 No location found")
-  return "מיקום לא זוהה" // Don't default to Tel Aviv
+  return "מיקום לא זוהה"
 }
 
 // Enhanced fallback function with better medical condition detection
@@ -290,9 +297,32 @@ export async function POST(request: NextRequest) {
     // Check if we have OpenAI API key (server-side only)
     const openaiKey = process.env.OPENAI_API_KEY
     console.log("🤖 OpenAI API Key available:", !!openaiKey)
-    if (openaiKey) {
-      console.log("🤖 OpenAI API Key length:", openaiKey.length)
-      console.log("🤖 OpenAI API Key prefix:", openaiKey.substring(0, 10) + "...")
+
+    if (!openaiKey) {
+      console.warn("⚠️ No OpenAI API key found - using fallback")
+      const fallbackPlan = createFallbackPlan(prompt)
+      return NextResponse.json({
+        ...fallbackPlan,
+        source: "fallback",
+        reason: "No API key",
+        availableTools: [
+          {
+            id: "rag_chat",
+            name: "חיפוש במידע פיקוד העורף",
+            description: "עונה על שאלות כלליות על חירום, בטיחות ונהלים",
+          },
+          {
+            id: "find_shelters",
+            name: "חיפוש מקלטים",
+            description: "מוצא מקלטים קרובים לפי מיקום",
+          },
+          {
+            id: "recommend_equipment",
+            name: "המלצות ציוד",
+            description: "ממליץ על ציוד חירום מותאם למשפחה",
+          },
+        ],
+      })
     }
 
     try {
@@ -301,7 +331,7 @@ export async function POST(request: NextRequest) {
       console.log("🤖 Mode: auto")
       console.log("🤖 Temperature: 0.1")
 
-      // Try AI generation first with enhanced prompt
+      // Try AI generation first with simplified prompt
       const startTime = Date.now()
 
       const { object: plan } = await generateObject({
@@ -320,60 +350,46 @@ export async function POST(request: NextRequest) {
    פרמטרים: { "query": "השאלה או הנושא לחיפוש" }
 
 2. **find_shelters** - מחפש מקלטים לפי מיקום
-   פרמטרים: { "location": "כתובת מדויקת או עיר", "radius": 2000, "maxResults": 10 }
+   פרמטרים: { "location": "כתובת מדויקת או עיר" או null אם לא ידוע, "radius": 2000, "maxResults": 10 }
 
 3. **recommend_equipment** - ממליץ על ציוד חירום
-   פרמטרים: { "familyProfile": "תיאור המשפחה", "duration": 72 }
+   פרמטרים: { "familyProfile": "תיאור המשפחה" או null אם לא ידוע, "duration": 72 }
 
-הוראות חשובות:
-1. חלץ פרמטרים מדויקים מהטקסט - אל תשתמש בערכי ברירת מחדל אלא אם חסר מידע לחלוטין
-2. אם חסר מידע קריטי (כמו מיקום), סמן את השדה כ-null והוסף את שם השדה ל-missingFields
-3. הוסף שאלות הבהרה ספציפיות לכל מידע חסר
+דוגמה:
+Input: "אני חולה סכרת ללא מקלט בבניין. מה הציוד שאני צריך לקחת למקלט, ואיפה המקלט הקרוב אליי?"
 
-דוגמאות:
-- "אני חולה סכרת ללא מקלט בבניין. מה הציוד שאני צריך לקחת למקלט, ואיפה המקלט הקרוב אליי?"
-  → tools: [
-    { 
-      id: "recommend_equipment", 
-      parameters: { familyProfile: "אדם עם סכרת", duration: 72 }, 
-      priority: 1,
-      reasoning: "🎒 ממליץ על ציוד חירום מותאם לאדם עם סכרת"
+Output:
+{
+  "analysis": "זוהה מצב חירום עם אדם עם סכרת שזקוק למקלט וציוד מיוחד",
+  "tools": [
+    {
+      "id": "recommend_equipment",
+      "name": "המלצות ציוד חירום לחולה סכרת",
+      "priority": 1,
+      "reasoning": "🎒 ממליץ על ציוד חירום מותאם לאדם עם סכרת",
+      "parameters": {
+        "familyProfile": "אדם עם סכרת",
+        "duration": 72
+      }
     },
-    { 
-      id: "find_shelters", 
-      parameters: { location: null, radius: 2000, maxResults: 10 }, 
-      priority: 2,
-      reasoning: "🏠 מחפש מקלטים קרובים - נדרש מיקום מדויק",
-      missingFields: ["location"]
+    {
+      "id": "find_shelters",
+      "name": "חיפוש מקלטים קרובים",
+      "priority": 2,
+      "reasoning": "🏠 מחפש מקלטים קרובים - נדרש מיקום מדויק",
+      "parameters": {
+        "location": null,
+        "radius": 2000,
+        "maxResults": 10
+      },
+      "missingFields": ["location"]
     }
-  ]
-  → needsClarification: true
-  → clarificationQuestions: ["איפה אתה נמצא כרגע?"]
+  ],
+  "needsClarification": true,
+  "clarificationQuestions": ["איפה אתה נמצא כרגע?"]
+}
 
-- "יש לי תינוק בן שנה, אני גרה ברחוב ההגנה 5 חולון. הייתה אזעקה עכשיו"
-  → tools: [
-    { 
-      id: "rag_chat", 
-      parameters: { query: "מה לעשות באזעקה עם תינוק" }, 
-      priority: 1,
-      reasoning: "🚨 מזהה מצב חירום עם תינוק - צריך הוראות מיידיות"
-    },
-    { 
-      id: "find_shelters", 
-      parameters: { location: "רחוב ההגנה 5, חולון", radius: 2000, maxResults: 10 }, 
-      priority: 2,
-      reasoning: "🏠 מחפש מקלטים קרובים ברחוב ההגנה 5, חולון"
-    },
-    { 
-      id: "recommend_equipment", 
-      parameters: { familyProfile: "משפחה עם תינוק בן שנה", duration: 72 }, 
-      priority: 3,
-      reasoning: "🎒 ממליץ על ציוד חירום מותאם למשפחה עם תינוק"
-    }
-  ]
-  → needsClarification: false
-
-חשוב: זהה צרכים מיוחדים כמו מחלות, גיל, וכו'. תן עדיפות גבוהה לציוד רפואי. חלץ מידע מדויק מהטקסט.
+חשוב: זהה צרכים מיוחדים כמו מחלות, גיל, וכו'. אם חסר מידע, השתמש ב-null ו-missingFields.
 `,
       })
 
@@ -381,24 +397,26 @@ export async function POST(request: NextRequest) {
       console.log(`✅ AI generation successful in ${endTime - startTime}ms`)
       console.log("🔍 AI plan raw:", JSON.stringify(plan, null, 2))
 
-      // Validate tool IDs
-      const validToolIds = ["rag_chat", "find_shelters", "recommend_equipment"]
-      const validatedTools = plan.tools.filter((tool) => {
-        const isValid = validToolIds.includes(tool.id)
-        console.log(`🔍 Tool validation: ${tool.id} - ${isValid ? "VALID" : "INVALID"}`)
-        return isValid
-      })
-
-      if (validatedTools.length !== plan.tools.length) {
-        console.warn(
-          "⚠️ Invalid tools filtered out:",
-          plan.tools.filter((tool) => !validToolIds.includes(tool.id)),
-        )
-      }
-
+      // Validate and clean the plan
       const validatedPlan = {
         ...plan,
-        tools: validatedTools,
+        tools: plan.tools.map((tool) => ({
+          ...tool,
+          parameters: {
+            ...tool.parameters,
+            // Ensure all required fields exist
+            ...(tool.id === "rag_chat" && { query: tool.parameters.query || prompt }),
+            ...(tool.id === "find_shelters" && {
+              location: tool.parameters.location,
+              radius: tool.parameters.radius || 2000,
+              maxResults: tool.parameters.maxResults || 10,
+            }),
+            ...(tool.id === "recommend_equipment" && {
+              familyProfile: tool.parameters.familyProfile,
+              duration: tool.parameters.duration || 72,
+            }),
+          },
+        })),
       }
 
       console.log("✅ AI plan validated:", JSON.stringify(validatedPlan, null, 2))
@@ -428,30 +446,21 @@ export async function POST(request: NextRequest) {
       console.error("❌ === AI GENERATION FAILED ===")
       console.error("❌ Error type:", aiError?.constructor?.name)
       console.error("❌ Error message:", aiError?.message)
-      console.error("❌ Error details:", aiError)
 
-      if (aiError?.cause) {
-        console.error("❌ Error cause:", aiError.cause)
-      }
-
-      if (aiError?.stack) {
-        console.error("❌ Error stack:", aiError.stack)
-      }
-
-      // Check specific error types
+      // More specific error handling
+      let errorReason = "Unknown error"
       if (aiError?.message?.includes("API key")) {
-        console.error("❌ API KEY ISSUE DETECTED")
-      }
-
-      if (aiError?.message?.includes("quota")) {
-        console.error("❌ QUOTA ISSUE DETECTED")
-      }
-
-      if (aiError?.message?.includes("network")) {
-        console.error("❌ NETWORK ISSUE DETECTED")
+        errorReason = "Invalid API key"
+      } else if (aiError?.message?.includes("quota")) {
+        errorReason = "API quota exceeded"
+      } else if (aiError?.message?.includes("network")) {
+        errorReason = "Network error"
+      } else if (aiError?.message?.includes("schema")) {
+        errorReason = "Schema validation failed"
       }
 
       console.log("🔄 === FALLING BACK TO MANUAL PLAN ===")
+      console.log("🔄 Reason:", errorReason)
 
       // Use enhanced fallback plan
       const fallbackPlan = createFallbackPlan(prompt)
@@ -460,6 +469,7 @@ export async function POST(request: NextRequest) {
         ...fallbackPlan,
         source: "fallback",
         error: aiError?.message || "AI generation failed",
+        reason: errorReason,
         availableTools: [
           {
             id: "rag_chat",
