@@ -663,7 +663,7 @@ export default function AgentInterface() {
 
   const toggleCollapse = (index: number) => {
     const newCollapsedTools = new Set(collapsedTools)
-    if (newCollapsedTools.has(index) {
+    if (newCollapsedTools.has(index)) {
       newCollapsedTools.delete(index)
     } else {
       newCollapsedTools.add(index)
@@ -687,7 +687,7 @@ export default function AgentInterface() {
 
   return (
     <TooltipProvider>
-      <div className=\"max-w-4xl mx-auto p-4 space-y-6">
+      <div className="max-w-4xl mx-auto p-4 space-y-6">
         <LocationSelector
           isVisible={showLocationSelector}
           onLocationSelected={handleLocationSelected}
