@@ -12,14 +12,28 @@ export async function POST(request: NextRequest) {
     console.log("🔧 Session ID:", sessionId)
     console.log("🔧 Plan Context:", planContext)
 
+    // Basic validation
+    if (!toolId || typeof toolId !== "string") {
+      throw new Error("Missing or invalid tool ID")
+    }
+
+    if (!parameters || typeof parameters !== "object") {
+      throw new Error("Missing or invalid parameters")
+    }
+
     let result: any
 
     switch (toolId) {
       case "rag_chat":
         console.log("🔧 Executing RAG chat...")
 
+        // Validation
+        if (!parameters.query || typeof parameters.query !== "string" || parameters.query.trim().length === 0) {
+          throw new Error("Missing or invalid query for RAG chat")
+        }
+
         // Enhanced RAG with context
-        const ragResult = await processRAGQuery(parameters.query, {
+        const ragResult = await processRAGQuery(parameters.query.trim(), {
           sessionId,
           planContext,
           toolParameters: parameters,
@@ -42,6 +56,19 @@ export async function POST(request: NextRequest) {
 
       case "find_shelters":
         console.log("🔧 Executing shelter search...")
+
+        // Validation
+        if (!parameters.location && (!parameters.lat || !parameters.lng)) {
+          throw new Error("Missing location or coordinates for shelter search")
+        }
+
+        if (parameters.radius && (typeof parameters.radius !== "number" || parameters.radius <= 0)) {
+          throw new Error("Invalid radius - must be a positive number")
+        }
+
+        if (parameters.maxResults && (typeof parameters.maxResults !== "number" || parameters.maxResults <= 0)) {
+          throw new Error("Invalid maxResults - must be a positive number")
+        }
 
         let coordinates = null
 
@@ -76,6 +103,19 @@ export async function POST(request: NextRequest) {
 
       case "recommend_equipment":
         console.log("🔧 Executing equipment recommendations...")
+
+        // Validation
+        if (
+          !parameters.familyProfile ||
+          typeof parameters.familyProfile !== "string" ||
+          parameters.familyProfile.trim().length === 0
+        ) {
+          throw new Error("Missing or invalid family profile for equipment recommendations")
+        }
+
+        if (parameters.duration && (typeof parameters.duration !== "number" || parameters.duration <= 0)) {
+          throw new Error("Invalid duration - must be a positive number")
+        }
 
         // Enhanced equipment recommendations with context
         const equipmentQuery = `המלץ על ציוד חירום עבור ${parameters.familyProfile || "משפחה כללית"} למשך ${parameters.duration || 72} שעות`
