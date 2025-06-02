@@ -369,13 +369,18 @@ export default function AgentInterface() {
       if (execution.tool.id === "recommend_equipment") {
         console.log("Using AI recommendations API for equipment recommendations")
         try {
+          // Fix: Use the correct API request format
           response = await fetch("/api/ai-recommendations", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              familyProfile: parameters.familyProfile,
-              duration: parameters.duration || 72,
-              planContext: plan?.analysis || "",
+              prompt: `המלץ על ציוד חירום עבור ${parameters.familyProfile} למשך ${parameters.duration || 72} שעות. ${plan?.analysis || ""}`,
+              extractedData: {
+                familyProfile: parameters.familyProfile,
+                duration_hours: parameters.duration || 72,
+                housing_details: parameters.familyProfile.includes("קומה") ? parameters.familyProfile : undefined,
+                special_needs: parameters.familyProfile,
+              },
             }),
           })
 
