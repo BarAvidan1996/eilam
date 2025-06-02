@@ -833,9 +833,26 @@ function ToolExecutionCard({
   setCurrentExecutionIndex,
 }: ToolExecutionCardProps) {
   const [editedParams, setEditedParams] = useState(execution.tool.parameters)
+  // הוסף אחרי השורה של editedParams
+  const [tempLocation, setTempLocation] = useState<LocationData | null>(null)
+  const [showLocationSelectorInEdit, setShowLocationSelectorInEdit] = useState(false)
 
   const handleSave = () => {
-    onSaveEdit(editedParams)
+    let finalParams = { ...editedParams }
+
+    // אם יש מיקום זמני, עדכן את הפרמטרים
+    if (tempLocation) {
+      finalParams = {
+        ...finalParams,
+        location: tempLocation.displayName || tempLocation.address || "מיקום נוכחי",
+        lat: tempLocation.lat,
+        lng: tempLocation.lng,
+        locationType: tempLocation.type,
+      }
+    }
+
+    onSaveEdit(finalParams)
+    setTempLocation(null) // נקה את המיקום הזמני
   }
 
   const getToolIcon = (toolId: string) => {
@@ -864,222 +881,270 @@ function ToolExecutionCard({
     }
   }
 
-  return (
-    <Card
-      className={cn(
-        "border-2 shadow-md transition-all duration-300",
-        execution.status === "executing" && "border-primary/50 shadow-lg",
-        execution.status === "completed" && "border-primary/30",
-        execution.status === "failed" && "border-destructive/30",
-        isCollapsed && "opacity-75",
-      )}
-    >
-      <CardHeader
-        className={cn(
-          "p-4 cursor-pointer transition-colors",
-          "bg-gradient-to-r from-primary/5 to-accent/5",
-          "hover:from-primary/10 hover:to-accent/10",
-        )}
-        onClick={toggleCollapse}
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <div className={getToolColor(execution.tool.id)}>{getToolIcon(execution.tool.id)}</div>
-            <Badge variant="outline" className="text-xs">
-              עדיפות {execution.tool.priority}
-            </Badge>
-            <h3 className="font-medium">{execution.tool.name}</h3>
-            <div className="flex items-center gap-2">
-              {getStatusIcon(execution.status)}
-              <Badge className={`text-xs ${getStatusColor(execution.status)}`}>
-                {execution.status === "pending" && "ממתין לאישור"}
-                {execution.status === "approved" && "מאושר"}
-                {execution.status === "executing" && "מבצע..."}
-                {execution.status === "completed" && "הושלם"}
-                {execution.status === "failed" && "נכשל"}
-                {execution.status === "skipped" && "דולג"}
-                {execution.status === "waiting_location" && "ממתין למיקום"}
-              </Badge>
-            </div>
-          </div>
+  const handleLocationSelectedInEdit = (location: LocationData) => {
+    setTempLocation(location)
+    setShowLocationSelectorInEdit(false)
 
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-            <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
-              {execution.status === "pending" && (
-                <>
+    // עדכן את השדה location בתצוגה (אבל לא שומר עדיין)
+    setEditedParams((prev) => ({
+      ...prev,
+      location: location.displayName || location.address || "מיקום נוכחי",
+    }))
+  }
+
+  return (
+    <>
+      <LocationSelector
+        isVisible={showLocationSelectorInEdit}
+        onLocationSelected={handleLocationSelectedInEdit}
+        onCancel={() => setShowLocationSelectorInEdit(false)}
+      />
+      <Card
+        className={cn(
+          "border-2 shadow-md transition-all duration-300",
+          execution.status === "executing" && "border-primary/50 shadow-lg",
+          execution.status === "completed" && "border-primary/30",
+          execution.status === "failed" && "border-destructive/30",
+          isCollapsed && "opacity-75",
+        )}
+      >
+        <CardHeader
+          className={cn(
+            "p-4 cursor-pointer transition-colors",
+            "bg-gradient-to-r from-primary/5 to-accent/5",
+            "hover:from-primary/10 hover:to-accent/10",
+          )}
+          onClick={toggleCollapse}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <div className={getToolColor(execution.tool.id)}>{getToolIcon(execution.tool.id)}</div>
+              <Badge variant="outline" className="text-xs">
+                עדיפות {execution.tool.priority}
+              </Badge>
+              <h3 className="font-medium">{execution.tool.name}</h3>
+              <div className="flex items-center gap-2">
+                {getStatusIcon(execution.status)}
+                <Badge className={`text-xs ${getStatusColor(execution.status)}`}>
+                  {execution.status === "pending" && "ממתין לאישור"}
+                  {execution.status === "approved" && "מאושר"}
+                  {execution.status === "executing" && "מבצע..."}
+                  {execution.status === "completed" && "הושלם"}
+                  {execution.status === "failed" && "נכשל"}
+                  {execution.status === "skipped" && "דולג"}
+                  {execution.status === "waiting_location" && "ממתין למיקום"}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
+                {execution.status === "pending" && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onSkip()
+                      }}
+                      className="text-xs sm:text-sm px-2 sm:px-3"
+                    >
+                      דלג
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEdit()
+                      }}
+                      className="text-xs sm:text-sm px-2 sm:px-3"
+                    >
+                      <Edit3 className="h-3 w-3 mr-1" />
+                      <span className="hidden sm:inline">ערוך</span>
+                      <span className="sm:hidden">ערוך</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onApprove()
+                      }}
+                      className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-2 sm:px-3"
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      אשר
+                    </Button>
+                  </>
+                )}
+                {execution.status === "executing" && (
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="destructive"
                     onClick={(e) => {
                       e.stopPropagation()
-                      onSkip()
+                      setIsExecutionStopped(true)
+                      setExecutions((prev) =>
+                        prev.map((exec, i) =>
+                          i === index
+                            ? { ...exec, status: "failed", result: { success: false, error: "הופסק על ידי המשתמש" } }
+                            : exec,
+                        ),
+                      )
+                      setCurrentExecutionIndex(-1)
                     }}
                     className="text-xs sm:text-sm px-2 sm:px-3"
                   >
-                    דלג
+                    <XCircle className="h-3 w-3 mr-1" />
+                    עצור
                   </Button>
+                )}
+                {(execution.status === "completed" || execution.status === "failed") && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onEdit()
+                      }}
+                      className="text-xs sm:text-sm px-2 sm:px-3"
+                    >
+                      <Edit3 className="h-3 w-3 mr-1" />
+                      <span className="hidden sm:inline">ערוך</span>
+                      <span className="sm:hidden">ערוך</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        retryTool(index)
+                      }}
+                      disabled={retryingTool === `${index}`}
+                      className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-2 sm:px-3"
+                    >
+                      {retryingTool === `${index}` ? (
+                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                      ) : (
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                      )}
+                      הרץ מחדש
+                    </Button>
+                  </>
+                )}
+                {execution.status === "waiting_location" && (
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      requestLocation()
+                    }}
+                    className="bg-accent hover:bg-accent/90 text-xs sm:text-sm px-2 sm:px-3"
+                  >
+                    <MapPin className="h-3 w-3 mr-1" />
+                    בחר מיקום
+                  </Button>
+                )}
+                {execution.status === "failed" && (
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEdit()
-                    }}
-                    className="text-xs sm:text-sm px-2 sm:px-3"
-                  >
-                    <Edit3 className="h-3 w-3 mr-1" />
-                    <span className="hidden sm:inline">ערוך</span>
-                    <span className="sm:hidden">ערוך</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onApprove()
-                    }}
-                    className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-2 sm:px-3"
-                  >
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    אשר
-                  </Button>
-                </>
-              )}
-              {execution.status === "executing" && (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setIsExecutionStopped(true)
-                    setExecutions((prev) =>
-                      prev.map((exec, i) =>
-                        i === index
-                          ? { ...exec, status: "failed", result: { success: false, error: "הופסק על ידי המשתמש" } }
-                          : exec,
-                      ),
-                    )
-                    setCurrentExecutionIndex(-1)
-                  }}
-                  className="text-xs sm:text-sm px-2 sm:px-3"
-                >
-                  <XCircle className="h-3 w-3 mr-1" />
-                  עצור
-                </Button>
-              )}
-              {(execution.status === "completed" || execution.status === "failed") && (
-                <>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onEdit()
-                    }}
-                    className="text-xs sm:text-sm px-2 sm:px-3"
-                  >
-                    <Edit3 className="h-3 w-3 mr-1" />
-                    <span className="hidden sm:inline">ערוך</span>
-                    <span className="sm:hidden">ערוך</span>
-                  </Button>
-                  <Button
-                    size="sm"
                     onClick={(e) => {
                       e.stopPropagation()
                       retryTool(index)
                     }}
                     disabled={retryingTool === `${index}`}
-                    className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-2 sm:px-3"
+                    className="border-destructive text-destructive hover:bg-destructive/10 text-xs sm:text-sm px-2 sm:px-3"
                   >
-                    {retryingTool === `${index}` ? (
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                    ) : (
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                    )}
-                    הרץ מחדש
+                    {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
                   </Button>
-                </>
-              )}
-              {execution.status === "waiting_location" && (
-                <Button
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    requestLocation()
-                  }}
-                  className="bg-accent hover:bg-accent/90 text-xs sm:text-sm px-2 sm:px-3"
-                >
-                  <MapPin className="h-3 w-3 mr-1" />
-                  בחר מיקום
-                </Button>
-              )}
-              {execution.status === "failed" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    retryTool(index)
-                  }}
-                  disabled={retryingTool === `${index}`}
-                  className="border-destructive text-destructive hover:bg-destructive/10 text-xs sm:text-sm px-2 sm:px-3"
-                >
-                  {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
-                </Button>
-              )}
-            </div>
+                )}
+              </div>
 
-            <Button size="sm" variant="ghost" className="p-1 h-8 w-8 rounded-full">
-              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-            </Button>
+              <Button size="sm" variant="ghost" className="p-1 h-8 w-8 rounded-full">
+                {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
 
-      {!isCollapsed && (
-        <CardContent className="p-4 space-y-4 animate-slide-down">
-          <p className="text-sm text-muted-foreground leading-relaxed">{execution.tool.reasoning}</p>
+        {!isCollapsed && (
+          <CardContent className="p-4 space-y-4 animate-slide-down">
+            <p className="text-sm text-muted-foreground leading-relaxed">{execution.tool.reasoning}</p>
 
-          {execution.status === "executing" && (
-            <div className="text-sm text-primary bg-primary/10 p-3 rounded-lg border border-primary/20">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {execution.tool.id === "rag_chat" && "בודק מידע במערכת פיקוד העורף..."}
-                {execution.tool.id === "find_shelters" && "מחפש מקלטים באזור המבוקש..."}
-                {execution.tool.id === "recommend_equipment" && "מכין המלצות ציוד מותאמות..."}
+            {execution.status === "executing" && (
+              <div className="text-sm text-primary bg-primary/10 p-3 rounded-lg border border-primary/20">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {execution.tool.id === "rag_chat" && "בודק מידע במערכת פיקוד העורף..."}
+                  {execution.tool.id === "find_shelters" && "מחפש מקלטים באזור המבוקש..."}
+                  {execution.tool.id === "recommend_equipment" && "מכין המלצות ציוד מותאמות..."}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {execution.status === "waiting_location" && (
-            <div className="text-sm text-accent bg-accent/10 p-3 rounded-lg border border-accent/20">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                נדרש מיקום לחיפוש מקלטים. לחץ על "בחר מיקום" כדי להמשיך.
+            {execution.status === "waiting_location" && (
+              <div className="text-sm text-accent bg-accent/10 p-3 rounded-lg border border-accent/20">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  נדרש מיקום לחיפוש מקלטים. לחץ על "בחר מיקום" כדי להמשיך.
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Parameters */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium">פרמטרים:</h4>
-            {isEditing ? (
-              <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
-                {Object.entries(editedParams).map(([key, value]) => (
-                  <div key={key} className="space-y-2">
-                    <label className="block text-sm font-medium flex items-center gap-2">
-                      {key}
-                      {isRequired(execution.tool.id, key) && <span className="text-destructive text-xs">*</span>}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-xs">{parameterDescriptions[execution.tool.id]?.[key] || "פרמטר לכלי"}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </label>
-                    {key === "location" && execution.tool.id === "find_shelters" ? (
-                      <div className="space-y-2">
+            {/* Parameters */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium">פרמטרים:</h4>
+              {isEditing ? (
+                <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
+                  {Object.entries(editedParams).map(([key, value]) => (
+                    <div key={key} className="space-y-2">
+                      <label className="block text-sm font-medium flex items-center gap-2">
+                        {key}
+                        {isRequired(execution.tool.id, key) && <span className="text-destructive text-xs">*</span>}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <p className="text-xs">{parameterDescriptions[execution.tool.id]?.[key] || "פרמטר לכלי"}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </label>
+                      {key === "location" && execution.tool.id === "find_shelters" ? (
+                        <div className="space-y-2">
+                          <Input
+                            value={value as string}
+                            onChange={(e) =>
+                              setEditedParams((prev) => ({
+                                ...prev,
+                                [key]: e.target.value,
+                              }))
+                            }
+                            className={cn(
+                              "text-sm",
+                              isRequired(execution.tool.id, key) &&
+                                (!value || value === "") &&
+                                "border-destructive focus:border-destructive",
+                            )}
+                            placeholder="הזן כתובת או שם מקום"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowLocationSelectorInEdit(true)
+                            }}
+                            className="w-full"
+                          >
+                            <MapPin className="h-3 w-3 mr-1" />
+                            בחר מיקום על המפה או השתמש במיקום נוכחי
+                          </Button>
+                        </div>
+                      ) : (
                         <Input
                           value={value as string}
                           onChange={(e) =>
@@ -1094,101 +1159,77 @@ function ToolExecutionCard({
                               (!value || value === "") &&
                               "border-destructive focus:border-destructive",
                           )}
-                          placeholder="הזן כתובת או שם מקום"
+                          placeholder={
+                            key === "radius" ? "1000" : key === "maxResults" ? "5" : key === "duration" ? "72" : ""
+                          }
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            requestLocation()
-                          }}
-                          className="w-full"
-                        >
-                          <MapPin className="h-3 w-3 mr-1" />
-                          בחר מיקום על המפה או השתמש במיקום נוכחי
-                        </Button>
-                      </div>
-                    ) : (
-                      <Input
-                        value={value as string}
-                        onChange={(e) =>
-                          setEditedParams((prev) => ({
-                            ...prev,
-                            [key]: e.target.value,
-                          }))
-                        }
-                        className={cn(
-                          "text-sm",
-                          isRequired(execution.tool.id, key) &&
-                            (!value || value === "") &&
-                            "border-destructive focus:border-destructive",
-                        )}
-                        placeholder={
-                          key === "radius" ? "1000" : key === "maxResults" ? "5" : key === "duration" ? "72" : ""
-                        }
-                      />
-                    )}
-                    {isRequired(execution.tool.id, key) && (!value || value === "") && (
-                      <p className="text-xs text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        שדה חובה
-                      </p>
-                    )}
+                      )}
+                      {isRequired(execution.tool.id, key) && (!value || value === "") && (
+                        <p className="text-xs text-destructive flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          שדה חובה
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex gap-2 pt-2">
+                    <Button size="sm" onClick={handleSave} className="bg-primary hover:bg-primary/90">
+                      שמור שינויים
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={onCancelEdit}>
+                      בטל
+                    </Button>
                   </div>
-                ))}
-                <div className="flex gap-2 pt-2">
-                  <Button size="sm" onClick={handleSave} className="bg-primary hover:bg-primary/90">
-                    שמור שינויים
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={onCancelEdit}>
-                    בטל
-                  </Button>
                 </div>
-              </div>
-            ) : (
-              <div className="bg-muted/30 p-3 rounded-lg border space-y-2">
-                {Object.entries(execution.editedParameters || execution.tool.parameters).map(([key, value]) => (
-                  <div key={key} className="flex justify-between items-center text-sm">
-                    <span className="font-medium flex items-center gap-1">
-                      {key}:
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs">
-                          <p className="text-xs">{parameterDescriptions[execution.tool.id]?.[key] || "פרמטר לכלי"}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </span>
-                    <span className="text-muted-foreground">{value as string}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Results */}
-          {execution.result && (
-            <div className="space-y-3">
-              <Separator />
-              <h4 className="text-sm font-medium">תוצאות:</h4>
-              {execution.result.success ? (
-                renderResult(execution.result)
               ) : (
-                <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
-                  <div className="text-destructive flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4" />
-                    <span className="font-medium">שגיאה:</span>
-                    <span>{execution.result.error}</span>
-                  </div>
+                <div className="bg-muted/30 p-3 rounded-lg border space-y-2">
+                  {tempLocation && (
+                    <div className="text-xs text-accent bg-accent/10 p-2 rounded border border-accent/20">
+                      מיקום חדש נבחר: {tempLocation.displayName || tempLocation.address || "מיקום נוכחי"}
+                      (יישמר לאחר לחיצה על "שמור שינויים")
+                    </div>
+                  )}
+                  {Object.entries(execution.editedParameters || execution.tool.parameters).map(([key, value]) => (
+                    <div key={key} className="flex justify-between items-center text-sm">
+                      <span className="font-medium flex items-center gap-1">
+                        {key}:
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">
+                            <p className="text-xs">{parameterDescriptions[execution.tool.id]?.[key] || "פרמטר לכלי"}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </span>
+                      <span className="text-muted-foreground">{value as string}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-          )}
-        </CardContent>
-      )}
-    </Card>
+
+            {/* Results */}
+            {execution.result && (
+              <div className="space-y-3">
+                <Separator />
+                <h4 className="text-sm font-medium">תוצאות:</h4>
+                {execution.result.success ? (
+                  renderResult(execution.result)
+                ) : (
+                  <div className="bg-destructive/10 p-3 rounded-lg border border-destructive/20">
+                    <div className="text-destructive flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="font-medium">שגיאה:</span>
+                      <span>{execution.result.error}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+    </>
   )
 }
