@@ -1,6 +1,30 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { processRAGQuery } from "@/lib/rag-service-hybrid"
 import { shelterSearchService } from "@/lib/services/shelter-search-service"
+import { generateObject } from "ai"
+import { openai } from "@ai-sdk/openai"
+import { z } from "zod"
+
+// Schema for structured equipment recommendations
+const EquipmentRecommendationSchema = z.object({
+  personalizedAnalysis: z.string(),
+  categories: z.array(
+    z.object({
+      name: z.string(),
+      priority: z.enum(["critical", "important", "recommended"]),
+      items: z.array(
+        z.object({
+          name: z.string(),
+          quantity: z.string(),
+          reason: z.string(),
+          specificToProfile: z.boolean(),
+        }),
+      ),
+    }),
+  ),
+  specialConsiderations: z.array(z.string()),
+  storageAdvice: z.string(),
+})
 
 export async function POST(request: NextRequest) {
   try {
@@ -99,7 +123,7 @@ export async function POST(request: NextRequest) {
         const shelters = await shelterSearchService.searchShelters({
           location: coordinates,
           radius: parameters.radius || 1000,
-          maxResults: parameters.maxResults || 3,
+          maxResults: parameters.maxResults || 5,
         })
 
         result = {
@@ -131,35 +155,92 @@ export async function POST(request: NextRequest) {
           throw new Error("Invalid duration - must be a positive number")
         }
 
-        // Enhanced equipment recommendations with context - BUILD CONTEXTUAL QUERY
-        let equipmentQuery = `המלץ על ציוד חירום עבור ${parameters.familyProfile || "משפחה כללית"} למשך ${parameters.duration || 72} שעות`
+        console.log("🔧 Generating personalized equipment recommendations...")
 
-        // Add context from plan if available
-        if (planContext?.analysis) {
-          equipmentQuery = `הקשר: ${planContext.analysis}\n\nבקשה ספציפית: ${equipmentQuery}`
-        }
+        try {
+          // Use structured AI generation for personalized equipment recommendations
+          const { object: equipmentRecommendations } = await generateObject({
+            model: openai("gpt-4o"),
+            schema: EquipmentRecommendationSchema,
+            temperature: 0.1,
+            prompt: `
+אתה מומחה לחירום ובטיחות בישראל. עליך לתת המלצות ציוד חירום מותאמות אישית.
 
-        console.log("🔧 Equipment contextual query:", equipmentQuery)
+פרופיל המשפחה/אדם: ${parameters.familyProfile}
+משך זמן: ${parameters.duration || 72} שעות
+הקשר נוסף: ${planContext?.analysis || "מצב חירום כללי"}
 
-        const equipmentResult = await processRAGQuery(equipmentQuery, {
-          sessionId,
-          planContext,
-          toolParameters: parameters,
-          enhancedPrompt: true,
-          specificContext: "equipment_recommendations",
-        })
+עליך לנתח את הפרופיל הספציפי ולתת המלצות מותאמות אישית. 
 
-        result = {
-          success: true,
-          toolId,
-          result: {
-            type: "equipment_recommendations",
-            recommendations: equipmentResult.answer,
-            sources: equipmentResult.sources?.map((s) => s.title) || [],
-            familyProfile: parameters.familyProfile,
-            duration: parameters.duration,
-          },
-          timestamp: new Date().toISOString(),
+דוגמאות לפרופילים מיוחדים:
+- "אדם הגר בקומה רביעית" → צריך ציוד לירידה מהירה, חבל חירום, נעליים חזקות
+- "משפחה עם ילדים" → חיתולים, מזון לילדים, משחקים להרגעה, תרופות ילדים
+- "אדם עם סכרת" → מד סוכר, אינסולין, חטיפי סוכר, מזון מתאים
+- "אדם מבוגר" → תרופות קבועות, משקפיים נוספים, מקל הליכה
+- "בעל חיות מחמד" → מזון לחיות, רצועה, כלוב נשיאה
+
+חלק את ההמלצות לקטגוריות עם עדיפויות:
+- critical: חיוני להישרדות
+- important: חשוב לנוחות ובטיחות  
+- recommended: מומלץ אך לא הכרחי
+
+עבור כל פריט, הסבר למה הוא רלוונטי לפרופיל הספציפי.
+
+תן גם עצות אחסון מותאמות לפרופיל (למשל, אדם בקומה רביעית צריך תיק נשיאה קל).
+`,
+          })
+
+          result = {
+            success: true,
+            toolId,
+            result: {
+              type: "equipment_recommendations",
+              recommendations: equipmentRecommendations,
+              familyProfile: parameters.familyProfile,
+              duration: parameters.duration,
+              isPersonalized: true,
+            },
+            timestamp: new Date().toISOString(),
+          }
+        } catch (aiError) {
+          console.error("❌ AI equipment generation failed, falling back to RAG:", aiError)
+
+          // Fallback to enhanced RAG query
+          let equipmentQuery = `המלץ על ציוד חירום מותאם אישית עבור ${parameters.familyProfile} למשך ${parameters.duration || 72} שעות. 
+          
+חשוב: תן המלצות ספציפיות לפרופיל הזה, לא רשימה גנרית. 
+הסבר למה כל פריט רלוונטי לפרופיל הספציפי.
+חלק לקטגוריות: חיוני, חשוב, מומלץ.`
+
+          // Add context from plan if available
+          if (planContext?.analysis) {
+            equipmentQuery = `הקשר: ${planContext.analysis}\n\nבקשה ספציפית: ${equipmentQuery}`
+          }
+
+          console.log("🔧 Equipment contextual query:", equipmentQuery)
+
+          const equipmentResult = await processRAGQuery(equipmentQuery, {
+            sessionId,
+            planContext,
+            toolParameters: parameters,
+            enhancedPrompt: true,
+            specificContext: "equipment_recommendations",
+          })
+
+          result = {
+            success: true,
+            toolId,
+            result: {
+              type: "equipment_recommendations",
+              recommendations: equipmentResult.answer,
+              sources: equipmentResult.sources?.map((s) => s.title) || [],
+              familyProfile: parameters.familyProfile,
+              duration: parameters.duration,
+              isPersonalized: false,
+              usedFallback: true,
+            },
+            timestamp: new Date().toISOString(),
+          }
         }
         break
 

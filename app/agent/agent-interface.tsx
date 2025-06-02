@@ -31,6 +31,9 @@ import {
   AlertCircle,
   ExternalLink,
   Navigation,
+  Star,
+  Package,
+  User,
 } from "lucide-react"
 import type { JSX } from "react"
 import { useTheme } from "next-themes"
@@ -506,6 +509,128 @@ export default function AgentInterface() {
     )
   }
 
+  const renderEquipmentRecommendations = (recommendations: any, familyProfile: string, isPersonalized: boolean) => {
+    // Handle structured recommendations (new format)
+    if (recommendations.categories && Array.isArray(recommendations.categories)) {
+      return (
+        <div className="space-y-4">
+          {/* Personalized Analysis */}
+          {recommendations.personalizedAnalysis && (
+            <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+              <div className="flex items-center gap-2 mb-2">
+                <User className="h-4 w-4 text-primary" />
+                <span className="font-medium text-primary">ניתוח מותאם אישית</span>
+                {isPersonalized && (
+                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                    מותאם אישית
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm leading-relaxed">{recommendations.personalizedAnalysis}</p>
+            </div>
+          )}
+
+          {/* Equipment Categories */}
+          {recommendations.categories.map((category: any, categoryIndex: number) => (
+            <div key={categoryIndex} className="border rounded-lg overflow-hidden">
+              <div className="bg-muted/30 p-3 border-b">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    <span className="font-medium">{category.name}</span>
+                  </div>
+                  <Badge
+                    variant={
+                      category.priority === "critical"
+                        ? "destructive"
+                        : category.priority === "important"
+                          ? "default"
+                          : "secondary"
+                    }
+                    className="text-xs"
+                  >
+                    {category.priority === "critical" && "🚨 חיוני"}
+                    {category.priority === "important" && "⚠️ חשוב"}
+                    {category.priority === "recommended" && "💡 מומלץ"}
+                  </Badge>
+                </div>
+              </div>
+              <div className="p-3 space-y-3">
+                {category.items.map((item: any, itemIndex: number) => (
+                  <div
+                    key={itemIndex}
+                    className={cn(
+                      "flex items-start gap-3 p-2 rounded-lg",
+                      item.specificToProfile ? "bg-accent/10 border border-accent/20" : "bg-muted/20",
+                    )}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium text-sm">{item.name}</span>
+                        <span className="text-xs text-muted-foreground">({item.quantity})</span>
+                        {item.specificToProfile && (
+                          <Star className="h-3 w-3 text-accent" title="מותאם אישית לפרופיל שלך" />
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{item.reason}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Special Considerations */}
+          {recommendations.specialConsiderations && recommendations.specialConsiderations.length > 0 && (
+            <div className="bg-accent/10 p-3 rounded-lg border border-accent/20">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-accent" />
+                <span className="font-medium text-accent">שיקולים מיוחדים</span>
+              </div>
+              <ul className="text-sm space-y-1">
+                {recommendations.specialConsiderations.map((consideration: string, index: number) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <span className="text-accent mt-1">•</span>
+                    <span>{consideration}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Storage Advice */}
+          {recommendations.storageAdvice && (
+            <div className="bg-muted/30 p-3 rounded-lg border">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">עצות אחסון</span>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">{recommendations.storageAdvice}</p>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle fallback text format (old format)
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 mb-3">
+          <User className="h-4 w-4 text-primary" />
+          <span className="font-medium">המלצות עבור: {familyProfile}</span>
+          {!isPersonalized && (
+            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+              כללי
+            </Badge>
+          )}
+        </div>
+        <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
+          <pre className="whitespace-pre-wrap text-sm leading-relaxed">{recommendations}</pre>
+        </div>
+      </div>
+    )
+  }
+
   const renderResult = (result: any) => {
     if (!result?.result) return null
 
@@ -566,30 +691,13 @@ export default function AgentInterface() {
           <div className="space-y-3">
             <div className="font-medium text-primary flex items-center gap-2">
               <Backpack className="h-4 w-4" />
-              המלצות ציוד
+              המלצות ציוד חירום
             </div>
             <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
-              {result.result.recommendations && typeof result.result.recommendations === "object" ? (
-                <div className="space-y-3">
-                  {Object.entries(result.result.recommendations).map(([category, items]: [string, any]) => (
-                    <div key={category}>
-                      <div className="font-medium text-primary mb-2">{category}:</div>
-                      {Array.isArray(items) ? (
-                        <ul className="list-disc list-inside text-sm space-y-1">
-                          {items.map((item: string, i: number) => (
-                            <li key={i}>{item}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div className="text-sm">{String(items)}</div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <pre className="whitespace-pre-wrap text-sm">
-                  {JSON.stringify(result.result.recommendations, null, 2)}
-                </pre>
+              {renderEquipmentRecommendations(
+                result.result.recommendations,
+                result.result.familyProfile,
+                result.result.isPersonalized,
               )}
             </div>
           </div>
@@ -1079,7 +1187,7 @@ function ToolExecutionCard({
                   <Loader2 className="h-4 w-4 animate-spin" />
                   {execution.tool.id === "rag_chat" && "בודק מידע במערכת פיקוד העורף..."}
                   {execution.tool.id === "find_shelters" && "מחפש מקלטים באזור המבוקש..."}
-                  {execution.tool.id === "recommend_equipment" && "מכין המלצות ציוד מותאמות..."}
+                  {execution.tool.id === "recommend_equipment" && "מכין המלצות ציוד מותאמות אישית..."}
                 </div>
               </div>
             )}
