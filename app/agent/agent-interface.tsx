@@ -274,13 +274,23 @@ export default function AgentInterface() {
     setShowLocationSelector(true)
   }
 
+  // שיפור הרספונסיביות של הכרטיסיות והכפתורים
+
+  // 1. שינוי בפונקציה approveTool כדי להשתמש במיקום נוכחי כברירת מחדל
   const approveTool = (index: number) => {
     const execution = executions[index]
 
     if (execution.tool.id === "find_shelters") {
-      // Check if location is missing
-      if (!execution.tool.parameters.location || execution.tool.parameters.location === null) {
-        // Show location selector instead
+      // בדוק אם המיקום חסר או לא מדויק מספיק
+      const locationParam = execution.editedParameters?.location || execution.tool.parameters.location
+      const hasValidLocation =
+        locationParam &&
+        (locationParam.includes(" ") || // בדיקה בסיסית שיש לפחות מילה אחת נוספת (רחוב/מספר)
+          (execution.editedParameters?.lat && execution.editedParameters?.lng) ||
+          (execution.tool.parameters.lat && execution.tool.parameters.lng))
+
+      if (!locationParam || !hasValidLocation) {
+        // הצג בורר מיקום במקום
         requestLocation(index)
         return
       }
@@ -1093,9 +1103,10 @@ function ToolExecutionCard({
                 </Badge>
               </div>
             </div>
-
+            // 2. שיפור הרספונסיביות של הכפתורים בכרטיסיות // בתוך ToolExecutionCard, עדכן את הכפתורים להיות יותר
+            רספונסיביים: // שנה את הקוד של הכפתורים בתוך ToolExecutionCard:
             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              <div className="flex items-center gap-1 sm:gap-2 flex-wrap sm:flex-nowrap">
+              <div className="flex items-center gap-1 sm:gap-2 flex-wrap w-full sm:w-auto">
                 {execution.status === "pending" && (
                   <>
                     <Button
@@ -1105,7 +1116,7 @@ function ToolExecutionCard({
                         e.stopPropagation()
                         onSkip()
                       }}
-                      className="text-xs sm:text-sm px-2 sm:px-3"
+                      className="text-xs px-2 flex-1 sm:flex-none"
                     >
                       דלג
                     </Button>
@@ -1116,11 +1127,10 @@ function ToolExecutionCard({
                         e.stopPropagation()
                         onEdit()
                       }}
-                      className="text-xs sm:text-sm px-2 sm:px-3"
+                      className="text-xs px-2 flex-1 sm:flex-none"
                     >
                       <Edit3 className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">ערוך</span>
-                      <span className="sm:hidden">ערוך</span>
+                      ערוך
                     </Button>
                     <Button
                       size="sm"
@@ -1128,7 +1138,7 @@ function ToolExecutionCard({
                         e.stopPropagation()
                         onApprove()
                       }}
-                      className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-2 sm:px-3"
+                      className="bg-primary hover:bg-primary/90 text-xs px-2 flex-1 sm:flex-none"
                     >
                       <CheckCircle className="h-3 w-3 mr-1" />
                       אשר
@@ -1151,7 +1161,7 @@ function ToolExecutionCard({
                       )
                       setCurrentExecutionIndex(-1)
                     }}
-                    className="text-xs sm:text-sm px-2 sm:px-3"
+                    className="text-xs px-2 flex-1 sm:flex-none"
                   >
                     <XCircle className="h-3 w-3 mr-1" />
                     עצור
@@ -1166,11 +1176,10 @@ function ToolExecutionCard({
                         e.stopPropagation()
                         onEdit()
                       }}
-                      className="text-xs sm:text-sm px-2 sm:px-3"
+                      className="text-xs px-2 flex-1 sm:flex-none"
                     >
                       <Edit3 className="h-3 w-3 mr-1" />
-                      <span className="hidden sm:inline">ערוך</span>
-                      <span className="sm:hidden">ערוך</span>
+                      ערוך
                     </Button>
                     <Button
                       size="sm"
@@ -1179,7 +1188,7 @@ function ToolExecutionCard({
                         retryTool(index)
                       }}
                       disabled={retryingTool === `${index}`}
-                      className="bg-primary hover:bg-primary/90 text-xs sm:text-sm px-2 sm:px-3"
+                      className="bg-primary hover:bg-primary/90 text-xs px-2 flex-1 sm:flex-none"
                     >
                       {retryingTool === `${index}` ? (
                         <Loader2 className="h-3 w-3 animate-spin mr-1" />
@@ -1197,7 +1206,7 @@ function ToolExecutionCard({
                       e.stopPropagation()
                       requestLocation()
                     }}
-                    className="bg-accent hover:bg-accent/90 text-xs sm:text-sm px-2 sm:px-3"
+                    className="bg-accent hover:bg-accent/90 text-xs px-2 flex-1 sm:flex-none"
                   >
                     <MapPin className="h-3 w-3 mr-1" />
                     בחר מיקום
@@ -1212,14 +1221,14 @@ function ToolExecutionCard({
                       retryTool(index)
                     }}
                     disabled={retryingTool === `${index}`}
-                    className="border-destructive text-destructive hover:bg-destructive/10 text-xs sm:text-sm px-2 sm:px-3"
+                    className="border-destructive text-destructive hover:bg-destructive/10 text-xs px-2 flex-1 sm:flex-none"
                   >
                     {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
                   </Button>
                 )}
               </div>
 
-              <Button size="sm" variant="ghost" className="p-1 h-8 w-8 rounded-full">
+              <Button size="sm" variant="ghost" className="p-1 h-8 w-8 rounded-full ml-auto">
                 {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
               </Button>
             </div>
@@ -1253,8 +1262,9 @@ function ToolExecutionCard({
             {/* Parameters */}
             <div className="space-y-3">
               <h4 className="text-sm font-medium">פרמטרים:</h4>
+              // 3. שיפור הרספונסיביות של טופס העריכה // בתוך ToolExecutionCard, עדכן את החלק של העריכה:
               {isEditing ? (
-                <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
+                <div className="space-y-4 p-4 bg-muted/50 rounded-lg border max-h-[60vh] overflow-y-auto">
                   {Object.entries(editedParams).map(([key, value]) => (
                     <div key={key} className="space-y-2">
                       <label className="block text-sm font-medium flex items-center gap-2">
@@ -1347,7 +1357,7 @@ function ToolExecutionCard({
                     </div>
                   )}
                   {Object.entries(execution.editedParameters || execution.tool.parameters).map(([key, value]) => (
-                    <div key={key} className="flex justify-between items-center text-sm">
+                    <div key={key} className="flex flex-wrap justify-between items-center text-sm">
                       <span className="font-medium flex items-center gap-1">
                         {key}:
                         <Tooltip>
@@ -1359,7 +1369,7 @@ function ToolExecutionCard({
                           </TooltipContent>
                         </Tooltip>
                       </span>
-                      <span className="text-muted-foreground">{value as string}</span>
+                      <span className="text-muted-foreground break-all">{value as string}</span>
                     </div>
                   ))}
                 </div>
