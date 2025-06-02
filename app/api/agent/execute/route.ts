@@ -1,30 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { processRAGQuery } from "@/lib/rag-service-hybrid"
 import { shelterSearchService } from "@/lib/services/shelter-search-service"
-import { generateObject } from "ai"
-import { openai } from "@ai-sdk/openai"
-import { z } from "zod"
-
-// Schema for structured equipment recommendations
-const EquipmentRecommendationSchema = z.object({
-  personalizedAnalysis: z.string(),
-  categories: z.array(
-    z.object({
-      name: z.string(),
-      priority: z.enum(["critical", "important", "recommended"]),
-      items: z.array(
-        z.object({
-          name: z.string(),
-          quantity: z.string(),
-          reason: z.string(),
-          specificToProfile: z.boolean(),
-        }),
-      ),
-    }),
-  ),
-  specialConsiderations: z.array(z.string()),
-  storageAdvice: z.string(),
-})
 
 export async function POST(request: NextRequest) {
   try {
@@ -123,7 +99,7 @@ export async function POST(request: NextRequest) {
         const shelters = await shelterSearchService.searchShelters({
           location: coordinates,
           radius: parameters.radius || 1000,
-          maxResults: parameters.maxResults || 5,
+          maxResults: parameters.maxResults || 3,
         })
 
         result = {
@@ -155,69 +131,74 @@ export async function POST(request: NextRequest) {
           throw new Error("Invalid duration - must be a positive number")
         }
 
-        console.log("🔧 Generating personalized equipment recommendations...")
+        console.log("🔧 Calling AI recommendations API...")
 
         try {
-          // Use structured AI generation for personalized equipment recommendations
-          const { object: equipmentRecommendations } = await generateObject({
-            model: openai("gpt-4o"),
-            schema: EquipmentRecommendationSchema,
-            temperature: 0.1,
-            prompt: `
-אתה מומחה לחירום ובטיחות בישראל. עליך לתת המלצות ציוד חירום מותאמות אישית.
+          // Build enhanced prompt for AI recommendations
+          let enhancedPrompt = `${parameters.familyProfile} - צריך ציוד חירום למשך ${parameters.duration || 72} שעות`
 
-פרופיל המשפחה/אדם: ${parameters.familyProfile}
-משך זמן: ${parameters.duration || 72} שעות
-הקשר נוסף: ${planContext?.analysis || "מצב חירום כללי"}
+          // Add context from plan if available
+          if (planContext?.analysis) {
+            enhancedPrompt = `${planContext.analysis}. ${enhancedPrompt}`
+          }
 
-עליך לנתח את הפרופיל הספציפי ולתת המלצות מותאמות אישית. 
+          console.log("🔧 Enhanced prompt for AI recommendations:", enhancedPrompt)
 
-דוגמאות לפרופילים מיוחדים:
-- "אדם הגר בקומה רביעית" → צריך ציוד לירידה מהירה, חבל חירום, נעליים חזקות
-- "משפחה עם ילדים" → חיתולים, מזון לילדים, משחקים להרגעה, תרופות ילדים
-- "אדם עם סכרת" → מד סוכר, אינסולין, חטיפי סוכר, מזון מתאים
-- "אדם מבוגר" → תרופות קבועות, משקפיים נוספים, מקל הליכה
-- "בעל חיות מחמד" → מזון לחיות, רצועה, כלוב נשיאה
+          // Call the AI recommendations API
+          const aiResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/ai-recommendations`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                prompt: enhancedPrompt,
+                extractedData: {
+                  familyProfile: parameters.familyProfile,
+                  duration_hours: parameters.duration || 72,
+                },
+              }),
+            },
+          )
 
-חלק את ההמלצות לקטגוריות עם עדיפויות:
-- critical: חיוני להישרדות
-- important: חשוב לנוחות ובטיחות  
-- recommended: מומלץ אך לא הכרחי
+          if (!aiResponse.ok) {
+            console.error("❌ AI recommendations API failed:", await aiResponse.text())
+            throw new Error("AI recommendations API failed")
+          }
 
-עבור כל פריט, הסבר למה הוא רלוונטי לפרופיל הספציפי.
-
-תן גם עצות אחסון מותאמות לפרופיל (למשל, אדם בקומה רביעית צריך תיק נשיאה קל).
-`,
-          })
+          const aiData = await aiResponse.json()
+          console.log("✅ AI recommendations received:", aiData)
 
           result = {
             success: true,
             toolId,
             result: {
               type: "equipment_recommendations",
-              recommendations: equipmentRecommendations,
+              recommendations: aiData,
               familyProfile: parameters.familyProfile,
               duration: parameters.duration,
               isPersonalized: true,
+              source: "ai-recommendations-api",
             },
             timestamp: new Date().toISOString(),
           }
         } catch (aiError) {
-          console.error("❌ AI equipment generation failed, falling back to RAG:", aiError)
+          console.error("❌ AI recommendations failed, falling back to RAG:", aiError)
 
-          // Fallback to enhanced RAG query
+          // Fallback to RAG with enhanced prompt
           let equipmentQuery = `המלץ על ציוד חירום מותאם אישית עבור ${parameters.familyProfile} למשך ${parameters.duration || 72} שעות. 
           
-חשוב: תן המלצות ספציפיות לפרופיל הזה, לא רשימה גנרית. 
-הסבר למה כל פריט רלוונטי לפרופיל הספציפי.
-חלק לקטגוריות: חיוני, חשוב, מומלץ.`
+  חשוב: תן המלצות ספציפיות לפרופיל הזה, לא רשימה גנרית. 
+  הסבר למה כל פריט רלוונטי לפרופיל הספציפי.
+  חלק לקטגוריות: חיוני, חשוב, מומלץ.`
 
           // Add context from plan if available
           if (planContext?.analysis) {
             equipmentQuery = `הקשר: ${planContext.analysis}\n\nבקשה ספציפית: ${equipmentQuery}`
           }
 
-          console.log("🔧 Equipment contextual query:", equipmentQuery)
+          console.log("🔧 Equipment fallback query:", equipmentQuery)
 
           const equipmentResult = await processRAGQuery(equipmentQuery, {
             sessionId,
@@ -238,6 +219,7 @@ export async function POST(request: NextRequest) {
               duration: parameters.duration,
               isPersonalized: false,
               usedFallback: true,
+              source: "rag-fallback",
             },
             timestamp: new Date().toISOString(),
           }
