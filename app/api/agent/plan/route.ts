@@ -69,8 +69,8 @@ function createFallbackPlan(prompt: string) {
       reasoning: "🏠 מחפש מקלטים קרובים",
       parameters: {
         location: null,
-        radius: 2000,
-        maxResults: 10,
+        radius: 1000,
+        maxResults: 5,
       },
       missingFields: ["location"],
     })
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
    פרמטרים: { "query": "השאלה או הנושא לחיפוש" }
 
 2. **find_shelters** - מחפש מקלטים לפי מיקום
-   פרמטרים: { "location": "כתובת מדויקת או עיר", "radius": 2000, "maxResults": 10 }
+   פרמטרים: { "location": "כתובת מדויקת או עיר", "radius": 1000, "maxResults": 5 }
 
 3. **recommend_equipment** - ממליץ על ציוד חירום
    פרמטרים: { "familyProfile": "תיאור המשפחה", "duration": 72 }
@@ -257,8 +257,8 @@ Output:
             ...(tool.id === "rag_chat" && { query: tool.parameters.query || prompt }),
             ...(tool.id === "find_shelters" && {
               location: tool.parameters.location,
-              radius: tool.parameters.radius || 2000,
-              maxResults: tool.parameters.maxResults || 10,
+              radius: tool.parameters.radius || 1000,
+              maxResults: tool.parameters.maxResults || 5,
             }),
             ...(tool.id === "recommend_equipment" && {
               familyProfile: tool.parameters.familyProfile,

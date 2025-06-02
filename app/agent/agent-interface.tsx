@@ -86,7 +86,7 @@ const parameterDescriptions: Record<string, Record<string, string>> = {
   find_shelters: {
     location: "מיקום לחיפוש - כתובת או שם מקום (טקסט)",
     radius: "רדיוס החיפוש במטרים (מספר, ברירת מחדל: 1000)",
-    maxResults: "מספר מקסימלי של תוצאות (מספר, ברירת מחדל: 3)",
+    maxResults: "מספר מקסימלי של תוצאות (מספר, ברירת מחדל: 5)",
     lat: "קו רוחב גיאוגרפי (מספר עשרונית)",
     lng: "קו אורך גיאוגרפי (מספר עשרונית)",
   },
@@ -134,7 +134,7 @@ export default function AgentInterface() {
   useEffect(() => {
     if (executions.length > 0) {
       const updatedExecutions = executions.map((execution) => {
-        if (execution.status !== "pending" || execution.tool.id === "find_shelters") {
+        if (execution.status !== "pending") {
           return execution
         }
 
@@ -208,7 +208,7 @@ export default function AgentInterface() {
             parameters: {
               ...tool.parameters,
               radius: tool.parameters.radius || 1000,
-              maxResults: tool.parameters.maxResults || 3,
+              maxResults: tool.parameters.maxResults || 5,
             },
           }
 
@@ -1078,24 +1078,58 @@ function ToolExecutionCard({
                         </TooltipContent>
                       </Tooltip>
                     </label>
-                    <Input
-                      value={value as string}
-                      onChange={(e) =>
-                        setEditedParams((prev) => ({
-                          ...prev,
-                          [key]: e.target.value,
-                        }))
-                      }
-                      className={cn(
-                        "text-sm",
-                        isRequired(execution.tool.id, key) &&
-                          (!value || value === "") &&
-                          "border-destructive focus:border-destructive",
-                      )}
-                      placeholder={
-                        key === "radius" ? "1000" : key === "maxResults" ? "3" : key === "duration" ? "72" : ""
-                      }
-                    />
+                    {key === "location" && execution.tool.id === "find_shelters" ? (
+                      <div className="space-y-2">
+                        <Input
+                          value={value as string}
+                          onChange={(e) =>
+                            setEditedParams((prev) => ({
+                              ...prev,
+                              [key]: e.target.value,
+                            }))
+                          }
+                          className={cn(
+                            "text-sm",
+                            isRequired(execution.tool.id, key) &&
+                              (!value || value === "") &&
+                              "border-destructive focus:border-destructive",
+                          )}
+                          placeholder="הזן כתובת או שם מקום"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            requestLocation()
+                          }}
+                          className="w-full"
+                        >
+                          <MapPin className="h-3 w-3 mr-1" />
+                          בחר מיקום על המפה או השתמש במיקום נוכחי
+                        </Button>
+                      </div>
+                    ) : (
+                      <Input
+                        value={value as string}
+                        onChange={(e) =>
+                          setEditedParams((prev) => ({
+                            ...prev,
+                            [key]: e.target.value,
+                          }))
+                        }
+                        className={cn(
+                          "text-sm",
+                          isRequired(execution.tool.id, key) &&
+                            (!value || value === "") &&
+                            "border-destructive focus:border-destructive",
+                        )}
+                        placeholder={
+                          key === "radius" ? "1000" : key === "maxResults" ? "5" : key === "duration" ? "72" : ""
+                        }
+                      />
+                    )}
                     {isRequired(execution.tool.id, key) && (!value || value === "") && (
                       <p className="text-xs text-destructive flex items-center gap-1">
                         <AlertCircle className="h-3 w-3" />
