@@ -274,23 +274,13 @@ export default function AgentInterface() {
     setShowLocationSelector(true)
   }
 
-  // שיפור הרספונסיביות של הכרטיסיות והכפתורים
-
-  // 1. שינוי בפונקציה approveTool כדי להשתמש במיקום נוכחי כברירת מחדל
   const approveTool = (index: number) => {
     const execution = executions[index]
 
     if (execution.tool.id === "find_shelters") {
-      // בדוק אם המיקום חסר או לא מדויק מספיק
-      const locationParam = execution.editedParameters?.location || execution.tool.parameters.location
-      const hasValidLocation =
-        locationParam &&
-        (locationParam.includes(" ") || // בדיקה בסיסית שיש לפחות מילה אחת נוספת (רחוב/מספר)
-          (execution.editedParameters?.lat && execution.editedParameters?.lng) ||
-          (execution.tool.parameters.lat && execution.tool.parameters.lng))
-
-      if (!locationParam || !hasValidLocation) {
-        // הצג בורר מיקום במקום
+      // Check if location is missing
+      if (!execution.tool.parameters.location || execution.tool.parameters.location === null) {
+        // Show location selector instead
         requestLocation(index)
         return
       }
@@ -788,7 +778,7 @@ export default function AgentInterface() {
 
   return (
     <TooltipProvider>
-      <div className="max-w-4xl mx-auto p-4 space-y-6">
+      <div className="w-full max-w-4xl mx-auto p-2 sm:p-4 space-y-4 sm:space-y-6 min-h-screen">
         <LocationSelector
           isVisible={showLocationSelector}
           onLocationSelected={handleLocationSelected}
@@ -1103,135 +1093,132 @@ function ToolExecutionCard({
                 </Badge>
               </div>
             </div>
-            // 2. שיפור הרספונסיביות של הכפתורים בכרטיסיות // בתוך ToolExecutionCard, עדכן את הכפתורים להיות יותר
-            רספונסיביים: // שנה את הקוד של הכפתורים בתוך ToolExecutionCard:
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              <div className="flex items-center gap-1 sm:gap-2 flex-wrap w-full sm:w-auto">
-                {execution.status === "pending" && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onSkip()
-                      }}
-                      className="text-xs px-2 flex-1 sm:flex-none"
-                    >
-                      דלג
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onEdit()
-                      }}
-                      className="text-xs px-2 flex-1 sm:flex-none"
-                    >
-                      <Edit3 className="h-3 w-3 mr-1" />
-                      ערוך
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onApprove()
-                      }}
-                      className="bg-primary hover:bg-primary/90 text-xs px-2 flex-1 sm:flex-none"
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      אשר
-                    </Button>
-                  </>
-                )}
-                {execution.status === "executing" && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setIsExecutionStopped(true)
-                      setExecutions((prev) =>
-                        prev.map((exec, i) =>
-                          i === index
-                            ? { ...exec, status: "failed", result: { success: false, error: "הופסק על ידי המשתמש" } }
-                            : exec,
-                        ),
-                      )
-                      setCurrentExecutionIndex(-1)
-                    }}
-                    className="text-xs px-2 flex-1 sm:flex-none"
-                  >
-                    <XCircle className="h-3 w-3 mr-1" />
-                    עצור
-                  </Button>
-                )}
-                {(execution.status === "completed" || execution.status === "failed") && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onEdit()
-                      }}
-                      className="text-xs px-2 flex-1 sm:flex-none"
-                    >
-                      <Edit3 className="h-3 w-3 mr-1" />
-                      ערוך
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        retryTool(index)
-                      }}
-                      disabled={retryingTool === `${index}`}
-                      className="bg-primary hover:bg-primary/90 text-xs px-2 flex-1 sm:flex-none"
-                    >
-                      {retryingTool === `${index}` ? (
-                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      ) : (
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                      )}
-                      הרץ מחדש
-                    </Button>
-                  </>
-                )}
-                {execution.status === "waiting_location" && (
-                  <Button
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      requestLocation()
-                    }}
-                    className="bg-accent hover:bg-accent/90 text-xs px-2 flex-1 sm:flex-none"
-                  >
-                    <MapPin className="h-3 w-3 mr-1" />
-                    בחר מיקום
-                  </Button>
-                )}
-                {execution.status === "failed" && (
+
+            <div className="flex items-center gap-1 flex-wrap w-full sm:w-auto">
+              {execution.status === "pending" && (
+                <div className="flex gap-1 w-full sm:w-auto">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={(e) => {
                       e.stopPropagation()
+                      onSkip()
+                    }}
+                    className="text-xs px-2 flex-1 sm:flex-none"
+                  >
+                    דלג
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit()
+                    }}
+                    className="text-xs px-2 flex-1 sm:flex-none"
+                  >
+                    <Edit3 className="h-3 w-3 mr-1" />
+                    ערוך
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onApprove()
+                    }}
+                    className="bg-primary hover:bg-primary/90 text-xs px-2 flex-1 sm:flex-none"
+                  >
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    אשר
+                  </Button>
+                </div>
+              )}
+              {execution.status === "executing" && (
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsExecutionStopped(true)
+                    setExecutions((prev) =>
+                      prev.map((exec, i) =>
+                        i === index
+                          ? { ...exec, status: "failed", result: { success: false, error: "הופסק על ידי המשתמש" } }
+                          : exec,
+                      ),
+                    )
+                    setCurrentExecutionIndex(-1)
+                  }}
+                  className="text-xs px-2 w-full sm:w-auto"
+                >
+                  <XCircle className="h-3 w-3 mr-1" />
+                  עצור
+                </Button>
+              )}
+              {(execution.status === "completed" || execution.status === "failed") && (
+                <div className="flex gap-1 w-full sm:w-auto">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onEdit()
+                    }}
+                    className="text-xs px-2 flex-1 sm:flex-none"
+                  >
+                    <Edit3 className="h-3 w-3 mr-1" />
+                    ערוך
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation()
                       retryTool(index)
                     }}
                     disabled={retryingTool === `${index}`}
-                    className="border-destructive text-destructive hover:bg-destructive/10 text-xs px-2 flex-1 sm:flex-none"
+                    className="bg-primary hover:bg-primary/90 text-xs px-2 flex-1 sm:flex-none"
                   >
-                    {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
+                    {retryingTool === `${index}` ? (
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    ) : (
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                    )}
+                    הרץ מחדש
                   </Button>
-                )}
-              </div>
-
-              <Button size="sm" variant="ghost" className="p-1 h-8 w-8 rounded-full ml-auto">
-                {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-              </Button>
+                </div>
+              )}
+              {execution.status === "waiting_location" && (
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    requestLocation()
+                  }}
+                  className="bg-accent hover:bg-accent/90 text-xs px-2 w-full sm:w-auto"
+                >
+                  <MapPin className="h-3 w-3 mr-1" />
+                  בחר מיקום
+                </Button>
+              )}
+              {execution.status === "failed" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    retryTool(index)
+                  }}
+                  disabled={retryingTool === `${index}`}
+                  className="border-destructive text-destructive hover:bg-destructive/10 text-xs px-2 w-full sm:w-auto"
+                >
+                  {retryingTool === `${index}` ? <Loader2 className="h-3 w-3 animate-spin" /> : "נסה שוב"}
+                </Button>
+              )}
             </div>
+
+            <Button size="sm" variant="ghost" className="p-1 h-6 w-6 rounded-full flex-shrink-0">
+              {isCollapsed ? <ChevronDown className="h-3 w-3" /> : <ChevronUp className="h-3 w-3" />}
+            </Button>
           </div>
         </CardHeader>
 
@@ -1262,13 +1249,12 @@ function ToolExecutionCard({
             {/* Parameters */}
             <div className="space-y-3">
               <h4 className="text-sm font-medium">פרמטרים:</h4>
-              // 3. שיפור הרספונסיביות של טופס העריכה // בתוך ToolExecutionCard, עדכן את החלק של העריכה:
               {isEditing ? (
-                <div className="space-y-4 p-4 bg-muted/50 rounded-lg border max-h-[60vh] overflow-y-auto">
+                <div className="space-y-4 p-3 bg-muted/50 rounded-lg border max-h-[50vh] overflow-y-auto">
                   {Object.entries(editedParams).map(([key, value]) => (
                     <div key={key} className="space-y-2">
-                      <label className="block text-sm font-medium flex items-center gap-2">
-                        {key}
+                      <label className="block text-sm font-medium flex items-center gap-2 flex-wrap">
+                        <span>{key}</span>
                         {isRequired(execution.tool.id, key) && <span className="text-destructive text-xs">*</span>}
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -1290,7 +1276,7 @@ function ToolExecutionCard({
                               }))
                             }
                             className={cn(
-                              "text-sm",
+                              "text-sm w-full",
                               isRequired(execution.tool.id, key) &&
                                 (!value || value === "") &&
                                 "border-destructive focus:border-destructive",
@@ -1305,10 +1291,10 @@ function ToolExecutionCard({
                               e.stopPropagation()
                               setShowLocationSelectorInEdit(true)
                             }}
-                            className="w-full"
+                            className="w-full text-xs"
                           >
                             <MapPin className="h-3 w-3 mr-1" />
-                            בחר מיקום על המפה או השתמש במיקום נוכחי
+                            בחר מיקום
                           </Button>
                         </div>
                       ) : (
@@ -1321,7 +1307,7 @@ function ToolExecutionCard({
                             }))
                           }
                           className={cn(
-                            "text-sm",
+                            "text-sm w-full",
                             isRequired(execution.tool.id, key) &&
                               (!value || value === "") &&
                               "border-destructive focus:border-destructive",
@@ -1339,11 +1325,15 @@ function ToolExecutionCard({
                       )}
                     </div>
                   ))}
-                  <div className="flex gap-2 pt-2">
-                    <Button size="sm" onClick={handleSave} className="bg-primary hover:bg-primary/90">
+                  <div className="flex gap-2 pt-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      onClick={handleSave}
+                      className="bg-primary hover:bg-primary/90 flex-1 sm:flex-none"
+                    >
                       שמור שינויים
                     </Button>
-                    <Button size="sm" variant="outline" onClick={onCancelEdit}>
+                    <Button size="sm" variant="outline" onClick={onCancelEdit} className="flex-1 sm:flex-none">
                       בטל
                     </Button>
                   </div>
@@ -1357,7 +1347,10 @@ function ToolExecutionCard({
                     </div>
                   )}
                   {Object.entries(execution.editedParameters || execution.tool.parameters).map(([key, value]) => (
-                    <div key={key} className="flex flex-wrap justify-between items-center text-sm">
+                    <div
+                      key={key}
+                      className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-sm gap-1"
+                    >
                       <span className="font-medium flex items-center gap-1">
                         {key}:
                         <Tooltip>
@@ -1369,7 +1362,7 @@ function ToolExecutionCard({
                           </TooltipContent>
                         </Tooltip>
                       </span>
-                      <span className="text-muted-foreground break-all">{value as string}</span>
+                      <span className="text-muted-foreground break-words text-right">{value as string}</span>
                     </div>
                   ))}
                 </div>

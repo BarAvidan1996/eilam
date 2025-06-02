@@ -319,9 +319,9 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/10 sticky top-0 z-10">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+      <Card className="w-full max-w-2xl max-h-[95vh] overflow-y-auto mx-2 sm:mx-4">
+        <CardHeader className="bg-gradient-to-r from-primary/10 to-accent/10">
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
@@ -346,7 +346,7 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
             <Button
               onClick={getCurrentLocation}
               disabled={isGettingLocation}
-              className="w-full bg-primary hover:bg-primary/90"
+              className="w-full bg-primary hover:bg-primary/90 text-sm sm:text-base"
               size="lg"
             >
               {isGettingLocation ? (
@@ -410,7 +410,7 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
               onClick={handleManualAddress}
               disabled={!manualAddress.trim()}
               variant="outline"
-              className="w-full"
+              className="w-full text-sm sm:text-base"
               size="lg"
             >
               חפש לפי כתובת זו
@@ -444,8 +444,8 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
               <div className="space-y-3">
                 <div
                   ref={mapRef}
-                  className="w-full h-64 rounded-lg border bg-muted flex items-center justify-center"
-                  style={{ minHeight: "200px", maxHeight: "40vh" }}
+                  className="w-full h-48 sm:h-64 rounded-lg border bg-muted flex items-center justify-center"
+                  style={{ minHeight: "192px", maxHeight: "40vh" }}
                 >
                   {!isGoogleMapsLoaded && (
                     <div className="flex items-center gap-2 text-muted-foreground">
@@ -454,11 +454,11 @@ export function LocationSelector({ onLocationSelected, onCancel, isVisible }: Lo
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <Button onClick={handleMapSelection} className="flex-1 bg-primary hover:bg-primary/90">
                     בחר מיקום זה
                   </Button>
-                  <Button onClick={() => setShowMap(false)} variant="outline">
+                  <Button onClick={() => setShowMap(false)} variant="outline" className="flex-1 sm:flex-none">
                     סגור מפה
                   </Button>
                 </div>
