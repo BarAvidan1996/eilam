@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle, Package } from "lucide-react"
+import { CheckCircle, Package, User, Star } from "lucide-react"
 
 interface AgentInterfaceProps {
   results: any[]
@@ -85,89 +85,118 @@ function renderToolResult(result: any) {
   }
 
   if (result.type === "equipment_recommendations") {
-    const recommendations = result.recommendations
-
-    // Check if we have structured data from AI recommendations API
-    if (recommendations?.items && Array.isArray(recommendations.items)) {
-      return (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-blue-600" />
-            <h3 className="font-semibold text-lg">המלצות ציוד מותאמות אישית</h3>
-            {result.isPersonalized && (
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                ⭐ מותאם אישית
-              </Badge>
-            )}
-          </div>
-
-          {recommendations.profile && (
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">פרופיל המשפחה:</h4>
-              <div className="text-sm text-blue-800 grid grid-cols-2 gap-2">
-                {recommendations.profile.adults > 0 && <span>מבוגרים: {recommendations.profile.adults}</span>}
-                {recommendations.profile.children > 0 && <span>ילדים: {recommendations.profile.children}</span>}
-                {recommendations.profile.elderly > 0 && <span>קשישים: {recommendations.profile.elderly}</span>}
-                {recommendations.profile.babies > 0 && <span>תינוקות: {recommendations.profile.babies}</span>}
-                {recommendations.profile.pets > 0 && <span>חיות מחמד: {recommendations.profile.pets}</span>}
-                {recommendations.profile.special_needs && (
-                  <span>צרכים מיוחדים: {recommendations.profile.special_needs}</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            <h4 className="font-medium">פריטי ציוד מומלצים:</h4>
-            {recommendations.items.map((item: any, index: number) => (
-              <div key={index} className="border rounded-lg p-3 hover:bg-gray-50">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{item.name}</span>
-                      {item.quantity && (
-                        <Badge variant="outline" className="text-xs">
-                          {item.quantity}
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">{item.reason}</p>
-                  </div>
-                  <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {result.source && (
-            <div className="text-xs text-gray-500 mt-2">
-              מקור: {result.source === "ai-recommendations-api" ? "AI מותאם אישית" : "RAG כללי"}
-            </div>
-          )}
-        </div>
-      )
-    }
-
-    // Fallback for text-based recommendations
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Package className="h-5 w-5 text-blue-600" />
-          <h3 className="font-semibold text-lg">המלצות ציוד חירום</h3>
-          {result.usedFallback && (
-            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
+      <div className="space-y-3">
+        <div className="font-medium text-primary flex items-center gap-2">
+          <Package className="h-4 w-4" />
+          המלצות ציוד חירום
+          {result.result.isPersonalized && (
+            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+              ⭐ מותאם אישית
+            </Badge>
+          )}
+          {result.result.usedFallback && (
+            <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
               ⚠️ כללי
             </Badge>
           )}
         </div>
+        <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
+          {/* Check if we have structured AI recommendations */}
+          {result.result.recommendations?.items && Array.isArray(result.result.recommendations.items) ? (
+            <div className="space-y-4">
+              {/* Profile info */}
+              {result.result.recommendations.profile && (
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="h-4 w-4 text-blue-600" />
+                    <span className="font-medium text-blue-900">פרופיל המשפחה</span>
+                  </div>
+                  <div className="text-sm text-blue-800 grid grid-cols-2 gap-2">
+                    {result.result.recommendations.profile.adults > 0 && (
+                      <span>מבוגרים: {result.result.recommendations.profile.adults}</span>
+                    )}
+                    {result.result.recommendations.profile.children > 0 && (
+                      <span>ילדים: {result.result.recommendations.profile.children}</span>
+                    )}
+                    {result.result.recommendations.profile.elderly > 0 && (
+                      <span>קשישים: {result.result.recommendations.profile.elderly}</span>
+                    )}
+                    {result.result.recommendations.profile.babies > 0 && (
+                      <span>תינוקות: {result.result.recommendations.profile.babies}</span>
+                    )}
+                    {result.result.recommendations.profile.pets > 0 && (
+                      <span>חיות מחמד: {result.result.recommendations.profile.pets}</span>
+                    )}
+                    {result.result.recommendations.profile.special_needs && (
+                      <span>צרכים מיוחדים: {result.result.recommendations.profile.special_needs}</span>
+                    )}
+                  </div>
+                </div>
+              )}
 
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <div className="whitespace-pre-wrap text-sm">{result.recommendations}</div>
+              {/* Equipment items */}
+              <div className="space-y-3">
+                <h4 className="font-medium">פריטי ציוד מומלצים:</h4>
+                {result.result.recommendations.items.map((item: any, index: number) => (
+                  <div key={index} className="border rounded-lg p-3 hover:bg-gray-50">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{item.name}</span>
+                          {item.quantity && (
+                            <Badge variant="outline" className="text-xs">
+                              {item.quantity}
+                            </Badge>
+                          )}
+                          {item.specificToProfile && (
+                            <Star className="h-3 w-3 text-accent" title="מותאם אישית לפרופיל שלך" />
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">{item.reason}</p>
+                      </div>
+                      <CheckCircle className="h-4 w-4 text-green-500 mt-1 flex-shrink-0" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : result.result.recommendations && typeof result.result.recommendations === "object" ? (
+            // Handle object format (legacy)
+            <div className="space-y-3">
+              {Object.entries(result.result.recommendations).map(([category, items]: [string, any]) => (
+                <div key={category}>
+                  <div className="font-medium text-primary mb-2">{category}:</div>
+                  {Array.isArray(items) ? (
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {items.map((item: string, i: number) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-sm">{String(items)}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Handle text format (fallback)
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-3">
+                <User className="h-4 w-4 text-primary" />
+                <span className="font-medium">המלצות עבור: {result.result.familyProfile}</span>
+              </div>
+              <pre className="whitespace-pre-wrap text-sm leading-relaxed">{result.result.recommendations}</pre>
+            </div>
+          )}
+
+          {/* Source info */}
+          {result.result.source && (
+            <div className="text-xs text-muted-foreground mt-3 pt-3 border-t border-primary/20">
+              מקור: {result.result.source === "ai-recommendations-api" ? "AI מותאם אישית" : "RAG משופר"}
+            </div>
+          )}
         </div>
-
-        {result.sources && result.sources.length > 0 && (
-          <div className="text-xs text-gray-500">מקורות: {result.sources.join(", ")}</div>
-        )}
       </div>
     )
   }

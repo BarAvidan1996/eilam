@@ -131,74 +131,81 @@ export async function POST(request: NextRequest) {
           throw new Error("Invalid duration - must be a positive number")
         }
 
-        console.log("🔧 Calling AI recommendations API...")
+        console.log("🔧 === CALLING AI RECOMMENDATIONS API ===")
 
         try {
-          // Build enhanced prompt for AI recommendations
-          let enhancedPrompt = `${parameters.familyProfile} - צריך ציוד חירום למשך ${parameters.duration || 72} שעות`
-
-          // Add context from plan if available
-          if (planContext?.analysis) {
-            enhancedPrompt = `${planContext.analysis}. ${enhancedPrompt}`
-          }
-
-          console.log("🔧 Enhanced prompt for AI recommendations:", enhancedPrompt)
-
-          // Call the AI recommendations API
-          const aiResponse = await fetch(
+          // Call the AI recommendations API instead of RAG
+          const aiRecommendationsResponse = await fetch(
             `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/ai-recommendations`,
             {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
+              headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                prompt: enhancedPrompt,
+                prompt: `המלץ על ציוד חירום עבור ${parameters.familyProfile} למשך ${parameters.duration || 72} שעות`,
                 extractedData: {
                   familyProfile: parameters.familyProfile,
-                  duration_hours: parameters.duration || 72,
+                  duration: parameters.duration || 72,
+                  context: planContext?.analysis || "",
                 },
               }),
             },
           )
 
-          if (!aiResponse.ok) {
-            console.error("❌ AI recommendations API failed:", await aiResponse.text())
-            throw new Error("AI recommendations API failed")
+          if (aiRecommendationsResponse.ok) {
+            const aiRecommendations = await aiRecommendationsResponse.json()
+            console.log("✅ AI Recommendations API success:", aiRecommendations)
+
+            result = {
+              success: true,
+              toolId,
+              result: {
+                type: "equipment_recommendations",
+                recommendations: aiRecommendations,
+                familyProfile: parameters.familyProfile,
+                duration: parameters.duration,
+                isPersonalized: true,
+                source: "ai-recommendations-api",
+              },
+              timestamp: new Date().toISOString(),
+            }
+          } else {
+            throw new Error(`AI Recommendations API failed: ${aiRecommendationsResponse.status}`)
           }
+        } catch (apiError) {
+          console.warn("⚠️ AI Recommendations API failed, falling back to RAG:", apiError)
 
-          const aiData = await aiResponse.json()
-          console.log("✅ AI recommendations received:", aiData)
+          // Fallback to enhanced RAG with better prompt
+          const equipmentQuery = `
+אתה מומחה לציוד חירום. המלץ על ציוד חירום מותאם אישית עבור: ${parameters.familyProfile}
+משך זמן: ${parameters.duration || 72} שעות
 
-          result = {
-            success: true,
-            toolId,
-            result: {
-              type: "equipment_recommendations",
-              recommendations: aiData,
-              familyProfile: parameters.familyProfile,
-              duration: parameters.duration,
-              isPersonalized: true,
-              source: "ai-recommendations-api",
-            },
-            timestamp: new Date().toISOString(),
-          }
-        } catch (aiError) {
-          console.error("❌ AI recommendations failed, falling back to RAG:", aiError)
+הקשר נוסף: ${planContext?.analysis || ""}
 
-          // Fallback to RAG with enhanced prompt
-          let equipmentQuery = `המלץ על ציוד חירום מותאם אישית עבור ${parameters.familyProfile} למשך ${parameters.duration || 72} שעות. 
-          
-  חשוב: תן המלצות ספציפיות לפרופיל הזה, לא רשימה גנרית. 
-  הסבר למה כל פריט רלוונטי לפרופיל הספציפי.
-  חלק לקטגוריות: חיוני, חשוב, מומלץ.`
+חשוב:
+1. התאם את ההמלצות לפרופיל הספציפי
+2. הסבר למה כל פריט רלוונטי לפרופיל הזה
+3. תן כמויות מדויקות
+4. חלק לקטגוריות: חיוני, חשוב, מומלץ
+5. הוסף שיקולים מיוחדים לפרופיל הזה
 
-          // Add context from plan if available
-          if (planContext?.analysis) {
-            equipmentQuery = `הקשר: ${planContext.analysis}\n\nבקשה ספציפית: ${equipmentQuery}`
-          }
+פורמט התשובה:
+**ניתוח אישי:**
+[הסבר מדוע הפרופיל הזה דורש התאמות מיוחדות]
 
-          console.log("🔧 Equipment fallback query:", equipmentQuery)
+**ציוד חיוני:**
+- פריט 1 (כמות) - סיבה ספציפית לפרופיל
+- פריט 2 (כמות) - סיבה ספציפית לפרופיל
+
+**ציוד חשוב:**
+- פריט 3 (כמות) - סיבה ספציפית לפרופיל
+
+**ציוד מומלץ:**
+- פריט 4 (כמות) - סיבה ספציפית לפרופיל
+
+**שיקולים מיוחדים:**
+- שיקול 1 ספציפי לפרופיל
+- שיקול 2 ספציפי לפרופיל
+`
 
           const equipmentResult = await processRAGQuery(equipmentQuery, {
             sessionId,
