@@ -1,6 +1,7 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import type React, { ReactNode } from "react"
+import { createContext, useState, useContext, useEffect } from "react"
 
 // סוגי השפות הנתמכות
 export type Language = "he" | "en" | "ar" | "ru"

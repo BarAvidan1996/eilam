@@ -123,7 +123,6 @@ const translations = {
     email: "Электронная почта *",
     emailPlaceholder: "your@email.com",
     emailRequired: "Электронная почта обязательна",
-    emailInvalid: "Пожалуйста, введите действительный адрес электронной почты",
     password: "Пароль *",
     passwordPlaceholder: "Введите ваш пароль",
     passwordRequired: "Пароль обязателен",
