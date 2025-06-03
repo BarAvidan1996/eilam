@@ -15,6 +15,8 @@ const LanguageContext = createContext<LanguageContextProps>({
   clearTranslationCache: () => {},
 })
 
+export { LanguageContext }
+
 interface LanguageProviderProps {
   children: React.ReactNode
 }
@@ -52,4 +54,4 @@ const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
 
 const useLanguage = () => useContext(LanguageContext)
 
-export { LanguageProvider, useLanguage }
+export { LanguageProvider, useLanguage, LanguageContext }
