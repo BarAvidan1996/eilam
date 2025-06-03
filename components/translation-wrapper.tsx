@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useTranslation } from "@/hooks/use-translation"
 import { useEffect, useState } from "react"
 
