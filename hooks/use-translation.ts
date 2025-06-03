@@ -2,7 +2,7 @@
 
 import { useLanguage } from "@/contexts/language-context"
 import { translateText, translateObject } from "@/components/utils/translate"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 
 // Cache for translations to avoid repeated API calls
 const translationCache = new Map<string, string>()
@@ -159,9 +159,32 @@ const staticTranslations: Record<string, Record<string, string>> = {
   },
 }
 
+// הוסף debounce function
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      clearTimeout(timeout)
+      func(...args)
+    }
+    clearTimeout(timeout)
+    timeout = setTimeout(later, wait)
+  }
+}
+
 export function useTranslation() {
   const { language } = useLanguage()
   const [isTranslating, setIsTranslating] = useState(false)
+
+  // בתוך ה-hook, הוסף useEffect לניקוי cache
+  useEffect(() => {
+    const handleClearCache = () => {
+      translationCache.clear()
+    }
+
+    window.addEventListener("clearTranslationCache", handleClearCache)
+    return () => window.removeEventListener("clearTranslationCache", handleClearCache)
+  }, [])
 
   // Function to translate text
   const t = useCallback(

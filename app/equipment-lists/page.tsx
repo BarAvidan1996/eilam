@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Eye,
   FileText,
+  Loader2,
 } from "lucide-react"
 import Link from "next/link"
 import {
@@ -44,6 +45,7 @@ import { Label } from "@/components/ui/label"
 import { EquipmentService } from "@/lib/services/equipment-service"
 import { format } from "date-fns"
 import { he } from "date-fns/locale"
+import { usePageTranslation } from "@/hooks/use-translation"
 
 // נוסיף פונקציה שתחזיר את האייקון המתאים לקטגוריה
 const getCategoryIcon = (category) => {
@@ -146,17 +148,17 @@ export default function EquipmentListsPage() {
   const [listToEdit, setListToEdit] = useState(null)
   const [newTitle, setNewTitle] = useState("")
   const [language, setLanguage] = useState("he")
-  const [t, setT] = useState(translations.he)
+  const { tp: t, ts, isTranslating } = usePageTranslation(translations)
 
   // Get language and direction
   useEffect(() => {
     if (typeof window !== "undefined") {
       const docLang = document.documentElement.lang || "he"
       setLanguage(docLang)
-      setT(translations[docLang] || translations.he)
+      ts(docLang)
       setIsRTL(docLang === "he" || docLang === "ar")
     }
-  }, [])
+  }, [ts])
 
   // Fetch equipment lists
   useEffect(() => {
@@ -169,7 +171,7 @@ export default function EquipmentListsPage() {
         setEquipmentLists(data || [])
       } catch (error) {
         console.error("Error fetching equipment lists:", error)
-        setError(t.errorLoading)
+        setError(t("errorLoading"))
         setEquipmentLists([])
       } finally {
         setIsLoading(false)
@@ -188,7 +190,7 @@ export default function EquipmentListsPage() {
       setEquipmentLists(equipmentLists.filter((list) => list.id !== listToDelete.id))
     } catch (error) {
       console.error("Error deleting list:", error)
-      setError(t.errorDeleting)
+      setError(t("errorDeleting"))
     } finally {
       setListToDelete(null)
       setIsDeleteDialogOpen(false)
@@ -216,7 +218,7 @@ export default function EquipmentListsPage() {
       setNewTitle("")
     } catch (error) {
       console.error("Error updating title:", error)
-      setError(t.errorUpdating)
+      setError(t("errorUpdating"))
     }
   }
 
@@ -270,7 +272,7 @@ export default function EquipmentListsPage() {
       <div className="min-h-full flex items-center justify-center p-4">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">{t.loading}</p>
+          <p className="text-gray-600 dark:text-gray-300">{t("loading")}</p>
         </div>
       </div>
     )
@@ -280,9 +282,11 @@ export default function EquipmentListsPage() {
     <div className="max-w-4xl mx-auto p-4">
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-          <ListChecks className="text-purple-600" /> {t.pageTitle}
+          <ListChecks className="text-purple-600" />
+          {t("pageTitle")}
+          {isTranslating && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
         </h1>
-        <p className="text-gray-600 dark:text-gray-300">{t.pageDescription}</p>
+        <p className="text-gray-600 dark:text-gray-300">{t("pageDescription")}</p>
       </header>
 
       {error && (
@@ -293,7 +297,7 @@ export default function EquipmentListsPage() {
         <Link href="/equipment">
           <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black">
             <PlusCircle className="mr-2 h-4 w-4" />
-            {t.createNewList}
+            {t("createNewList")}
           </Button>
         </Link>
       </div>
@@ -313,11 +317,11 @@ export default function EquipmentListsPage() {
                     )}
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {list.itemCount} {t.items}
+                        {list.itemCount} {t("items")}
                       </p>
                       <span className="text-gray-400">•</span>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t.createdAt} {formatDate(list.created_at)}
+                        {t("createdAt")} {formatDate(list.created_at)}
                       </p>
                     </div>
                   </div>
@@ -331,14 +335,14 @@ export default function EquipmentListsPage() {
                         className="w-full bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
                       >
                         <Eye className="mr-2 h-4 w-4" />
-                        <span>{t.viewList}</span>
+                        <span>{t("viewList")}</span>
                       </Button>
                     </Link>
 
                     {/* Edit Title Button */}
                     <Button variant="outline" size="sm" onClick={() => openEditTitleDialog(list)} className="w-full">
                       <Edit className="mr-2 h-4 w-4" />
-                      <span>{t.editTitle}</span>
+                      <span>{t("editTitle")}</span>
                     </Button>
 
                     {/* Delete Button */}
@@ -349,7 +353,7 @@ export default function EquipmentListsPage() {
                       className="w-full bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 dark:bg-red-600 dark:hover:bg-red-700 dark:text-white dark:border-red-600 dark:hover:border-red-700"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
-                      <span>{t.deleteList}</span>
+                      <span>{t("deleteList")}</span>
                     </Button>
                   </div>
                 </div>
@@ -361,12 +365,12 @@ export default function EquipmentListsPage() {
         <Card className="shadow-md dark:bg-gray-800">
           <CardContent className="p-6 text-center">
             <ListChecks className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-            <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t.noLists}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t.noListsDescription}</p>
+            <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t("noLists")}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t("noListsDescription")}</p>
             <Link href="/equipment">
               <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black">
                 <PlusCircle className="mr-2 h-4 w-4" />
-                {t.createNewList}
+                {t("createNewList")}
               </Button>
             </Link>
           </CardContent>
@@ -377,13 +381,13 @@ export default function EquipmentListsPage() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="max-w-[90%] w-[350px] mx-auto">
           <AlertDialogHeader>
-            <AlertDialogTitle>{t.confirmDelete}</AlertDialogTitle>
-            <AlertDialogDescription>{t.confirmDeleteDescription}</AlertDialogDescription>
+            <AlertDialogTitle>{t("confirmDelete")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("confirmDeleteDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex gap-3">
-            <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
+            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteList} className="bg-red-600 hover:bg-red-700">
-              {t.delete}
+              {t("delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -393,27 +397,27 @@ export default function EquipmentListsPage() {
       <Dialog open={isEditTitleDialogOpen} onOpenChange={setIsEditTitleDialogOpen}>
         <DialogContent className="max-w-[90%] w-[350px] mx-auto">
           <DialogHeader>
-            <DialogTitle>{t.editTitleDialog}</DialogTitle>
+            <DialogTitle>{t("editTitleDialog")}</DialogTitle>
             <DialogDescription>שנה את כותרת הרשימה לכותרת חדשה</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="title" className="text-right">
-                {t.newTitle}
+                {t("newTitle")}
               </Label>
               <Input id="title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="col-span-3" />
             </div>
           </div>
           <DialogFooter className="flex gap-3">
             <Button variant="outline" onClick={() => setIsEditTitleDialogOpen(false)}>
-              {t.cancel}
+              {t("cancel")}
             </Button>
             <Button
               onClick={handleEditTitle}
               disabled={!newTitle.trim()}
               className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black"
             >
-              {t.save}
+              {t("save")}
             </Button>
           </DialogFooter>
         </DialogContent>
