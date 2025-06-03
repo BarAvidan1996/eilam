@@ -4,8 +4,19 @@
  * @param {string} targetLang - Target language code ('EN', 'HE', 'AR', 'RU')
  * @returns {Promise<string>} - Translated text
  */
+
+// Add at the top after imports
+const translationCache = new Map<string, string>()
+const CACHE_EXPIRY = 24 * 60 * 60 * 1000 // 24 hours
+
 export async function translateText(text: string, targetLang: string): Promise<string> {
   if (!text) return ""
+
+  // Check cache first
+  const cacheKey = `${text}_${targetLang}`
+  if (translationCache.has(cacheKey)) {
+    return translationCache.get(cacheKey)!
+  }
 
   // For testing/debugging - simple passthrough without API calls
   console.log(`Would translate to ${targetLang}: ${text}`)
@@ -93,7 +104,9 @@ export async function translateText(text: string, targetLang: string): Promise<s
 
     // Check if we have this exact phrase in our dictionary
     if (basicTranslations[translationKey][text]) {
-      return basicTranslations[translationKey][text]
+      const translatedText = basicTranslations[translationKey][text]
+      translationCache.set(cacheKey, translatedText)
+      return translatedText
     }
 
     // Convert language codes to DeepL format
@@ -104,7 +117,7 @@ export async function translateText(text: string, targetLang: string): Promise<s
       ru: "RU",
     }
 
-    const DEEPL_API_KEY = "9f8a89de-1c2b-4e30-86b8-54cb777e7292:fx"
+    const DEEPL_API_KEY = process.env.DEEPL_API || "9f8a89de-1c2b-4e30-86b8-54cb777e7292:fx"
     const DEEPL_API_URL = "https://api-free.deepl.com/v2/translate"
 
     // Try to use the API but with better error handling
@@ -126,13 +139,17 @@ export async function translateText(text: string, targetLang: string): Promise<s
       }
 
       const data = await response.json()
-      return data.translations[0].text
+      const translatedText = data.translations[0].text
+      translationCache.set(cacheKey, translatedText)
+      return translatedText
     } catch (apiError) {
       console.error("Translation API error:", apiError)
+      translationCache.set(cacheKey, text)
       return text // Return original if API fails
     }
   } catch (error) {
     console.error("Translation system error:", error)
+    translationCache.set(cacheKey, text)
     return text // Return original text if translation fails
   }
 }
@@ -167,7 +184,7 @@ export async function translateObject(obj: Record<string, any>, targetLang: stri
 }
 
 // Simple cache for translations
-export const translationCache = {
+export const translationCacheOld = {
   _cache: {} as Record<string, string>,
 
   get(text: string, targetLang: string): string | null {
