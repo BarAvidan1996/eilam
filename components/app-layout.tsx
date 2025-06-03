@@ -59,6 +59,8 @@ const translations = {
   createEquipmentList: "יצירת רשימת ציוד",
   aiAgent: "סוכן AI",
   language: "שפה",
+  lightMode: "מצב בהיר",
+  darkMode: "מצב כהה",
 }
 
 // Create a global event system for user data updates
@@ -388,6 +390,31 @@ export default function AppLayout({ children }) {
             </Tooltip>
           </TooltipProvider>
         ))}
+
+        {/* כפתור Theme Toggle בסרגל הצדדי */}
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                onClick={toggleTheme}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
+                  `${sidebarTextColor} ${sidebarHoverBgColor}`,
+                  !isSidebarExpanded && "justify-center",
+                )}
+              >
+                {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+                {isSidebarExpanded && <span>{theme === "light" ? translations.darkMode : translations.lightMode}</span>}
+              </Button>
+            </TooltipTrigger>
+            {!isSidebarExpanded && (
+              <TooltipContent side={isRTL ? "left" : "right"} className="dark:bg-gray-700 dark:text-gray-200">
+                <p>{theme === "light" ? translations.darkMode : translations.lightMode}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+        </TooltipProvider>
       </nav>
 
       <div className={`p-3 border-t ${sidebarBorderColor}`}>
@@ -483,21 +510,17 @@ export default function AppLayout({ children }) {
       </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header ריק לחלוטין - רק כפתור המובייל */}
         <header className="bg-white dark:bg-gray-850 shadow-sm dark:border-b dark:border-gray-700 p-3 flex items-center justify-between lg:justify-end">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden text-gray-700"
+            className="lg:hidden text-gray-700 dark:text-gray-300"
             onClick={() => setIsMobileMenuOpen(true)}
           >
             <Menu />
           </Button>
-          <div className="flex items-center gap-3">
-            {/* הסרנו את כפתור בחירת השפה - רק כפתור theme נשאר */}
-            <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-gray-800 dark:text-gray-300">
-              {theme === "light" ? <Moon /> : <Sun />}
-            </Button>
-          </div>
+          {/* Header ריק - כל הכפתורים עברו לסרגל הצדדי */}
         </header>
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">{children}</main>
