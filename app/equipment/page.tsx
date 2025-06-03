@@ -29,7 +29,6 @@ import {
   X,
   Plus,
   Bell,
-  Loader2,
   Brain,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -43,6 +42,7 @@ import { EquipmentService } from "@/lib/services/equipment-service"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
 import { usePageTranslation } from "@/hooks/use-translation"
+import { Loader2 } from "lucide-react"
 
 // הוסף בתחילת הקומפוננטה אחרי imports:
 const requiredFieldStyle = "text-red-500 ml-1"

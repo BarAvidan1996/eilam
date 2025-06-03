@@ -10,37 +10,22 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   return (
-    <div className="flex flex-col h-screen">
-      <div className="bg-gray-100 py-4 px-6">
-        <h1 className="text-2xl font-semibold">Chat</h1>
+    <div className="container mx-auto py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-4">
+          {isTranslating && <Loader2 className="inline mr-2 h-6 w-6 animate-spin" />}
+          <T>Chat with AI</T>
+        </h1>
+        <p className="text-gray-600 dark:text-gray-300">
+          <T>Get help and guidance from our AI assistant</T>
+        </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* Chat messages will go here */}
-        <div>Message 1</div>
-        <div>Message 2</div>
-      </div>
-
-      <div className="bg-gray-100 py-4 px-6 border-t">
-        <div className="flex items-center">
-          <input
-            type="text"
-            placeholder={ts("Type your message")}
-            className="flex-1 border rounded-l-md py-2 px-3 focus:outline-none"
-          />
-          <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-r-md"
-            onClick={() => {
-              setIsLoading(true)
-              setTimeout(() => {
-                setIsLoading(false)
-              }, 2000)
-            }}
-            disabled={isLoading}
-          >
-            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <T>Send Message</T>}
-          </button>
-        </div>
+      {/* Add your chat content here */}
+      <div className="text-center py-16">
+        <p className="text-lg text-gray-500">
+          <T>Chat functionality will be implemented here</T>
+        </p>
       </div>
     </div>
   )

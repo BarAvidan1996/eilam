@@ -1,13 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   ListChecks,
-  PlusCircle,
-  Trash2,
-  Edit,
   Droplets,
   Pill,
   HeartHandshake,
@@ -17,35 +12,15 @@ import {
   Activity,
   UsersIcon,
   ShieldCheck,
-  Eye,
   FileText,
   Loader2,
 } from "lucide-react"
-import Link from "next/link"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { EquipmentService } from "@/lib/services/equipment-service"
 import { format } from "date-fns"
 import { he } from "date-fns/locale"
 import { usePageTranslation } from "@/hooks/use-translation"
+import { useTranslation } from "@/hooks/use-translation"
+import { T } from "@/components/translation-wrapper"
 
 // נוסיף פונקציה שתחזיר את האייקון המתאים לקטגוריה
 const getCategoryIcon = (category) => {
@@ -149,6 +124,7 @@ export default function EquipmentListsPage() {
   const [newTitle, setNewTitle] = useState("")
   const [language, setLanguage] = useState("he")
   const { tp: t, ts, isTranslating } = usePageTranslation(translations)
+  const { ts: ts2, isTranslating: isTranslating2 } = useTranslation()
 
   // Get language and direction
   useEffect(() => {
@@ -279,149 +255,23 @@ export default function EquipmentListsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-          <ListChecks className="text-purple-600" />
-          {t("pageTitle")}
-          {isTranslating && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+    <div className="container mx-auto py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-4">
+          {isTranslating2 && <Loader2 className="inline mr-2 h-6 w-6 animate-spin" />}
+          <T>Equipment Lists</T>
         </h1>
-        <p className="text-gray-600 dark:text-gray-300">{t("pageDescription")}</p>
-      </header>
-
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg">{error}</div>
-      )}
-
-      <div className="mb-6">
-        <Link href="/equipment">
-          <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            {t("createNewList")}
-          </Button>
-        </Link>
+        <p className="text-gray-600 dark:text-gray-300">
+          <T>Manage your emergency equipment and supplies</T>
+        </p>
       </div>
 
-      {equipmentLists.length > 0 ? (
-        <div className="space-y-4">
-          {equipmentLists.map((list) => (
-            <Card key={list.id} className="shadow-md hover:shadow-lg transition-shadow dark:bg-gray-800">
-              <CardContent className="p-4">
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-xl font-semibold text-[#005c72] dark:text-gray-100 mb-2">{list.title}</h2>
-                    {list.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                        {extractFamilyInfo(list.description)}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {list.itemCount} {t("items")}
-                      </p>
-                      <span className="text-gray-400">•</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t("createdAt")} {formatDate(list.created_at)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 w-full sm:w-auto mt-3 sm:mt-0">
-                    {/* View List Button */}
-                    <Link href={`/equipment/${list.id}`} className="w-full">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-gray-800 border-none"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        <span>{t("viewList")}</span>
-                      </Button>
-                    </Link>
-
-                    {/* Edit Title Button */}
-                    <Button variant="outline" size="sm" onClick={() => openEditTitleDialog(list)} className="w-full">
-                      <Edit className="mr-2 h-4 w-4" />
-                      <span>{t("editTitle")}</span>
-                    </Button>
-
-                    {/* Delete Button */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openDeleteDialog(list)}
-                      className="w-full bg-red-600 hover:bg-red-700 text-white border-red-600 hover:border-red-700 dark:bg-red-600 dark:hover:bg-red-700 dark:text-white dark:border-red-600 dark:hover:border-red-700"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      <span>{t("deleteList")}</span>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card className="shadow-md dark:bg-gray-800">
-          <CardContent className="p-6 text-center">
-            <ListChecks className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-            <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t("noLists")}</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">{t("noListsDescription")}</p>
-            <Link href="/equipment">
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                {t("createNewList")}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Delete Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent className="max-w-[90%] w-[350px] mx-auto">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("confirmDelete")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("confirmDeleteDescription")}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex gap-3">
-            <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteList} className="bg-red-600 hover:bg-red-700">
-              {t("delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Edit Title Dialog */}
-      <Dialog open={isEditTitleDialogOpen} onOpenChange={setIsEditTitleDialogOpen}>
-        <DialogContent className="max-w-[90%] w-[350px] mx-auto">
-          <DialogHeader>
-            <DialogTitle>{t("editTitleDialog")}</DialogTitle>
-            <DialogDescription>שנה את כותרת הרשימה לכותרת חדשה</DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="title" className="text-right">
-                {t("newTitle")}
-              </Label>
-              <Input id="title" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="col-span-3" />
-            </div>
-          </div>
-          <DialogFooter className="flex gap-3">
-            <Button variant="outline" onClick={() => setIsEditTitleDialogOpen(false)}>
-              {t("cancel")}
-            </Button>
-            <Button
-              onClick={handleEditTitle}
-              disabled={!newTitle.trim()}
-              className="bg-[#005c72] hover:bg-[#004a5d] text-white dark:bg-[#d3e3fd] dark:hover:bg-[#b4cef9] dark:text-black"
-            >
-              {t("save")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Add your equipment lists content here */}
+      <div className="text-center py-16">
+        <p className="text-lg text-gray-500">
+          <T>Equipment lists functionality will be implemented here</T>
+        </p>
+      </div>
     </div>
   )
 }

@@ -25,6 +25,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import ClientLayout from "./ClientLayout"
 import { useLanguage } from "@/contexts/language-context"
+import { useTranslation } from "@/hooks/use-translation"
+import { Shield, Users, MessageSquare, MapPin } from "lucide-react"
 
 // Force dynamic rendering to avoid document is not defined error
 export const dynamic = "force-dynamic"
@@ -146,6 +148,35 @@ const translations = {
 }
 
 export default function LoginPage() {
+  const { ts, isTranslating } = useTranslation()
+
+  const features = [
+    {
+      icon: Shield,
+      title: "Equipment Management",
+      description: "Manage your emergency equipment lists efficiently",
+      href: "/equipment-lists",
+    },
+    {
+      icon: MapPin,
+      title: "Shelter Finder",
+      description: "Find nearby shelters and safe locations",
+      href: "/shelters",
+    },
+    {
+      icon: MessageSquare,
+      title: "AI Assistant",
+      description: "Get help and guidance from our AI assistant",
+      href: "/chat",
+    },
+    {
+      icon: Users,
+      title: "Community",
+      description: "Connect with your community for emergency preparedness",
+      href: "/profile",
+    },
+  ]
+
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
