@@ -29,6 +29,7 @@ import {
   X,
   Plus,
   Bell,
+  Loader2,
   Brain,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -41,8 +42,6 @@ import { AIRecommendationService } from "@/lib/services/ai-recommendation-servic
 import { EquipmentService } from "@/lib/services/equipment-service"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useToast } from "@/hooks/use-toast"
-import { usePageTranslation } from "@/hooks/use-translation"
-import { Loader2 } from "lucide-react"
 
 // הוסף בתחילת הקומפוננטה אחרי imports:
 const requiredFieldStyle = "text-red-500 ml-1"
@@ -332,15 +331,15 @@ const LoadingIndicator = ({ state, t }) => {
   const getStepText = () => {
     switch (state.step) {
       case "extracting":
-        return t("extractingData") || "מחלץ מידע מהתיאור שלך..."
+        return t.extractingData || "מחלץ מידע מהתיאור שלך..."
       case "generating":
-        return t("generatingRecommendations") || "יוצר רשימת ציוד מותאמת אישית..."
+        return t.generatingRecommendations || "יוצר רשימת ציוד מותאמת אישית..."
       case "processing":
-        return t("processingItems") || "מעבד את הפריטים המומלצים..."
+        return t.processingItems || "מעבד את הפריטים המומלצים..."
       case "finalizing":
-        return t("finalizingProcess") || "מסיים את התהליך..."
+        return t.finalizingProcess || "מסיים את התהליך..."
       default:
-        return t("processingGeneric") || "מעבד..."
+        return t.processingGeneric || "מעבד..."
     }
   }
 
@@ -363,7 +362,7 @@ const LoadingIndicator = ({ state, t }) => {
 export default function EquipmentPage({ initialList = null }: { initialList?: any }) {
   const router = useRouter()
   const [language, setLanguage] = useState("he")
-  const { tp: t, ts, isTranslating } = usePageTranslation(baseTranslations)
+  const [translations, setTranslations] = useState(baseTranslations.he)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState("")
   const [aiUserPrompt, setAIUserPrompt] = useState("")
@@ -390,6 +389,8 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     step: "", // "extracting", "generating", "processing", "finalizing"
     progress: 0, // 0-100
   })
+
+  const t = translations
 
   const [newItem, setnewItem] = useState({
     name: "",
@@ -434,7 +435,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           className={`${baseClasses} ${cardClasses} bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800`}
         >
           <AlertTriangle className="h-3 w-3 mr-1 hidden xs:inline" />
-          {t("aiCategories.essential") || "הכרחי"}
+          {t.aiCategories.essential || "הכרחי"}
         </Badge>
       )
     } else if (importance >= 4) {
@@ -444,7 +445,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           className={`${baseClasses} ${cardClasses} bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400 border-orange-200 dark:border-orange-800`}
         >
           <AlertTriangle className="h-3 w-3 mr-1 hidden xs:inline" />
-          {t("aiCategories.very_important") || "חשוב מאוד"}
+          {t.aiCategories.very_important || "חשוב מאוד"}
         </Badge>
       )
     } else if (importance >= 3) {
@@ -453,7 +454,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           variant="outline"
           className={`${baseClasses} ${cardClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800`}
         >
-          {t("aiCategories.important") || "חשוב"}
+          {t.aiCategories.important || "חשוב"}
         </Badge>
       )
     } else if (importance >= 2) {
@@ -462,7 +463,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           variant="outline"
           className={`${baseClasses} ${cardClasses} bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800`}
         >
-          {t("aiCategories.recommended") || "מומלץ"}
+          {t.aiCategories.recommended || "מומלץ"}
         </Badge>
       )
     }
@@ -471,7 +472,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         variant="outline"
         className={`${baseClasses} ${cardClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400 border-gray-200 dark:border-gray-700`}
       >
-        {t("aiCategories.optional") || "אופציונלי"}
+        {t.aiCategories.optional || "אופציונלי"}
       </Badge>
     )
   }
@@ -482,7 +483,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     setError("")
 
     if (!currentListName) {
-      setError(t("listNameCannotBeEmpty") || "שם הרשימה אינו יכול להיות ריק.")
+      setError(t.listNameCannotBeEmpty || "שם הרשימה אינו יכול להיות ריק.")
       setIsAILoading(false)
       return
     }
@@ -519,7 +520,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
         savedList = await EquipmentService.updateList(initialList.id, listToSave)
 
         // הגדרת הודעת הצלחה בולטת
-        setSuccessMessage(t("changesSavedSuccessfully") || "השינויים נשמרו בהצלחה!")
+        setSuccessMessage(t.changesSavedSuccessfully || "השינויים נשמרו בהצלחה!")
 
         // ניקוי ההודעה אחרי 5 שניות
         setTimeout(() => {
@@ -543,7 +544,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       } else {
         console.log("➕ Creating new list")
         savedList = await EquipmentService.createList(listToSave)
-        setSuccessMessage(t("listCreatedSuccessfully") || "הרשימה נוצרה בהצלחה!")
+        setSuccessMessage(t.listCreatedSuccessfully || "הרשימה נוצרה בהצלחה!")
 
         // יציאה ממצב עריכה אחרי שמירה מוצלחת
         setIsEditing(false)
@@ -571,10 +572,10 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       }
     } catch (error) {
       console.error("❌ Error saving list:", error)
-      setError(t("errorSavingList") || "שגיאה בשמירת הרשימה. נסה שוב.")
+      setError(t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.")
       toast({
         title: "שגיאה",
-        description: t("errorSavingList") || "שגיאה בשמירת הרשימה. נסה שוב.",
+        description: t.errorSavingList || "שגיאה בשמירת הרשימה. נסה שוב.",
         variant: "destructive",
       })
 
@@ -615,10 +616,10 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     if (!newItem.name.trim()) {
       toast({
         title: "שגיאה",
-        description: t("itemNameCannotBeEmpty") || "שם הפריט אינו יכול להיות ריק.",
+        description: t.itemNameCannotBeEmpty || "שם הפריט אינו יכול להיות ריק.",
         variant: "destructive",
       })
-      setError(t("itemNameCannotBeEmpty") || "שם הפריט אינו יכול להיות ריק.")
+      setError(t.itemNameCannotBeEmpty || "שם הפריט אינו יכול להיות ריק.")
       return
     }
 
@@ -634,14 +635,14 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     setIsAddItemDialogOpen(false)
     toast({
       title: "הצלחה",
-      description: t("itemAddedSuccessfully") || "הפריט נוסף בהצלחה!",
+      description: t.itemAddedSuccessfully || "הפריט נוסף בהצלחה!",
       variant: "default",
     })
     setnewItem({
       name: "",
       category: "water_food",
       quantity: 1,
-      unit: t("aiCategories")?.default_unit || "יחידות",
+      unit: t.aiCategories?.default_unit || "יחידות",
       importance: 3,
       description: "",
       expiryDate: null,
@@ -772,7 +773,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           onClick={() => setError("")}
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >
-          {t("tryAgain") || "נסה שוב"}
+          {t.tryAgain || "נסה שוב"}
         </button>
       </div>
     )
@@ -783,10 +784,9 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
     <div className={`max-w-5xl mx-auto p-4 sm:p-6 ${isRTL ? "rtl" : "ltr"}`}>
       <header className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100">
-          {currentListName ? `${t("pageTitle")}: ${currentListName}` : t("pageTitle")}
-          {isTranslating && <Loader2 className="h-4 w-4 animate-spin text-blue-500 mr-2" />}
+          {currentListName ? `${t.pageTitle}: ${currentListName}` : t.pageTitle}
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">{t("pageDescription")}</p>
+        <p className="text-gray-600 dark:text-gray-400">{t.pageDescription}</p>
       </header>
 
       {error && (
@@ -806,14 +806,14 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
             <CardTitle className="flex items-center gap-3">
               <Sparkles className="h-6 w-6 text-primary" />
               <div>
-                <div className="text-xl">{t("aiModalTitle")}</div>
-                <div className="text-sm font-normal text-muted-foreground">{t("aiPromptDescription")}</div>
+                <div className="text-xl">{t.aiModalTitle}</div>
+                <div className="text-sm font-normal text-muted-foreground">{t.aiPromptDescription}</div>
               </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             <Textarea
-              placeholder={t("aiPromptPlaceholder")}
+              placeholder={t.aiPromptPlaceholder}
               value={aiUserPrompt}
               onChange={(e) => setAIUserPrompt(e.target.value)}
               rows={3}
@@ -841,7 +841,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
               ) : (
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5" />
-                  {t("aiGenerateButton")}
+                  {t.aiGenerateButton}
                 </div>
               )}
             </Button>
@@ -852,21 +852,21 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
           {!aiGeneratedProfile.loadedFromExisting && (
             <Button onClick={handleBackToPrompt} variant="outline" className="mb-4 flex items-center gap-2">
               <RotateCcw className="h-4 w-4" />
-              {t("backToAI") || "חזור ליצירת רשימה"}
+              {t.backToAI || "חזור ליצירת רשימה"}
             </Button>
           )}
 
           <Card className="bg-white dark:bg-gray-800 shadow-md">
             <CardHeader>
               <CardTitle className="text-lg text-gray-800 dark:text-white">
-                {t("summaryTitle") || "סיכום הציוד שלך"}
+                {t.summaryTitle || "סיכום הציוד שלך"}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                   <h3 className="font-semibold text-sm text-blue-700 dark:text-blue-300 mb-1">
-                    {t("itemsChecked") || "פריטים שנבדקו"}
+                    {t.itemsChecked || "פריטים שנבדקו"}
                   </h3>
                   <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">
                     {aiGeneratedItems.filter((item) => item.obtained).length} / {aiGeneratedItems.length}
@@ -874,7 +874,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                 </Card>
                 <Card className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
                   <h3 className="font-semibold text-sm text-red-700 dark:text-red-300 mb-1">
-                    {t("missingEssentialItems") || "הכרחיים חסרים"}
+                    {t.missingEssentialItems || "הכרחיים חסרים"}
                   </h3>
                   <p className="text-2xl font-bold text-red-900 dark:text-red-200">
                     {aiGeneratedItems.filter((item) => item.importance >= 5 && !item.obtained).length}
@@ -882,7 +882,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                 </Card>
                 <Card className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
                   <h3 className="font-semibold text-sm text-green-700 dark:text-green-300 mb-1">
-                    {t("totalReadiness") || "מוכנות כוללת"}
+                    {t.totalReadiness || "מוכנות כוללת"}
                   </h3>
                   <p className="text-2xl font-bold text-green-900 dark:text-green-200">
                     {aiGeneratedItems.length > 0
@@ -895,7 +895,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                 </Card>
                 <Card className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
                   <h3 className="font-semibold text-sm text-purple-700 dark:text-purple-300 mb-1">
-                    {t("categoriesCount") || "קטגוריות"}
+                    {t.categoriesCount || "קטגוריות"}
                   </h3>
                   <p className="text-2xl font-bold text-purple-900 dark:text-purple-200">
                     {new Set(aiGeneratedItems.map((item) => item.category)).size}
@@ -907,7 +907,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
               <div className="grid grid-cols-2 gap-4 mt-4">
                 <Card className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
                   <h3 className="font-semibold text-sm text-blue-700 dark:text-blue-300 mb-1">
-                    {t("mandatoryItemsCount") || "פריטי חובה"}
+                    {t.mandatoryItemsCount || "פריטי חובה"}
                   </h3>
                   <div className="flex items-center gap-2">
                     <p className="text-2xl font-bold text-blue-900 dark:text-blue-200">{mandatoryItemsCount}</p>
@@ -917,7 +917,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                           <ShieldCheck className="h-5 w-5 text-blue-500" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p className="text-xs">{t("mandatoryItemTooltip") || "ציוד מומלץ על-פי פיקוד העורף"}</p>
+                          <p className="text-xs">{t.mandatoryItemTooltip || "ציוד מומלץ על-פי פיקוד העורף"}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -925,7 +925,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                 </Card>
                 <Card className="bg-[#005c72]/10 dark:bg-[#005c72]/20 p-4 rounded-lg">
                   <h3 className="font-semibold text-sm text-[#005c72] dark:text-white mb-1">
-                    {t("personalizedItemsCount") || "פריטים מותאמים אישית"}
+                    {t.personalizedItemsCount || "פריטים מותאמים אישית"}
                   </h3>
                   <div className="flex items-center gap-2">
                     <p className="text-2xl font-bold text-[#005c72] dark:text-white">{personalizedItemsCount}</p>
@@ -935,7 +935,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                           <Sparkles className="h-5 w-5 text-[#005c72] dark:text-white" />
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p className="text-xs">{t("personalizedItemTooltip") || "פריט שהותאם במיוחד לצרכים שלך"}</p>
+                          <p className="text-xs">{t.personalizedItemTooltip || "פריט שהותאם במיוחד לצרכים שלך"}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -949,14 +949,14 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
             <Card className="bg-white dark:bg-gray-800 shadow-md">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg text-gray-800 dark:text-white flex items-center gap-2">
-                  <UsersIcon className="h-5 w-5 text-blue-500" /> {t("aiFamilyComposition")}
+                  <UsersIcon className="h-5 w-5 text-blue-500" /> {t.aiFamilyComposition}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-x-6 gap-y-2">
                   <div className="min-w-28">
                     <div className="flex items-center gap-1">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t("aiAdults")}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiAdults}</p>
                       {defaultFields.includes("adults") && (
                         <TooltipProvider>
                           <Tooltip>
@@ -964,7 +964,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                               <Info className="h-3 w-3 text-red-500" />
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p className="text-xs">{t("defaultValueUsed")}</p>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -974,7 +974,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                   </div>
                   <div className="min-w-28">
                     <div className="flex items-center gap-1">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t("aiChildren")}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiChildren}</p>
                       {defaultFields.includes("children") && (
                         <TooltipProvider>
                           <Tooltip>
@@ -982,7 +982,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                               <Info className="h-3 w-3 text-red-500" />
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p className="text-xs">{t("defaultValueUsed")}</p>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -992,7 +992,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                   </div>
                   <div className="min-w-28">
                     <div className="flex items-center gap-1">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t("aiBabies")}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.aiBabies}</p>
                       {defaultFields.includes("babies") && (
                         <TooltipProvider>
                           <Tooltip>
@@ -1000,7 +1000,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                               <Info className="h-3 w-3 text-red-500" />
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p className="text-xs">{t("defaultValueUsed")}</p>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -1010,7 +1010,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                   </div>
                   <div className="min-w-28">
                     <div className="flex items-center gap-1">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{t("elderly")}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.elderly}</p>
                       {defaultFields.includes("elderly") && (
                         <TooltipProvider>
                           <Tooltip>
@@ -1018,7 +1018,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                               <Info className="h-3 w-3 text-red-500" />
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p className="text-xs">{t("defaultValueUsed")}</p>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -1028,9 +1028,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                   </div>
                   <div className="min-w-28">
                     <div className="flex items-center gap-1">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {t("durationHours") || "משך זמן (שעות)"}
-                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{t.durationHours || "משך זמן (שעות)"}</p>
                       {defaultFields.includes("duration_hours") && (
                         <TooltipProvider>
                           <Tooltip>
@@ -1038,7 +1036,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                               <Info className="h-3 w-3 text-red-500" />
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p className="text-xs">{t("defaultValueUsed")}</p>
+                              <p className="text-xs">{t.defaultValueUsed}</p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -1050,7 +1048,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                   {aiGeneratedProfile.special_needs && (
                     <div className="w-full mt-2">
                       <div className="flex items-center gap-1">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t("aiSpecialNeeds")}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{t.aiSpecialNeeds}</p>
                         {defaultFields.includes("special_needs") && (
                           <TooltipProvider>
                             <Tooltip>
@@ -1058,7 +1056,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 <Info className="h-3 w-3 text-red-500" />
                               </TooltipTrigger>
                               <TooltipContent>
-                                <p className="text-xs">{t("defaultValueUsed")}</p>
+                                <p className="text-xs">{t.defaultValueUsed}</p>
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -1080,7 +1078,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
             <Card className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 shadow-md">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg text-red-700 dark:text-red-300 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" /> {t("missingEssentialItemsTitle") || "פריטים הכרחיים חסרים"}
+                  <AlertTriangle className="h-5 w-5" /> {t.missingEssentialItemsTitle || "פריטים הכרחיים חסרים"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1111,7 +1109,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                 <div className="flex flex-1 md:max-w-md relative">
                   <Search className="absolute right-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder={t("searchItemPlaceholder") || "חפש פריט..."}
+                    placeholder={t.searchItemPlaceholder || "חפש פריט..."}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className={`w-full ${isRTL ? "pr-10" : "pl-10"}`}
@@ -1121,10 +1119,10 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                 <div className="flex flex-wrap gap-2">
                   <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                     <SelectTrigger className="w-full sm:w-36">
-                      <SelectValue placeholder={t("categoryFilterPlaceholder") || "קטגוריה"} />
+                      <SelectValue placeholder={t.categoryFilterPlaceholder || "קטגוריה"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">{t("allCategories") || "כל הקטגוריות"}</SelectItem>
+                      <SelectItem value="all">{t.allCategories || "כל הקטגוריות"}</SelectItem>
                       {[
                         "water_food",
                         "medical",
@@ -1139,7 +1137,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                         "other",
                       ].map((key) => (
                         <SelectItem key={key} value={key}>
-                          {t("aiCategories")[key] || key}
+                          {t.aiCategories[key] || key}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1147,17 +1145,15 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
                   <Select value={selectedImportance} onValueChange={setSelectedImportance}>
                     <SelectTrigger className="w-full sm:w-36">
-                      <SelectValue placeholder={t("importanceFilterPlaceholder") || "חשיבות"} />
+                      <SelectValue placeholder={t.importanceFilterPlaceholder || "חשיבות"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">{t("allLevels") || "כל הרמות"}</SelectItem>
-                      <SelectItem value="essential">{t("aiCategories").essential || "הכרחי"} (5)</SelectItem>
-                      <SelectItem value="very_important">
-                        {t("aiCategories").very_important || "חשוב מאוד"} (4)
-                      </SelectItem>
-                      <SelectItem value="important">{t("aiCategories").important || "חשוב"} (3)</SelectItem>
-                      <SelectItem value="recommended">{t("aiCategories").recommended || "מומלץ"} (2)</SelectItem>
-                      <SelectItem value="optional">{t("aiCategories").optional || "אופציונלי"} (1)</SelectItem>
+                      <SelectItem value="all">{t.allLevels || "כל הרמות"}</SelectItem>
+                      <SelectItem value="essential">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
+                      <SelectItem value="very_important">{t.aiCategories.very_important || "חשוב מאוד"} (4)</SelectItem>
+                      <SelectItem value="important">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
+                      <SelectItem value="recommended">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
+                      <SelectItem value="optional">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -1167,10 +1163,10 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       <SelectValue placeholder="סוג פריט" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">{t("showAllItems") || "הצג את כל הפריטים"}</SelectItem>
-                      <SelectItem value="mandatory">{t("showMandatoryOnly") || "הצג רק פריטי חובה"}</SelectItem>
+                      <SelectItem value="all">{t.showAllItems || "הצג את כל הפריטים"}</SelectItem>
+                      <SelectItem value="mandatory">{t.showMandatoryOnly || "הצג רק פריטי חובה"}</SelectItem>
                       <SelectItem value="personalized">
-                        {t("showPersonalizedOnly") || "הצג רק פריטים מותאמים אישית"}
+                        {t.showPersonalizedOnly || "הצג רק פריטים מותאמים אישית"}
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -1186,7 +1182,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     className="flex items-center gap-1"
                   >
                     <Filter className="h-4 w-4" />
-                    {t("clearFiltersButton") || "נקה"}
+                    {t.clearFiltersButton || "נקה"}
                   </Button>
                 </div>
               </div>
@@ -1228,7 +1224,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 className={`text-xs transition-colors px-1.5 sm:px-2 py-0.5 flex items-center gap-1 shrink-0 max-w-[120px] sm:max-w-none ${categoryStyle.bg} ${categoryStyle.text} ${categoryStyle.darkBg} ${categoryStyle.darkText}`}
                               >
                                 {getCategoryStyle(item.category).icon}
-                                <span className="truncate">{t("aiCategories")[item.category] || item.category}</span>
+                                <span className="truncate">{t.aiCategories[item.category] || item.category}</span>
                               </Badge>
                             </div>
 
@@ -1268,11 +1264,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                         className="text-xs ml-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200 dark:border-blue-800"
                                       >
                                         <ShieldCheck className="h-3 w-3 mr-1" />
-                                        {t("mandatoryItem")}
+                                        {t.mandatoryItem}
                                       </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p className="text-xs">{t("mandatoryItemTooltip")}</p>
+                                      <p className="text-xs">{t.mandatoryItemTooltip}</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -1288,11 +1284,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                         className="text-xs ml-1 bg-[#005c72]/10 text-[#005c72] dark:bg-[#005c72]/20 dark:text-white border-[#005c72]/20 dark:border-[#005c72]/40"
                                       >
                                         <Sparkles className="h-3 w-3 mr-1" />
-                                        {t("personalizedItem")}
+                                        {t.personalizedItem}
                                       </Badge>
                                     </TooltipTrigger>
                                     <TooltipContent>
-                                      <p className="text-xs">{t("personalizedItemTooltip")}</p>
+                                      <p className="text-xs">{t.personalizedItemTooltip}</p>
                                     </TooltipContent>
                                   </Tooltip>
                                 </TooltipProvider>
@@ -1321,7 +1317,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                               {item.description && (
                                 <div>
                                   <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                    {t("description") || "תיאור"}
+                                    {t.description || "תיאור"}
                                   </h4>
                                   <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                                     {item.description}
@@ -1332,7 +1328,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 {item.recommended_quantity_per_person && (
                                   <div>
                                     <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t("aiCategories").recommended_quantity_per_person_label}
+                                      {t.aiCategories.recommended_quantity_per_person_label}
                                     </h4>
                                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                                       {item.recommended_quantity_per_person}
@@ -1342,7 +1338,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 {item.usage_instructions && (
                                   <div>
                                     <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t("aiCategories").usage_instructions_label}
+                                      {t.aiCategories.usage_instructions_label}
                                     </h4>
                                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                                       {item.usage_instructions}
@@ -1352,7 +1348,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 {item.shelf_life && (
                                   <div className="block sm:hidden">
                                     <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t("aiCategories").shelf_life_label}
+                                      {t.aiCategories.shelf_life_label}
                                     </h4>
                                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                                       {item.shelf_life}
@@ -1362,7 +1358,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 {item.expiryDate && (
                                   <div>
                                     <h4 className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-0.5 sm:mb-1">
-                                      {t("expiryDate") || "תאריך תפוגה"}
+                                      {t.expiryDate || "תאריך תפוגה"}
                                     </h4>
                                     <div className="flex items-center gap-2">
                                       <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
@@ -1383,7 +1379,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                               <div className="grid grid-cols-1 gap-3">
                                 <div>
                                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    {t("itemName") || "שם הפריט"} <span className={requiredFieldStyle}>*</span>
+                                    {t.itemName || "שם הפריט"} <span className={requiredFieldStyle}>*</span>
                                   </label>
                                   <Input
                                     value={item.name}
@@ -1399,7 +1395,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
                                 <div>
                                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    {t("itemCategory") || "קטגוריה"} <span className={requiredFieldStyle}>*</span>
+                                    {t.itemCategory || "קטגוריה"} <span className={requiredFieldStyle}>*</span>
                                   </label>
                                   <Select
                                     value={item.category}
@@ -1428,7 +1424,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                         "other",
                                       ].map((key) => (
                                         <SelectItem key={key} value={key}>
-                                          {t("aiCategories")[key] || key}
+                                          {t.aiCategories[key] || key}
                                         </SelectItem>
                                       ))}
                                     </SelectContent>
@@ -1438,7 +1434,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                      {t("itemQuantity") || "כמות"} <span className={requiredFieldStyle}>*</span>
+                                      {t.itemQuantity || "כמות"} <span className={requiredFieldStyle}>*</span>
                                     </label>
                                     <Input
                                       type="number"
@@ -1457,7 +1453,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                   </div>
                                   <div>
                                     <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                      {t("itemUnit") || "יחידת מידה"} <span className={requiredFieldStyle}>*</span>
+                                      {t.itemUnit || "יחידת מידה"} <span className={requiredFieldStyle}>*</span>
                                     </label>
                                     <Input
                                       value={item.unit}
@@ -1474,7 +1470,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
                                 <div>
                                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    {t("itemImportance") || "חשיבות"} <span className={requiredFieldStyle}>*</span>
+                                    {t.itemImportance || "חשיבות"} <span className={requiredFieldStyle}>*</span>
                                   </label>
                                   <Select
                                     value={item.importance.toString()}
@@ -1489,20 +1485,20 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="5">{t("aiCategories").essential || "הכרחי"} (5)</SelectItem>
+                                      <SelectItem value="5">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
                                       <SelectItem value="4">
-                                        {t("aiCategories").very_important || "חשוב מאוד"} (4)
+                                        {t.aiCategories.very_important || "חשוב מאוד"} (4)
                                       </SelectItem>
-                                      <SelectItem value="3">{t("aiCategories").important || "חשוב"} (3)</SelectItem>
-                                      <SelectItem value="2">{t("aiCategories").recommended || "מומלץ"} (2)</SelectItem>
-                                      <SelectItem value="1">{t("aiCategories").optional || "אופציונלי"} (1)</SelectItem>
+                                      <SelectItem value="3">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
+                                      <SelectItem value="2">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
+                                      <SelectItem value="1">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
                                     </SelectContent>
                                   </Select>
                                 </div>
 
                                 <div>
                                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    {t("itemDescription") || "תיאור"}
+                                    {t.itemDescription || "תיאור"}
                                   </label>
                                   <Textarea
                                     value={item.description || ""}
@@ -1519,7 +1515,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
                                 <div>
                                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    {t("itemUsageInstructions") || "הוראות שימוש"}
+                                    {t.itemUsageInstructions || "הוראות שימוש"}
                                   </label>
                                   <Textarea
                                     value={item.usage_instructions || ""}
@@ -1530,14 +1526,14 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                       setAIGeneratedItems(updatedItems)
                                     }}
                                     className="text-sm"
-                                    placeholder={t("usageInstructionsPlaceholder") || "הוראות שימוש והערות חשובות"}
+                                    placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
                                     rows={2}
                                   />
                                 </div>
 
                                 <div>
                                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    {t("estimatedExpiryDate") || "תאריך תפוגה משוער"}
+                                    {t.estimatedExpiryDate || "תאריך תפוגה משוער"}
                                   </label>
                                   <Input
                                     type="date"
@@ -1568,7 +1564,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                       htmlFor={`item-sms-notification-${item.id}`}
                                       className="mr-2 text-xs font-medium text-gray-700 dark:text-gray-300"
                                     >
-                                      {t("smsNotification") ||
+                                      {t.smsNotification ||
                                         "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה."}
                                     </label>
                                   </div>
@@ -1601,7 +1597,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                                     htmlFor={`item-mandatory-${item.id}`}
                                     className="mr-2 text-xs font-medium text-gray-700 dark:text-gray-300"
                                   >
-                                    {t("mandatoryItem") || "פריט חובה"}
+                                    {t.mandatoryItem || "פריט חובה"}
                                   </label>
                                 </div>
                               </div>
@@ -1613,7 +1609,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                   })
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-gray-500 dark:text-gray-400">{t("noItemsFound") || "לא נמצאו פריטים"}</p>
+                    <p className="text-gray-500 dark:text-gray-400">{t.noItemsFound || "לא נמצאו פריטים"}</p>
                   </div>
                 )}
               </Accordion>
@@ -1631,7 +1627,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       ) : (
                         <FileText className="h-5 w-5" />
                       )}
-                      {t("saveChanges") || "שמור שינויים"}
+                      {t.saveChanges || "שמור שינויים"}
                     </Button>
 
                     <div className="flex flex-col md:flex-row gap-2 w-full md:w-1/2">
@@ -1641,7 +1637,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                         className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2 order-1 md:order-1"
                       >
                         <X className="h-5 w-5" />
-                        {t("cancelEditing") || "בטל עריכה"}
+                        {t.cancelEditing || "בטל עריכה"}
                       </Button>
 
                       <Button
@@ -1650,7 +1646,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                         className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2 order-2 md:order-2"
                       >
                         <Plus className="h-5 w-5" />
-                        {t("addItem") || "הוסף פריט"}
+                        {t.addItem || "הוסף פריט"}
                       </Button>
 
                       <Button
@@ -1660,7 +1656,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                         className="w-full md:w-1/3 py-6 md:py-4 flex items-center justify-center gap-2 order-3 md:order-3"
                       >
                         <RotateCcw className="h-5 w-5" />
-                        {t("undoAction") || "בטל פעולה אחרונה"}
+                        {t.undoAction || "בטל פעולה אחרונה"}
                       </Button>
                     </div>
                   </div>
@@ -1672,7 +1668,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       className="w-full md:w-1/2 py-6 md:py-4 flex items-center justify-center gap-2 order-1"
                     >
                       <Pencil className="h-5 w-5" />
-                      {t("editList") || "ערוך רשימה"}
+                      {t.editList || "ערוך רשימה"}
                     </Button>
 
                     <Button
@@ -1685,7 +1681,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       ) : (
                         <FileText className="h-5 w-5" />
                       )}
-                      {t("aiSaveList") || "שמור רשימה מומלצת"}
+                      {t.aiSaveList || "שמור רשימה מומלצת"}
                     </Button>
                   </div>
                 )}
@@ -1698,12 +1694,12 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
                 <div className="p-3 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800 z-10">
-                  <h3 className="text-lg font-medium">{t("addNewItem") || "הוספת פריט חדש"}</h3>
+                  <h3 className="text-lg font-medium">{t.addNewItem || "הוספת פריט חדש"}</h3>
                 </div>
                 <div className="p-3 space-y-3">
                   <div>
                     <label htmlFor="item-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {t("itemName") || "שם הפריט"} <span className={requiredFieldStyle}>*</span>
+                      {t.itemName || "שם הפריט"} <span className={requiredFieldStyle}>*</span>
                     </label>
                     <Input
                       id="item-name"
@@ -1717,11 +1713,11 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       htmlFor="item-category"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      {t("itemCategory") || "קטגוריה"} <span className={requiredFieldStyle}>*</span>
+                      {t.itemCategory || "קטגוריה"} <span className={requiredFieldStyle}>*</span>
                     </label>
                     <Select value={newItem.category} onChange={(value) => setnewItem({ ...newItem, category: value })}>
                       <SelectTrigger id="item-category" className="mt-1">
-                        <SelectValue placeholder={t("categoryFilterPlaceholder") || "קטגוריה"} />
+                        <SelectValue placeholder={t.categoryFilterPlaceholder || "קטגוריה"} />
                       </SelectTrigger>
                       <SelectContent>
                         {[
@@ -1738,7 +1734,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                           "other",
                         ].map((key) => (
                           <SelectItem key={key} value={key}>
-                            {t("aiCategories")[key] || key}
+                            {t.aiCategories[key] || key}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -1750,7 +1746,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                         htmlFor="item-quantity"
                         className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                       >
-                        {t("itemQuantity") || "כמות"} <span className={requiredFieldStyle}>*</span>
+                        {t.itemQuantity || "כמות"} <span className={requiredFieldStyle}>*</span>
                       </label>
                       <Input
                         id="item-quantity"
@@ -1763,7 +1759,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                     </div>
                     <div>
                       <label htmlFor="item-unit" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {t("itemUnit") || "יחידת מידה"} <span className={requiredFieldStyle}>*</span>
+                        {t.itemUnit || "יחידת מידה"} <span className={requiredFieldStyle}>*</span>
                       </label>
                       <Input
                         id="item-unit"
@@ -1778,21 +1774,21 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       htmlFor="item-importance"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      {t("itemImportance") || "חשיבות"} <span className={requiredFieldStyle}>*</span>
+                      {t.itemImportance || "חשיבות"} <span className={requiredFieldStyle}>*</span>
                     </label>
                     <Select
                       value={newItem.importance.toString()}
                       onChange={(value) => setnewItem({ ...newItem, importance: Number.parseInt(value) })}
                     >
                       <SelectTrigger id="item-importance" className="mt-1">
-                        <SelectValue placeholder={t("importanceFilterPlaceholder") || "חשיבות"} />
+                        <SelectValue placeholder={t.importanceFilterPlaceholder || "חשיבות"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="5">{t("aiCategories").essential || "הכרחי"} (5)</SelectItem>
-                        <SelectItem value="4">{t("aiCategories").very_important || "חשוב מאוד"} (4)</SelectItem>
-                        <SelectItem value="3">{t("aiCategories").important || "חשוב"} (3)</SelectItem>
-                        <SelectItem value="2">{t("aiCategories").recommended || "מומלץ"} (2)</SelectItem>
-                        <SelectItem value="1">{t("aiCategories").optional || "אופציונלי"} (1)</SelectItem>
+                        <SelectItem value="5">{t.aiCategories.essential || "הכרחי"} (5)</SelectItem>
+                        <SelectItem value="4">{t.aiCategories.very_important || "חשוב מאוד"} (4)</SelectItem>
+                        <SelectItem value="3">{t.aiCategories.important || "חשוב"} (3)</SelectItem>
+                        <SelectItem value="2">{t.aiCategories.recommended || "מומלץ"} (2)</SelectItem>
+                        <SelectItem value="1">{t.aiCategories.optional || "אופציונלי"} (1)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1801,7 +1797,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       htmlFor="item-description"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      {t("itemDescription") || "תיאור"}
+                      {t.itemDescription || "תיאור"}
                     </label>
                     <Textarea
                       id="item-description"
@@ -1816,7 +1812,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       htmlFor="item-expiry-date"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      {t("estimatedExpiryDate") || "תאריך תפוגה משוער"}
+                      {t.estimatedExpiryDate || "תאריך תפוגה משוער"}
                     </label>
                     <Input
                       id="item-expiry-date"
@@ -1837,7 +1833,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                         htmlFor="item-sms-notification"
                         className="mr-2 text-sm font-medium text-gray-700 dark:text-gray-300"
                       >
-                        {t("smsNotification") || "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה."}
+                        {t.smsNotification || "הינני מעוניין בקבלת SMS המתריע מפני פקיעת התוקף של פריט זה."}
                       </label>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mr-6">
@@ -1858,27 +1854,27 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                       htmlFor="item-usage-instructions"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      {t("itemUsageInstructions") || "הוראות שימוש"}
+                      {t.itemUsageInstructions || "הוראות שימוש"}
                     </label>
                     <Textarea
                       id="item-usage-instructions"
                       value={newItem.usage_instructions}
                       onChange={(e) => setnewItem({ ...newItem, usage_instructions: e.target.value })}
                       className="mt-1"
-                      placeholder={t("usageInstructionsPlaceholder") || "הוראות שימוש והערות חשובות"}
+                      placeholder={t.usageInstructionsPlaceholder || "הוראות שימוש והערות חשובות"}
                       rows={2}
                     />
                   </div>
                 </div>
                 <div className="p-3 border-t dark:border-gray-700 flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-gray-800 z-10">
                   <Button variant="outline" onClick={() => setIsAddItemDialogOpen(false)}>
-                    {t("cancel") || "ביטול"}
+                    {t.cancel || "ביטול"}
                   </Button>
                   <Button
                     onClick={handleAddItem}
                     className="bg-[#005c72] hover:bg-[#005c72]/90 dark:bg-[#d3e3fd] dark:hover:bg-[#d3e3fd]/90 text-white dark:text-black"
                   >
-                    {t("add") || "הוסף"}
+                    {t.add || "הוסף"}
                   </Button>
                 </div>
               </div>
@@ -1891,12 +1887,12 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-md">
                 <div className="p-4 border-b dark:border-gray-700">
                   <h3 className="text-lg font-medium text-red-600 dark:text-red-400">
-                    {t("removeItemConfirm") || "האם אתה בטוח שברצונך להסיר את הפריט?"}
+                    {t.removeItemConfirm || "האם אתה בטוח שברצונך להסיר את הפריט?"}
                   </h3>
                 </div>
                 <div className="p-4">
                   <p className="text-gray-600 dark:text-gray-400">
-                    {t("removeItemDescription") || "פעולה זו תסיר את הפריט מהרשימה ולא ניתן יהיה לשחזר אותו."}
+                    {t.removeItemDescription || "פעולה זו תסיר את הפריט מהרשימה ולא ניתן יהיה לשחזר אותו."}
                   </p>
                   {itemToRemove && (
                     <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-700 rounded">
@@ -1909,10 +1905,10 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
                 </div>
                 <div className="p-4 border-t dark:border-gray-700 flex justify-end gap-2">
                   <Button variant="outline" onClick={() => setIsConfirmDialogOpen(false)}>
-                    {t("cancelRemove") || "ביטול"}
+                    {t.cancelRemove || "ביטול"}
                   </Button>
                   <Button variant="destructive" onClick={confirmRemoveItem}>
-                    {t("confirmRemove") || "הסר"}
+                    {t.confirmRemove || "הסר"}
                   </Button>
                 </div>
               </div>
@@ -1936,7 +1932,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
     // אימות שהמשתמש סיפק שם לרשימה או פרטי פרופיל
     if (!aiUserPrompt.trim() && !currentListName) {
-      setError(t("errorProvideListNameOrProfile") || "אנא ספק שם לרשימה או פרטי פרופיל ליצירת רשימה מותאמת אישית.")
+      setError(t.errorProvideListNameOrProfile || "אנא ספק שם לרשימה או פרטי פרופיל ליצירת רשימה מותאמת אישית.")
       setIsAILoading(false)
       return
     }
@@ -1980,7 +1976,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       // Process the AI recommendations
       const processedItems = recommendations.items.map((item) => ({
         id: crypto.randomUUID(),
-        name: item.name || t("unknownItem") || "פריט לא ידוע",
+        name: item.name || t.unknownItem || "פריט לא ידוע",
         category: item.category || "other",
         quantity: item.quantity || 1,
         unit: item.unit || "יחידות",
@@ -2008,8 +2004,8 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
 
       // קביעת שם רשימה אוטומטי אם לא סופק שם
       if (!currentListName) {
-        let autoListName = t("equipmentListFor") || "רשימת ציוד עבור"
-        if (profile.adults) autoListName += ` ${profile.adults} ${t("adults") || "מבוגרים"}`
+        let autoListName = t.equipmentListFor || "רשימת ציוד עבור"
+        if (profile.adults) autoListName += ` ${profile.adults} ${t.adults || "מבוגרים"}`
         setCurrentListName(autoListName)
       }
 
@@ -2030,7 +2026,7 @@ export default function EquipmentPage({ initialList = null }: { initialList?: an
       })
     } catch (error) {
       console.error("AI Generation Error:", error)
-      setError(t("errorSavingList") || "שגיאה ביצירת רשימה. אנא נסה שוב.")
+      setError(t.errorSavingList || "שגיאה ביצירת רשימה. אנא נסה שוב.")
     } finally {
       setIsAILoading(false)
     }

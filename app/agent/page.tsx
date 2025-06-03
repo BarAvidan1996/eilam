@@ -1,5 +1,3 @@
-"use client"
-
 import AgentInterface from "./agent-interface"
 
 export default function AgentPage() {

@@ -13,8 +13,8 @@ type LanguageContextType = {
   dir: "rtl" | "ltr"
 }
 
-// יצירת הקונטקסט עם ערכי ברירת מחדל
-export const LanguageContext = createContext<LanguageContextType>({
+// יצירת הקונטקסט עם ערכי ברירת מחדל - עברית כברירת מחדל
+const LanguageContext = createContext<LanguageContextType>({
   language: "he",
   setLanguage: () => {},
   isRTL: true,
@@ -26,7 +26,7 @@ export const useLanguage = () => useContext(LanguageContext)
 
 // ספק הקונטקסט
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  // אתחול עם ערכי ברירת מחדל
+  // אתחול עם עברית כברירת מחדל
   const [language, setLanguageState] = useState<Language>("he")
   const [isRTL, setIsRTL] = useState(true)
   const [dir, setDir] = useState<"rtl" | "ltr">("rtl")
@@ -50,7 +50,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // טעינת השפה מה-localStorage או מה-HTML בעת טעינת הדף
+  // טעינת השפה מה-localStorage או ברירת מחדל לעברית
   useEffect(() => {
     if (typeof window !== "undefined") {
       // בדיקה אם יש שפה שמורה ב-localStorage
@@ -59,11 +59,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       if (savedLanguage && ["he", "en", "ar", "ru"].includes(savedLanguage)) {
         setLanguage(savedLanguage)
       } else {
-        // אחרת, בדיקה של שפת הדפדפן
-        const htmlLang = document.documentElement.lang as Language
-        if (htmlLang && ["he", "en", "ar", "ru"].includes(htmlLang)) {
-          setLanguage(htmlLang)
-        }
+        // ברירת מחדל לעברית
+        setLanguage("he")
+        // הגדרת HTML לעברית
+        document.documentElement.lang = "he"
+        document.documentElement.dir = "rtl"
       }
     }
   }, [])

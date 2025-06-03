@@ -1,6 +1,7 @@
 "use client"
 
 import { DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -19,7 +20,6 @@ import {
   HelpCircle,
   Sun,
   Moon,
-  Globe,
   PlusCircle,
   Home,
   Menu,
@@ -30,117 +30,35 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/contexts/language-context"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useToast } from "@/hooks/use-toast"
-import { useTranslation } from "@/hooks/use-translation"
 
 // URL for the support agent image
 const SUPPORT_AGENT_URL =
   "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/support-agent-jp2UdfkKVHbjwhcmGAH5C2ohfK4szD.png"
 
-// Translations object
+// תרגומים בעברית בלבד (ברירת מחדל)
 const translations = {
-  he: {
-    appName: 'עיל"ם',
-    appDescription: "עוזר ייעודי למצבי חירום",
-    newAction: "פעולה חדשה",
-    home: "דף הבית",
-    chatHistory: "היסטוריית שיחות",
-    favoriteShelters: "מקלטים מועדפים",
-    favoriteEquipmentLists: "כל רשימות הציוד",
-    faq: "שאלות נפוצות",
-    profile: "פרופיל",
-    logout: "התנתקות",
-    logoutSuccess: "התנתקת בהצלחה",
-    newChat: "צ'אט חירום חדש",
-    findShelter: "חיפוש מקלט",
-    createEquipmentList: "יצירת רשימת ציוד",
-    aiAgent: "סוכן AI",
-    language: "שפה",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
-  en: {
-    appName: "EILAM",
-    appDescription: "AI for Emergency Situations",
-    newAction: "New Action",
-    home: "Home",
-    chatHistory: "Chat History",
-    favoriteShelters: "Favorite Shelters",
-    favoriteEquipmentLists: "All Equipment Lists",
-    faq: "FAQ",
-    profile: "Profile",
-    logout: "Logout",
-    logoutSuccess: "You have been logged out successfully",
-    newChat: "New Emergency Chat",
-    findShelter: "Find Shelter",
-    createEquipmentList: "Create Equipment List",
-    aiAgent: "AI Agent",
-    language: "Language",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
-  ar: {
-    appName: "إيلام",
-    appDescription: "مساعد للحالات الطارئة",
-    newAction: "إجراء جديد",
-    home: "الصفحة الرئيسية",
-    chatHistory: "سجل المحادثات",
-    favoriteShelters: "الملاجئ المفضلة",
-    favoriteEquipmentLists: "جميع قوائم المعدات",
-    faq: "الأسئلة الشائعة",
-    profile: "الملف الشخصي",
-    logout: "تسجيل الخروج",
-    logoutSuccess: "لقد تم تسجيل خروجك بنجاح",
-    newChat: "محادثة طوارئ جديدة",
-    findShelter: "البحث عن ملجأ",
-    createEquipmentList: "إنشاء قائمة معدات",
-    aiAgent: "وكيل الذكاء الاصطناعي",
-    language: "لغة",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
-  ru: {
-    appName: "ЭЙЛАМ",
-    appDescription: "ИИ для чрезвычайных ситуаций",
-    newAction: "Новое действие",
-    home: "Главная",
-    chatHistory: "История чатов",
-    favoriteShelters: "Избранные убежища",
-    favoriteEquipmentLists: "Все списки оборудования",
-    faq: "Часто задаваемые вопросы",
-    profile: "Профиль",
-    logout: "Выйти",
-    logoutSuccess: "Вы успешно вышли из системы",
-    newChat: "Новый чат для чрезвычайных ситуаций",
-    findShelter: "Найти убежище",
-    createEquipmentList: "Создать список оборудования",
-    aiAgent: "ИИ-агент",
-    language: "Язык",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
+  appName: 'עיל"ם',
+  appDescription: "עוזר ייעודי למצבי חירום",
+  newAction: "פעולה חדשה",
+  home: "דף הבית",
+  chatHistory: "היסטוריית שיחות",
+  favoriteShelters: "מקלטים מועדפים",
+  favoriteEquipmentLists: "כל רשימות הציוד",
+  faq: "שאלות נפוצות",
+  profile: "פרופיל",
+  logout: "התנתקות",
+  logoutSuccess: "התנתקת בהצלחה",
+  newChat: "צ'אט חירום חדש",
+  findShelter: "חיפוש מקלט",
+  createEquipmentList: "יצירת רשימת ציוד",
+  aiAgent: "סוכן AI",
+  language: "שפה",
 }
 
 // Create a global event system for user data updates
@@ -159,11 +77,8 @@ export default function AppLayout({ children }) {
   const [user, setUser] = useState(null)
   const [userProfile, setUserProfile] = useState(null)
 
-  // שימוש בקונטקסט השפה במקום לגשת ישירות ל-document
-  const { language, setLanguage, isRTL } = useLanguage()
-  const { ts, isTranslating } = useTranslation()
-
-  const t = translations[language] || translations.he // Fallback to Hebrew if current language not found
+  // שימוש בקונטקסט השפה - תמיד עברית
+  const { isRTL } = useLanguage()
 
   // פונקציה לטעינת נתוני המשתמש - מוגדרת עם useCallback כדי למנוע יצירה מחדש
   const fetchUserData = useCallback(async () => {
@@ -309,42 +224,33 @@ export default function AppLayout({ children }) {
     setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"))
   }
 
-  const changeLanguage = (newLang) => {
-    if (translations[newLang]) {
-      // Check if the new language is supported
-      setLanguage(newLang)
-    } else {
-      setLanguage("he") // Default to Hebrew if unsupported language
-    }
-  }
-
   const handleLogout = async () => {
     await supabase.auth.signOut()
     toast({
-      title: ts(t.logoutSuccess),
+      title: translations.logoutSuccess,
     })
     router.push("/")
   }
 
   const navItems = [
-    { name: ts(t.home), path: "/dashboard", icon: Home },
-    { name: ts(t.chatHistory), path: "/chat-history", icon: History },
-    { name: ts(t.favoriteShelters), path: "/favorite-shelters", icon: Star },
-    { name: ts(t.favoriteEquipmentLists), path: "/equipment-lists", icon: ListChecks },
-    { name: ts(t.faq), path: "/faq", icon: HelpCircle },
+    { name: translations.home, path: "/dashboard", icon: Home },
+    { name: translations.chatHistory, path: "/chat-history", icon: History },
+    { name: translations.favoriteShelters, path: "/favorite-shelters", icon: Star },
+    { name: translations.favoriteEquipmentLists, path: "/equipment-lists", icon: ListChecks },
+    { name: translations.faq, path: "/faq", icon: HelpCircle },
   ]
 
   const newActionItems = [
     {
-      name: ts(t.aiAgent),
+      name: translations.aiAgent,
       path: "/agent",
       icon: ShieldCheck,
       disabled: false,
       className: "text-purple-500 dark:text-purple-400",
     },
-    { name: ts(t.newChat), path: "/chat?new=true", icon: MessageSquare },
-    { name: ts(t.findShelter), path: "/shelters", icon: MapPin },
-    { name: ts(t.createEquipmentList), path: "/equipment", icon: ListChecks },
+    { name: translations.newChat, path: "/chat?new=true", icon: MessageSquare },
+    { name: translations.findShelter, path: "/shelters", icon: MapPin },
+    { name: translations.createEquipmentList, path: "/equipment", icon: ListChecks },
   ]
 
   const sidebarBgColor = theme === "dark" ? "bg-gray-800" : "bg-white"
@@ -394,10 +300,9 @@ export default function AppLayout({ children }) {
               />
             </div>
             <div className={cn("text-xl font-bold", theme === "dark" ? "text-white" : "text-purple-600")}>
-              {ts(t.appName)}
-              {isTranslating && <span className="ml-2 animate-spin">⟳</span>}
+              {translations.appName}
               <p className={cn("text-xs font-normal", theme === "dark" ? "text-gray-300" : "text-purple-500")}>
-                {ts(t.appDescription)}
+                {translations.appDescription}
               </p>
             </div>
           </Link>
@@ -426,7 +331,7 @@ export default function AppLayout({ children }) {
               )}
             >
               <PlusCircle className="h-5 w-5" />
-              {isSidebarExpanded && <span>{ts(t.newAction)}</span>}
+              {isSidebarExpanded && <span>{translations.newAction}</span>}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -517,7 +422,7 @@ export default function AppLayout({ children }) {
           >
             <DropdownMenuItem asChild className="cursor-pointer text-center dark:text-gray-200 dark:hover:bg-gray-700">
               <Link href="/profile" className="flex items-center justify-center gap-2 w-full">
-                <User className="h-4 w-4" /> {ts(t.profile)}
+                <User className="h-4 w-4" /> {translations.profile}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="dark:bg-gray-700" />
@@ -525,7 +430,7 @@ export default function AppLayout({ children }) {
               onClick={handleLogout}
               className="cursor-pointer justify-center text-red-500 hover:!bg-red-100 dark:text-red-400 dark:hover:!bg-red-700/30"
             >
-              <LogOut className="h-4 w-4 mr-2" /> {ts(t.logout)}
+              <LogOut className="h-4 w-4 mr-2" /> {translations.logout}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -588,31 +493,7 @@ export default function AppLayout({ children }) {
             <Menu />
           </Button>
           <div className="flex items-center gap-3">
-            <DropdownMenu dir={isRTL ? "rtl" : "ltr"}>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-1 text-gray-800 dark:text-gray-300">
-                  <Globe className="h-5 w-5" />
-                  <span className="hidden sm:inline">{ts(t.languages[language]) || ts(t.languages.he)}</span>
-                  {isTranslating && <span className="ml-1 animate-spin text-xs">⟳</span>}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align={isRTL ? "start" : "end"} className="dark:bg-gray-800">
-                <DropdownMenuLabel className="dark:text-gray-400">{ts(t.language)}</DropdownMenuLabel>
-                <DropdownMenuSeparator className="dark:bg-gray-700" />
-                {Object.keys(t.languages).map((langKey) => (
-                  <DropdownMenuItem
-                    key={langKey}
-                    onClick={() => changeLanguage(langKey)}
-                    className={cn(
-                      "cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200",
-                      language === langKey && "bg-gray-100 dark:bg-gray-700 font-semibold",
-                    )}
-                  >
-                    {ts(t.languages[langKey])}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* הסרנו את כפתור בחירת השפה - רק כפתור theme נשאר */}
             <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-gray-800 dark:text-gray-300">
               {theme === "light" ? <Moon /> : <Sun />}
             </Button>
@@ -622,126 +503,126 @@ export default function AppLayout({ children }) {
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">{children}</main>
       </div>
       <style jsx global>{`
-       :root {
-         --sidebar-border-color: ${theme === "light" ? "#e5e7eb" : "#374151"}; 
-       }
-       .dark .card {
-         background-color: #1f2937; /* Default dark card background */
-       }
-       /* Global override for specific p tags in dark mode to be white (or light gray) */
-       .dark p.text-gray-600, 
-       .dark p.text-gray-500, 
-       .dark p.text-gray-400, 
-       .dark p.text-gray-300 {
-         color: #e5e7eb !important; /* Light gray for better readability than pure white */
-       }
+        :root {
+          --sidebar-border-color: ${theme === "light" ? "#e5e7eb" : "#374151"}; 
+        }
+        .dark .card {
+          background-color: #1f2937; /* Default dark card background */
+        }
+        /* Global override for specific p tags in dark mode to be white (or light gray) */
+        .dark p.text-gray-600, 
+        .dark p.text-gray-500, 
+        .dark p.text-gray-400, 
+        .dark p.text-gray-300 {
+          color: #e5e7eb !important; /* Light gray for better readability than pure white */
+        }
 
-       /* Ensure card descriptions in dark mode also use light gray if they were darker */
-       .dark .card p.text-gray-500, 
-       .dark .card p.text-gray-400, 
-       .dark .card p.text-gray-300 {
-         color: #e5e7eb !important;
-       }
+        /* Ensure card descriptions in dark mode also use light gray if they were darker */
+        .dark .card p.text-gray-500, 
+        .dark .card p.text-gray-400, 
+        .dark .card p.text-gray-300 {
+          color: #e5e7eb !important;
+        }
 
-       /* Titles in cards in dark mode */
-       .dark .card h2.text-3xl,
-       .dark .card h1, /* Added h1 for homepage */
-       .dark .card h2, 
-       .dark .card h3, 
-       .dark .card h4, 
-       .dark .card h5, 
-       .dark .card h6,
-       .dark .card .text-gray-800, /* Generic catch for text that should be light in dark cards */
-       .dark .card .text-gray-700,
-       .dark .card .text-gray-900 {
-         color: #f9fafb !important; /* Off-white for titles in dark cards */
-       }
+        /* Titles in cards in dark mode */
+        .dark .card h2.text-3xl,
+        .dark .card h1, /* Added h1 for homepage */
+        .dark .card h2, 
+        .dark .card h3, 
+        .dark .card h4, 
+        .dark .card h5, 
+        .dark .card h6,
+        .dark .card .text-gray-800, /* Generic catch for text that should be light in dark cards */
+        .dark .card .text-gray-700,
+        .dark .card .text-gray-900 {
+          color: #f9fafb !important; /* Off-white for titles in dark cards */
+        }
 
-       /* Ensure specific text colors in Layout.js respect dark mode better */
-       .dark .text-gray-700 {
-         color: #d1d5db !important; /* Lighter gray for general text-gray-700 elements in dark mode */
-       }
-       .dark .text-gray-800 {
-         color: #e5e7eb !important; /* Lighter gray */
-       }
-       .dark .text-gray-900 {
-         color: #f3f4f6 !important; /* Even lighter gray / off-white */
-       }
-       
-       /* Ensure the sidebar toggle icon is visible in light mode too */
-       .lg\\:flex.text-gray-700:hover {
-            background-color: ${theme === "dark" ? "#4b5563" : "#f3f4f6"} !important; /* Adjusted hover for light/dark */
-       }
+        /* Ensure specific text colors in Layout.js respect dark mode better */
+        .dark .text-gray-700 {
+          color: #d1d5db !important; /* Lighter gray for general text-gray-700 elements in dark mode */
+        }
+        .dark .text-gray-800 {
+          color: #e5e7eb !important; /* Lighter gray */
+        }
+        .dark .text-gray-900 {
+          color: #f3f4f6 !important; /* Even lighter gray / off-white */
+        }
+        
+        /* Ensure the sidebar toggle icon is visible in light mode too */
+        .lg\\:flex.text-gray-700:hover {
+             background-color: ${theme === "dark" ? "#4b5563" : "#f3f4f6"} !important; /* Adjusted hover for light/dark */
+        }
 
-       /* עדכון צבעי הסרגל הצדדי */
-       [data-active=true] {
-         background-color: #005c72 !important;
-       }
-       .dark [data-active=true] {
-         background-color: #005c72 !important;
-       }
-       .text-purple-600, .dark .text-purple-400 {
-         color: #005c72 !important;
-       }
-       .dark .text-purple-400 {
-         color: #e5e5e5 !important;
-       }
-       .hover\\:text-purple-600:hover, .dark .hover\\:text-purple-400:hover {
-         color: #005c72 !important;
-       }
-       .dark .hover\\:text-purple-400:hover {
-         color: #e5e5e5 !important;
-       }
+        /* עדכון צבעי הסרגל הצדדי */
+        [data-active=true] {
+          background-color: #005c72 !important;
+        }
+        .dark [data-active=true] {
+          background-color: #005c72 !important;
+        }
+        .text-purple-600, .dark .text-purple-400 {
+          color: #005c72 !important;
+        }
+        .dark .text-purple-400 {
+          color: #e5e5e5 !important;
+        }
+        .hover\\:text-purple-600:hover, .dark .hover\\:text-purple-400:hover {
+          color: #005c72 !important;
+        }
+        .dark .hover\\:text-purple-400:hover {
+          color: #e5e5e5 !important;
+        }
 
-       /* Fix for dark mode buttons with light background - make text black */
-       .dark .bg-\\[\\#d3e3fd\\], 
-       .dark .dark\\:bg-\\[\\#d3e3fd\\],
-       .dark button.bg-\\[\\#d3e3fd\\],
-       .dark a.bg-\\[\\#d3e3fd\\],
-       .dark .bg-blue-100,
-       .dark .bg-blue-200 {
-         color: #000 !important;
-       }
+        /* Fix for dark mode buttons with light background - make text black */
+        .dark .bg-\\[\\#d3e3fd\\], 
+        .dark .dark\\:bg-\\[\\#d3e3fd\\],
+        .dark button.bg-\\[\\#d3e3fd\\],
+        .dark a.bg-\\[\\#d3e3fd\\],
+        .dark .bg-blue-100,
+        .dark .bg-blue-200 {
+          color: #000 !important;
+        }
 
-       .dark .dark\\:bg-\\[\\#d3e3fd\\]:hover,
-       .dark .dark\\:hover\\:bg-\\[\\#b4cef9\\]:hover,
-       .dark .hover\\:bg-\\[\\#b4cef9\\]:hover,
-       .dark .hover\\:bg-blue-200:hover {
-         color: #000 !important;
-       }
+        .dark .dark\\:bg-\\[\\#d3e3fd\\]:hover,
+        .dark .dark\\:hover\\:bg-\\[\\#b4cef9\\]:hover,
+        .dark .hover\\:bg-\\[\\#b4cef9\\]:hover,
+        .dark .hover\\:bg-blue-200:hover {
+          color: #000 !important;
+        }
 
-       /* Fix for active nav items in dark mode */
-       .dark nav a[data-state="active"],
-       .dark nav a[aria-current="page"],
-       .dark nav a.active,
-       .dark nav a.bg-\\[\\#d3e3fd\\],
-       .dark nav a.bg-purple-600,
-       .dark nav a.text-white {
-         color: #000 !important;
-       }
+        /* Fix for active nav items in dark mode */
+        .dark nav a[data-state="active"],
+        .dark nav a[aria-current="page"],
+        .dark nav a.active,
+        .dark nav a.bg-\\[\\#d3e3fd\\],
+        .dark nav a.bg-purple-600,
+        .dark nav a.text-white {
+          color: #000 !important;
+        }
 
-       /* Fix for profile page buttons */
-       .dark .bg-purple-600:not(.w-full),
-       .dark .hover\\:bg-purple-700:not(.w-full) {
-         color: #000 !important;
-       }
+        /* Fix for profile page buttons */
+        .dark .bg-purple-600:not(.w-full),
+        .dark .hover\\:bg-purple-700:not(.w-full) {
+          color: #000 !important;
+        }
 
-       /* Direct fix for sidebar active links */
-       .dark aside a[href="${pathname}"] {
-         color: #000 !important;
-       }
+        /* Direct fix for sidebar active links */
+        .dark aside a[href="${pathname}"] {
+          color: #000 !important;
+        }
 
-       /* Fix for equipment-lists save button */
-       .dark button.bg-\\[\\#005c72\\] {
-         background-color: #d3e3fd !important;
-         color: #000 !important;
-       }
-       
-       button.bg-\\[\\#005c72\\] {
-         background-color: #005c72 !important;
-         color: #fff !important;
-       }
-     `}</style>
+        /* Fix for equipment-lists save button */
+        .dark button.bg-\\[\\#005c72\\] {
+          background-color: #d3e3fd !important;
+          color: #000 !important;
+        }
+        
+        button.bg-\\[\\#005c72\\] {
+          background-color: #005c72 !important;
+          color: #fff !important;
+        }
+      `}</style>
     </div>
   )
 }

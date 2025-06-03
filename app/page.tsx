@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -10,172 +8,40 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
-import { Sun, Moon, Globe, AlertCircle } from "lucide-react"
+import { Sun, Moon, AlertCircle } from "lucide-react"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import { useToast } from "@/hooks/use-toast"
 import { Spinner } from "@/components/ui/spinner"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import ClientLayout from "./ClientLayout"
-import { useLanguage } from "@/contexts/language-context"
-import { useTranslation } from "@/hooks/use-translation"
-import { Shield, Users, MessageSquare, MapPin } from "lucide-react"
 
 // Force dynamic rendering to avoid document is not defined error
 export const dynamic = "force-dynamic"
 
-// תרגומים לפי שפה
+// תרגומים בעברית בלבד
 const translations = {
-  he: {
-    login: "התחברות",
-    enterDetails: "הזן את פרטיך כדי להמשיך",
-    email: "דואר אלקטרוני *",
-    emailPlaceholder: "your@email.com",
-    emailRequired: "דואר אלקטרוני הוא שדה חובה",
-    emailInvalid: "נא להזין כתובת דואר אלקטרוני תקינה",
-    password: "סיסמה *",
-    passwordPlaceholder: "הזן את הסיסמה שלך",
-    passwordRequired: "סיסמה היא שדה חובה",
-    passwordMinLength: "הסיסמה חייבת להכיל לפחות 6 תווים",
-    rememberMe: "זכור אותי",
-    loginButton: "התחבר",
-    loginButtonLoading: "מתחבר...",
-    noAccount: "אין לך חשבון?",
-    registerHere: "הרשם כאן",
-    errorInvalidCredentials: "דואר אלקטרוני או סיסמה שגויים",
-    errorUserNotFound: "משתמש לא נמצא. בדוק את פרטי ההתחברות או הירשם",
-    errorGeneric: "אירעה שגיאה בהתחברות. אנא נסה שוב.",
-    successLogin: "התחברת בהצלחה!",
-    language: "שפה",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
-  en: {
-    login: "Login",
-    enterDetails: "Enter your details to continue",
-    email: "Email *",
-    emailPlaceholder: "your@email.com",
-    emailRequired: "Email is required",
-    emailInvalid: "Please enter a valid email address",
-    password: "Password *",
-    passwordPlaceholder: "Enter your password",
-    passwordRequired: "Password is required",
-    passwordMinLength: "Password must be at least 6 characters",
-    rememberMe: "Remember me",
-    loginButton: "Login",
-    loginButtonLoading: "Logging in...",
-    noAccount: "Don't have an account?",
-    registerHere: "Register here",
-    errorInvalidCredentials: "Invalid email or password",
-    errorUserNotFound: "User not found. Check your credentials or register",
-    errorGeneric: "An error occurred during login. Please try again.",
-    successLogin: "You have successfully logged in!",
-    language: "Language",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
-  ar: {
-    login: "تسجيل الدخول",
-    enterDetails: "أدخل بياناتك للمتابعة",
-    email: "البريد الإلكتروني *",
-    emailPlaceholder: "your@email.com",
-    emailRequired: "البريد الإلكتروني مطلوب",
-    emailInvalid: "يرجى إدخال عنوان بريد إلكتروني صالح",
-    password: "كلمة المرور *",
-    passwordPlaceholder: "أدخل كلمة المرور الخاصة بك",
-    passwordRequired: "كلمة المرور مطلوبة",
-    passwordMinLength: "يجب أن تتكون كلمة المرور من 6 أحرف على الأقل",
-    rememberMe: "تذكرني",
-    loginButton: "تسجيل الدخول",
-    loginButtonLoading: "جاري تسجيل الدخول...",
-    noAccount: "ليس لديك حساب؟",
-    registerHere: "سجل هنا",
-    errorInvalidCredentials: "بريد إلكتروني أو كلمة مرور غير صالحة",
-    errorUserNotFound: "المستخدم غير موجود. تحقق من بيانات الاعتماد الخاصة بك أو قم بالتسجيل",
-    errorGeneric: "حدث خطأ أثناء تسجيل الدخول. يرجى المحاولة مرة أخرى.",
-    successLogin: "لقد قمت بتسجيل الدخول بنجاح!",
-    language: "لغة",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
-  ru: {
-    login: "Вход",
-    enterDetails: "Введите свои данные для продолжения",
-    email: "Электронная почта *",
-    emailPlaceholder: "your@email.com",
-    emailRequired: "Электронная почта обязательна",
-    password: "Пароль *",
-    passwordPlaceholder: "Введите ваш пароль",
-    passwordRequired: "Пароль обязателен",
-    passwordMinLength: "Пароль должен содержать не менее 6 символов",
-    rememberMe: "Запомнить меня",
-    loginButton: "Войти",
-    loginButtonLoading: "Вход...",
-    noAccount: "Нет аккаунта?",
-    registerHere: "Зарегистрироваться здесь",
-    errorInvalidCredentials: "Неверная электронная почта или пароль",
-    errorUserNotFound: "Пользователь не найден. Проверьте свои учетные данные или зарегистрируйтесь",
-    errorGeneric: "Произошла ошибка при входе. Пожалуйста, попробуйте снова.",
-    successLogin: "Вы успешно вошли в систему!",
-    language: "Язык",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
+  login: "התחברות",
+  enterDetails: "הזן את פרטיך כדי להמשיך",
+  email: "דואר אלקטרוני *",
+  emailPlaceholder: "your@email.com",
+  emailRequired: "דואר אלקטרוני הוא שדה חובה",
+  emailInvalid: "נא להזין כתובת דואר אלקטרוני תקינה",
+  password: "סיסמה *",
+  passwordPlaceholder: "הזן את הסיסמה שלך",
+  passwordRequired: "סיסמה היא שדה חובה",
+  passwordMinLength: "הסיסמה חייבת להכיל לפחות 6 תווים",
+  rememberMe: "זכור אותי",
+  loginButton: "התחבר",
+  loginButtonLoading: "מתחבר...",
+  noAccount: "אין לך חשבון?",
+  registerHere: "הרשם כאן",
+  errorInvalidCredentials: "דואר אלקטרוני או סיסמה שגויים",
+  errorUserNotFound: "משתמש לא נמצא. בדוק את פרטי ההתחברות או הירשם",
+  errorGeneric: "אירעה שגיאה בהתחברות. אנא נסה שוב.",
+  successLogin: "התחברת בהצלחה!",
 }
 
 export default function LoginPage() {
-  const { ts, isTranslating } = useTranslation()
-
-  const features = [
-    {
-      icon: Shield,
-      title: "Equipment Management",
-      description: "Manage your emergency equipment lists efficiently",
-      href: "/equipment-lists",
-    },
-    {
-      icon: MapPin,
-      title: "Shelter Finder",
-      description: "Find nearby shelters and safe locations",
-      href: "/shelters",
-    },
-    {
-      icon: MessageSquare,
-      title: "AI Assistant",
-      description: "Get help and guidance from our AI assistant",
-      href: "/chat",
-    },
-    {
-      icon: Users,
-      title: "Community",
-      description: "Connect with your community for emergency preparedness",
-      href: "/profile",
-    },
-  ]
-
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -185,7 +51,6 @@ export default function LoginPage() {
   const [loginError, setLoginError] = useState("")
   const supabase = createClientComponentClient()
   const { toast } = useToast()
-  const { language, setLanguage, isRTL } = useLanguage()
 
   // Validation states
   const [errors, setErrors] = useState({
@@ -193,12 +58,11 @@ export default function LoginPage() {
     password: "",
   })
 
-  // Set language and theme from localStorage on client-side
+  // Set theme from localStorage on client-side - השפה תמיד עברית
   useEffect(() => {
-    const storedLang = localStorage.getItem("eilam-language") || "he"
-    if (["he", "en", "ar", "ru"].includes(storedLang)) {
-      setLanguage(storedLang as any)
-    }
+    // הגדרת עברית כברירת מחדל
+    document.documentElement.lang = "he"
+    document.documentElement.dir = "rtl"
 
     const storedTheme = localStorage.getItem("eilam-theme") || "light"
     setTheme(storedTheme)
@@ -208,7 +72,7 @@ export default function LoginPage() {
     } else {
       document.documentElement.classList.remove("dark")
     }
-  }, [setLanguage])
+  }, [])
 
   // Check if user is already logged in
   useEffect(() => {
@@ -224,8 +88,6 @@ export default function LoginPage() {
     checkSession()
   }, [router, supabase.auth])
 
-  const t = translations[language] || translations.he
-
   const validateForm = () => {
     const newErrors = {
       email: "",
@@ -235,19 +97,19 @@ export default function LoginPage() {
 
     // Email validation
     if (!email) {
-      newErrors.email = t.emailRequired
+      newErrors.email = translations.emailRequired
       isValid = false
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = t.emailInvalid
+      newErrors.email = translations.emailInvalid
       isValid = false
     }
 
     // Password validation
     if (!password) {
-      newErrors.password = t.passwordRequired
+      newErrors.password = translations.passwordRequired
       isValid = false
     } else if (password.length < 6) {
-      newErrors.password = t.passwordMinLength
+      newErrors.password = translations.passwordMinLength
       isValid = false
     }
 
@@ -255,7 +117,7 @@ export default function LoginPage() {
     return isValid
   }
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
     setLoginError("") // Clear any previous errors
 
@@ -276,9 +138,9 @@ export default function LoginPage() {
 
         // Handle specific error cases
         if (error.message.includes("Invalid login credentials")) {
-          setLoginError(t.errorInvalidCredentials)
+          setLoginError(translations.errorInvalidCredentials)
           toast({
-            title: t.errorInvalidCredentials,
+            title: translations.errorInvalidCredentials,
             variant: "destructive",
           })
         } else if (error.message.includes("Email not confirmed")) {
@@ -289,15 +151,15 @@ export default function LoginPage() {
             variant: "destructive",
           })
         } else if (error.message.includes("User not found")) {
-          setLoginError(t.errorUserNotFound)
+          setLoginError(translations.errorUserNotFound)
           toast({
-            title: t.errorUserNotFound,
+            title: translations.errorUserNotFound,
             variant: "destructive",
           })
         } else {
-          setLoginError(t.errorGeneric)
+          setLoginError(translations.errorGeneric)
           toast({
-            title: t.errorGeneric,
+            title: translations.errorGeneric,
             description: error.message,
             variant: "destructive",
           })
@@ -308,22 +170,22 @@ export default function LoginPage() {
 
       if (data.session) {
         toast({
-          title: t.successLogin,
+          title: translations.successLogin,
         })
         router.push("/dashboard")
       } else {
-        setLoginError(t.errorGeneric)
+        setLoginError(translations.errorGeneric)
         toast({
-          title: t.errorGeneric,
+          title: translations.errorGeneric,
           variant: "destructive",
         })
         setIsLoading(false)
       }
     } catch (error) {
       console.error("Unexpected error during login:", error)
-      setLoginError(t.errorGeneric)
+      setLoginError(translations.errorGeneric)
       toast({
-        title: t.errorGeneric,
+        title: translations.errorGeneric,
         variant: "destructive",
       })
       setIsLoading(false)
@@ -345,41 +207,11 @@ export default function LoginPage() {
     })
   }
 
-  const changeLanguage = (newLang: string) => {
-    if (["he", "en", "ar", "ru"].includes(newLang)) {
-      setLanguage(newLang as any)
-    }
-  }
-
   return (
     <ClientLayout>
-      <div
-        className={`min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-b from-gray-50 to-[#005c72]/20 dark:from-gray-900 dark:to-[#005c72]/20 ${theme} ${isRTL ? "rtl" : ""}`}
-      >
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-b from-gray-50 to-[#005c72]/20 dark:from-gray-900 dark:to-[#005c72]/20 rtl">
         <div className="absolute top-4 right-4 flex gap-2">
-          <DropdownMenu dir={isRTL ? "rtl" : "ltr"}>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-1 text-gray-800 dark:text-gray-300">
-                <Globe className="h-5 w-5" />
-                <span className="hidden sm:inline">{t.languages[language] || t.languages.he}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align={isRTL ? "start" : "end"} className="dark:bg-gray-800">
-              <DropdownMenuLabel className="dark:text-gray-400">{t.language}</DropdownMenuLabel>
-              <DropdownMenuSeparator className="dark:bg-gray-700" />
-              {Object.keys(t.languages).map((langKey) => (
-                <DropdownMenuItem
-                  key={langKey}
-                  onClick={() => changeLanguage(langKey)}
-                  className={`cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200 ${
-                    language === langKey ? "bg-gray-100 dark:bg-gray-700 font-semibold" : ""
-                  }`}
-                >
-                  {t.languages[langKey as keyof typeof t.languages]}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* הסרנו את כפתור בחירת השפה - רק כפתור theme נשאר */}
           <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-gray-800 dark:text-gray-300">
             {theme === "light" ? <Moon /> : <Sun />}
           </Button>
@@ -393,7 +225,7 @@ export default function LoginPage() {
             />
             <CardTitle className="text-3xl font-bold text-gray-800 dark:!text-white">עיל"ם</CardTitle>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">* שדות חובה</p>
-            <CardDescription className="text-gray-600 dark:!text-white">{t.enterDetails}</CardDescription>
+            <CardDescription className="text-gray-600 dark:!text-white">{translations.enterDetails}</CardDescription>
           </CardHeader>
           <CardContent>
             {loginError && (
@@ -405,12 +237,12 @@ export default function LoginPage() {
             <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">
-                  {t.email}
+                  {translations.email}
                 </Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder={t.emailPlaceholder}
+                  placeholder={translations.emailPlaceholder}
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value)
@@ -430,12 +262,12 @@ export default function LoginPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
-                  {t.password}
+                  {translations.password}
                 </Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder={t.passwordPlaceholder}
+                  placeholder={translations.passwordPlaceholder}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value)
@@ -467,7 +299,7 @@ export default function LoginPage() {
                     className="data-[state=checked]:bg-[#005c72] border-gray-400 dark:border-gray-500"
                   />
                   <Label htmlFor="rememberMe" className="text-sm text-gray-600 dark:text-gray-300">
-                    {t.rememberMe}
+                    {translations.rememberMe}
                   </Label>
                 </div>
               </div>
@@ -478,26 +310,26 @@ export default function LoginPage() {
               >
                 {isLoading ? (
                   <>
-                    <Spinner size="small" className="mr-2" /> {t.loginButtonLoading}
+                    <Spinner size="small" className="mr-2" /> {translations.loginButtonLoading}
                   </>
                 ) : (
-                  t.loginButton
+                  translations.loginButton
                 )}
               </Button>
             </form>
           </CardContent>
           <CardFooter className="flex justify-center">
             <p className="text-sm text-gray-600 dark:text-gray-300">
-              {t.noAccount}{" "}
+              {translations.noAccount}{" "}
               <Link href="/register" className="font-medium text-[#005c72] hover:underline dark:text-[#d3e3fd]">
-                {t.registerHere}
+                {translations.registerHere}
               </Link>
             </p>
           </CardFooter>
         </Card>
         <style jsx global>{`
           body {
-            direction: ${isRTL ? "rtl" : "ltr"};
+            direction: rtl;
           }
           html.${theme} {
             background-color: ${theme === "dark" ? "#111827" : "#f9fafb"};
