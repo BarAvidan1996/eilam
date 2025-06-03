@@ -18,8 +18,6 @@ import {
   Star,
   User,
   HelpCircle,
-  Sun,
-  Moon,
   PlusCircle,
   Home,
   Menu,
@@ -32,6 +30,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { AnimatedToggle } from "@/components/ui/animated-toggle"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/contexts/language-context"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -222,8 +221,8 @@ export default function AppLayout({ children }) {
     localStorage.setItem("eilam-theme", theme)
   }, [theme])
 
-  const toggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"))
+  const toggleTheme = (isDark: boolean) => {
+    setTheme(isDark ? "dark" : "light")
   }
 
   const handleLogout = async () => {
@@ -390,32 +389,29 @@ export default function AppLayout({ children }) {
             </Tooltip>
           </TooltipProvider>
         ))}
+      </nav>
 
-        {/* כפתור Theme Toggle בסרגל הצדדי */}
-        <TooltipProvider delayDuration={0}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                onClick={toggleTheme}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors",
-                  `${sidebarTextColor} ${sidebarHoverBgColor}`,
-                  !isSidebarExpanded && "justify-center",
-                )}
-              >
-                {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
-                {isSidebarExpanded && <span>{theme === "light" ? translations.darkMode : translations.lightMode}</span>}
-              </Button>
-            </TooltipTrigger>
-            {!isSidebarExpanded && (
+      {/* Animated Theme Toggle - בתחתית הסרגל, מעל הפרופיל */}
+      <div className="px-3 pb-3">
+        <div className="flex justify-center">
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <AnimatedToggle
+                    checked={theme === "dark"}
+                    onChange={toggleTheme}
+                    className="focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800"
+                  />
+                </div>
+              </TooltipTrigger>
               <TooltipContent side={isRTL ? "left" : "right"} className="dark:bg-gray-700 dark:text-gray-200">
                 <p>{theme === "light" ? translations.darkMode : translations.lightMode}</p>
               </TooltipContent>
-            )}
-          </Tooltip>
-        </TooltipProvider>
-      </nav>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
 
       <div className={`p-3 border-t ${sidebarBorderColor}`}>
         <DropdownMenu dir={isRTL ? "rtl" : "ltr"}>
