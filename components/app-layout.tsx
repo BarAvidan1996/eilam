@@ -18,6 +18,8 @@ import {
   Star,
   User,
   HelpCircle,
+  Sun,
+  Moon,
   PlusCircle,
   Home,
   Menu,
@@ -30,7 +32,6 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { AnimatedToggle } from "@/components/ui/animated-toggle"
 import { cn } from "@/lib/utils"
 import { useLanguage } from "@/contexts/language-context"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
@@ -58,8 +59,6 @@ const translations = {
   createEquipmentList: "יצירת רשימת ציוד",
   aiAgent: "סוכן AI",
   language: "שפה",
-  lightMode: "מצב בהיר",
-  darkMode: "מצב כהה",
 }
 
 // Create a global event system for user data updates
@@ -221,8 +220,8 @@ export default function AppLayout({ children }) {
     localStorage.setItem("eilam-theme", theme)
   }, [theme])
 
-  const toggleTheme = (isDark: boolean) => {
-    setTheme(isDark ? "dark" : "light")
+  const toggleTheme = () => {
+    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"))
   }
 
   const handleLogout = async () => {
@@ -391,101 +390,50 @@ export default function AppLayout({ children }) {
         ))}
       </nav>
 
-      {/* User Profile Section */}
       <div className={`p-3 border-t ${sidebarBorderColor}`}>
-        {/* User Info */}
-        <div className="flex items-center gap-3 mb-3">
-          <div
-            className={`h-8 w-8 rounded-full ${theme === "dark" ? "bg-[#cc9999]" : "bg-[#ea5c3e]"} flex items-center justify-center text-white font-semibold`}
-          >
-            {getInitials()}
-          </div>
-          {isSidebarExpanded && userProfile && (
-            <div className="flex flex-col items-start flex-grow min-w-0">
-              <span className={cn("font-medium truncate text-sm", theme === "dark" ? "text-white" : "text-gray-900")}>
-                {userProfile.first_name} {userProfile.last_name}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        {isSidebarExpanded && (
-          <div className="flex items-center justify-between gap-2">
-            {/* Theme Toggle */}
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2">
-                    <AnimatedToggle
-                      checked={theme === "dark"}
-                      onChange={toggleTheme}
-                      size="sm"
-                      className="focus:ring-offset-gray-100 dark:focus:ring-offset-gray-800"
-                    />
-                    <span className={cn("text-xs", theme === "dark" ? "text-gray-300" : "text-gray-600")}>
-                      {theme === "dark" ? "כהה" : "בהיר"}
+        <DropdownMenu dir={isRTL ? "rtl" : "ltr"}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className={`w-full flex items-center ${sidebarTextColor} ${sidebarHoverBgColor}`}
+              style={{ justifyContent: isSidebarExpanded ? "space-between" : "center" }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`h-8 w-8 rounded-full ${theme === "dark" ? "bg-[#cc9999]" : "bg-[#ea5c3e]"} flex items-center justify-center text-white font-semibold`}
+                >
+                  {getInitials()}
+                </div>
+                {isSidebarExpanded && userProfile && (
+                  <div className="flex flex-col items-start flex-grow min-w-0">
+                    <span className="font-medium truncate">
+                      {userProfile.first_name} {userProfile.last_name}
                     </span>
                   </div>
-                </TooltipTrigger>
-                <TooltipContent side={isRTL ? "left" : "right"} className="dark:bg-gray-700 dark:text-gray-200">
-                  <p>{theme === "dark" ? translations.lightMode : translations.darkMode}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            {/* Logout Button */}
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleLogout}
-                    className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20 px-2 py-1 h-auto"
-                  >
-                    <LogOut className="h-3 w-3 mr-1" />
-                    <span className="text-xs">יציאה</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side={isRTL ? "left" : "right"} className="dark:bg-gray-700 dark:text-gray-200">
-                  <p>{translations.logout}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        )}
-
-        {/* Collapsed state - show dropdown */}
-        {!isSidebarExpanded && (
-          <DropdownMenu dir={isRTL ? "rtl" : "ltr"}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                className={`w-full flex items-center justify-center ${sidebarTextColor} ${sidebarHoverBgColor}`}
-              >
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 dark:bg-gray-800" align={isRTL ? "start" : "end"} sideOffset={5}>
-              <DropdownMenuItem
-                asChild
-                className="cursor-pointer text-center dark:text-gray-200 dark:hover:bg-gray-700"
-              >
-                <Link href="/profile" className="flex items-center justify-center gap-2 w-full">
-                  <User className="h-4 w-4" /> {translations.profile}
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="dark:bg-gray-700" />
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="cursor-pointer justify-center text-red-500 hover:!bg-red-100 dark:text-red-400 dark:hover:!bg-red-700/30"
-              >
-                <LogOut className="h-4 w-4 mr-2" /> {translations.logout}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+                )}
+              </div>
+              {isSidebarExpanded && <ChevronDown className="h-4 w-4 shrink-0 ml-2" />}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-56 dark:bg-gray-800"
+            align={isSidebarExpanded && isRTL ? "start" : "end"}
+            sideOffset={5}
+          >
+            <DropdownMenuItem asChild className="cursor-pointer text-center dark:text-gray-200 dark:hover:bg-gray-700">
+              <Link href="/profile" className="flex items-center justify-center gap-2 w-full">
+                <User className="h-4 w-4" /> {translations.profile}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="dark:bg-gray-700" />
+            <DropdownMenuItem
+              onClick={handleLogout}
+              className="cursor-pointer justify-center text-red-500 hover:!bg-red-100 dark:text-red-400 dark:hover:!bg-red-700/30"
+            >
+              <LogOut className="h-4 w-4 mr-2" /> {translations.logout}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   )
@@ -535,17 +483,21 @@ export default function AppLayout({ children }) {
       </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header ריק לחלוטין - רק כפתור המובייל */}
         <header className="bg-white dark:bg-gray-850 shadow-sm dark:border-b dark:border-gray-700 p-3 flex items-center justify-between lg:justify-end">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden text-gray-700 dark:text-gray-300"
+            className="lg:hidden text-gray-700"
             onClick={() => setIsMobileMenuOpen(true)}
           >
             <Menu />
           </Button>
-          {/* Header ריק - כל הכפתורים עברו לסרגל הצדדי */}
+          <div className="flex items-center gap-3">
+            {/* הסרנו את כפתור בחירת השפה - רק כפתור theme נשאר */}
+            <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-gray-800 dark:text-gray-300">
+              {theme === "light" ? <Moon /> : <Sun />}
+            </Button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">{children}</main>
