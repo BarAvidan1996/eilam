@@ -10,206 +10,51 @@ import { Spinner } from "@/components/ui/spinner"
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
-import { Sun, Moon, Globe, AlertCircle, User, Mail, Phone, Lock, Shield } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu"
+import { Sun, Moon, AlertCircle, User, Mail, Phone, Lock, Shield } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 // Force dynamic rendering to avoid document is not defined error
 export const dynamic = "force-dynamic"
 
-// Translations for the registration page
+// Hebrew translations only
 const translations = {
-  he: {
-    title: 'עיל"ם - עוזר ייעודי למצבי חירום',
-    subtitle: "הרשמה למערכת",
-    personalDetails: "פרטים אישיים",
-    accountSecurity: "אבטחת חשבון",
-    firstNameLabel: "שם פרטי *",
-    firstNamePlaceholder: "לדוגמה: ישראל",
-    firstNameRequired: "שם פרטי הוא שדה חובה",
-    lastNameLabel: "שם משפחה *",
-    lastNamePlaceholder: "לדוגמה: ישראלי",
-    lastNameRequired: "שם משפחה הוא שדה חובה",
-    emailLabel: "דואר אלקטרוני *",
-    emailPlaceholder: "your@email.com",
-    emailRequired: "דואר אלקטרוני הוא שדה חובה",
-    emailInvalid: "נא להזין כתובת דואר אלקטרוני תקינה",
-    phoneLabel: "מספר טלפון *",
-    phonePlaceholder: "050-1234567",
-    phoneRequired: "מספר טלפון הוא שדה חובה",
-    phoneInvalid: "נא להזין מספר טלפון תקין",
-    passwordLabel: "סיסמה *",
-    passwordPlaceholder: "הזן סיסמה",
-    passwordRequired: "סיסמה היא שדה חובה",
-    passwordMinLength: "הסיסמה חייבת להכיל לפחות 8 תווים",
-    passwordUppercase: "הסיסמה חייבת להכיל לפחות אות גדולה אחת",
-    passwordLowercase: "הסיסמה חייבת להכיל לפחות אות קטנה אחת",
-    passwordNumber: "הסיסמה חייבת להכיל לפחות ספרה אחת",
-    passwordSpecial: "הסיסמה חייבת להכיל לפחות תו מיוחד אחד (%@!#)",
-    confirmPasswordLabel: "אימות סיסמה *",
-    confirmPasswordPlaceholder: "הזן שוב את הסיסמה",
-    confirmPasswordRequired: "אימות סיסמה הוא שדה חובה",
-    passwordMismatch: "הסיסמאות אינן תואמות",
-    registerButton: "הרשם",
-    registerButtonLoading: "נרשם...",
-    loginLink: "כבר יש לך חשבון? התחבר כאן",
-    errorGeneric: "אירעה שגיאה בהרשמה. אנא נסה שוב.",
-    errorEmailExists: 'כתובת הדוא"ל כבר קיימת במערכת.',
-    successTitle: "הרשמה הושלמה בהצלחה!",
-    successMessage: 'אנא בדוק את תיבת הדוא"ל שלך לאימות החשבון.',
-    language: "שפה",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
-  en: {
-    title: "EILAM - Emergency Assistance System",
-    subtitle: "Register a new account",
-    personalDetails: "Personal Details",
-    accountSecurity: "Account Security",
-    firstNameLabel: "First Name *",
-    firstNamePlaceholder: "Enter first name",
-    firstNameRequired: "First name is required",
-    lastNameLabel: "Last Name *",
-    lastNamePlaceholder: "Enter last name",
-    lastNameRequired: "Last name is required",
-    emailLabel: "Email *",
-    emailPlaceholder: "your@email.com",
-    emailRequired: "Email is required",
-    emailInvalid: "Please enter a valid email address",
-    phoneLabel: "Phone Number *",
-    phonePlaceholder: "050-1234567",
-    phoneRequired: "Phone number is required",
-    phoneInvalid: "Please enter a valid phone number",
-    passwordLabel: "Password *",
-    passwordPlaceholder: "Enter password",
-    passwordRequired: "Password is required",
-    passwordMinLength: "Password must be at least 8 characters",
-    passwordUppercase: "Password must contain at least one uppercase letter",
-    passwordLowercase: "Password must contain at least one lowercase letter",
-    passwordNumber: "Password must contain at least one number",
-    passwordSpecial: "Password must contain at least one special character (%@!#)",
-    confirmPasswordLabel: "Confirm Password *",
-    confirmPasswordPlaceholder: "Re-enter password",
-    confirmPasswordRequired: "Password confirmation is required",
-    passwordMismatch: "Passwords do not match",
-    registerButton: "Register",
-    registerButtonLoading: "Registering...",
-    loginLink: "Already have an account? Login here",
-    errorGeneric: "An error occurred during registration. Please try again.",
-    errorEmailExists: "Email address already exists.",
-    successTitle: "Registration Successful!",
-    successMessage: "Please check your email for account verification.",
-    language: "Language",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
-  ar: {
-    title: "إيلام - نظام المساعدة في حالات الطوارئ",
-    subtitle: "تسجيل حساب جديد",
-    personalDetails: "البيانات الشخصية",
-    accountSecurity: "أمان الحساب",
-    firstNameLabel: "الاسم الأول *",
-    firstNamePlaceholder: "أدخل الاسم الأول",
-    firstNameRequired: "الاسم الأول مطلوب",
-    lastNameLabel: "اسم العائلة *",
-    lastNamePlaceholder: "أدخل اسم العائلة",
-    lastNameRequired: "اسم العائلة مطلوب",
-    emailLabel: "البريد الإلكتروني *",
-    emailPlaceholder: "your@email.com",
-    emailRequired: "البريد الإلكتروني مطلوب",
-    emailInvalid: "يرجى إدخال عنوان بريد إلكتروني صالح",
-    phoneLabel: "رقم الهاتف *",
-    phonePlaceholder: "050-1234567",
-    phoneRequired: "رقم الهاتف مطلوب",
-    phoneInvalid: "يرجى إدخال رقم هاتف صالح",
-    passwordLabel: "كلمة المرور *",
-    passwordPlaceholder: "أدخل كلمة المرور",
-    passwordRequired: "كلمة المرور مطلوبة",
-    passwordMinLength: "يجب أن تتكون كلمة المرور من 8 أحرف على الأقل",
-    passwordUppercase: "يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل",
-    passwordLowercase: "يجب أن تحتوي كلمة المرور على حرف صغير واحد على الأقل",
-    passwordNumber: "يجب أن تحتوي كلمة المرور على رقم واحد على الأقل",
-    passwordSpecial: "يجب أن تحتوي كلمة المرور على حرف خاص واحد على الأقل (%@!#)",
-    confirmPasswordLabel: "تأكيد كلمة المرور *",
-    confirmPasswordPlaceholder: "أعد إدخال كلمة المرور",
-    confirmPasswordRequired: "تأكيد كلمة المرور مطلوب",
-    passwordMismatch: "كلمات المرور غير متطابقة",
-    registerButton: "تسجيل",
-    registerButtonLoading: "جاري التسجيل...",
-    loginLink: "لديك حساب بالفعل؟ تسجيل الدخول هنا",
-    errorGeneric: "حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى.",
-    errorEmailExists: "البريد الإلكتروني موجود بالفعل.",
-    successTitle: "تم التسجيل بنجاح!",
-    successMessage: "يرجى التحقق من بريدك الإلكتروني للتحقق من الحساب.",
-    language: "لغة",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
-  ru: {
-    title: "ЭЙЛАМ - Система помощи в чрезвычайных ситуациях",
-    subtitle: "Регистрация нового аккаунта",
-    personalDetails: "Личные данные",
-    accountSecurity: "Безопасность аккаунта",
-    firstNameLabel: "Имя *",
-    firstNamePlaceholder: "Введите имя",
-    firstNameRequired: "Имя обязательно",
-    lastNameLabel: "Фамилия *",
-    lastNamePlaceholder: "Введите фамилию",
-    lastNameRequired: "Фамилия обязательна",
-    emailLabel: "Электронная почта *",
-    emailPlaceholder: "your@email.com",
-    emailRequired: "Электронная почта обязательна",
-    emailInvalid: "Пожалуйста, введите действительный адрес электронной почты",
-    phoneLabel: "Номер телефона *",
-    phonePlaceholder: "050-1234567",
-    phoneRequired: "Номер телефона обязателен",
-    phoneInvalid: "Пожалуйста, введите действительный номер телефона",
-    passwordLabel: "Пароль *",
-    passwordPlaceholder: "Введите пароль",
-    passwordRequired: "Пароль обязателен",
-    passwordMinLength: "Пароль должен содержать не менее 8 символов",
-    passwordUppercase: "Пароль должен содержать хотя бы одну заглавную букву",
-    passwordLowercase: "Пароль должен содержать хотя бы одну строчную букву",
-    passwordNumber: "Пароль должен содержать хотя бы одну цифру",
-    passwordSpecial: "Пароль должен содержать хотя бы один специальный символ (%@!#)",
-    confirmPasswordLabel: "Подтверждение пароля *",
-    passwordPlaceholder: "Повторно введите пароль",
-    passwordRequired: "Подтверждение пароля обязательно",
-    passwordMismatch: "Пароли не совпадают",
-    registerButton: "Зарегистрироваться",
-    registerButtonLoading: "Регистрация...",
-    loginLink: "Уже есть аккаунт? Войдите здесь",
-    errorGeneric: "Произошла ошибка при регистрации. Пожалуйста, попробуйте снова.",
-    errorEmailExists: "Электронная почта уже существует.",
-    successTitle: "Регистрация успешна!",
-    successMessage: "Пожалуйста, проверьте вашу электронную почту для подтверждения аккаунта.",
-    language: "Язык",
-    languages: {
-      he: "עברית",
-      en: "English",
-      ar: "العربية",
-      ru: "Русский",
-    },
-  },
+  title: 'עיל"ם - עוזר ייעודי למצבי חירום',
+  subtitle: "הרשמה למערכת",
+  personalDetails: "פרטים אישיים",
+  accountSecurity: "אבטחת חשבון",
+  firstNameLabel: "שם פרטי *",
+  firstNamePlaceholder: "לדוגמה: ישראל",
+  firstNameRequired: "שם פרטי הוא שדה חובה",
+  lastNameLabel: "שם משפחה *",
+  lastNamePlaceholder: "לדוגמה: ישראלי",
+  lastNameRequired: "שם משפחה הוא שדה חובה",
+  emailLabel: "דואר אלקטרוני *",
+  emailPlaceholder: "your@email.com",
+  emailRequired: "דואר אלקטרוני הוא שדה חובה",
+  emailInvalid: "נא להזין כתובת דואר אלקטרוני תקינה",
+  phoneLabel: "מספר טלפון *",
+  phonePlaceholder: "050-1234567",
+  phoneRequired: "מספר טלפון הוא שדה חובה",
+  phoneInvalid: "נא להזין מספר טלפון תקין",
+  passwordLabel: "סיסמה *",
+  passwordPlaceholder: "הזן סיסמה",
+  passwordRequired: "סיסמה היא שדה חובה",
+  passwordMinLength: "הסיסמה חייבת להכיל לפחות 8 תווים",
+  passwordUppercase: "הסיסמה חייבת להכיל לפחות אות גדולה אחת",
+  passwordLowercase: "הסיסמה חייבת להכיל לפחות אות קטנה אחת",
+  passwordNumber: "הסיסמה חייבת להכיל לפחות ספרה אחת",
+  passwordSpecial: "הסיסמה חייבת להכיל לפחות תו מיוחד אחד (%@!#)",
+  confirmPasswordLabel: "אימות סיסמה *",
+  confirmPasswordPlaceholder: "הזן שוב את הסיסמה",
+  confirmPasswordRequired: "אימות סיסמה הוא שדה חובה",
+  passwordMismatch: "הסיסמאות אינן תואמות",
+  registerButton: "הרשם",
+  registerButtonLoading: "נרשם...",
+  loginLink: "כבר יש לך חשבון? התחבר כאן",
+  errorGeneric: "אירעה שגיאה בהרשמה. אנא נסה שוב.",
+  errorEmailExists: 'כתובת הדוא"ל כבר קיימת במערכת.',
+  successTitle: "הרשמה הושלמה בהצלחה!",
+  successMessage: 'אנא בדוק את תיבת הדוא"ל שלך לאימות החשבון.',
 }
 
 export default function RegisterPage() {
@@ -221,8 +66,6 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [theme, setTheme] = useState("light")
-  const [language, setLanguage] = useState("he")
-  const [isRTL, setIsRTL] = useState(true)
   const [registerError, setRegisterError] = useState("")
   const [registerSuccess, setRegisterSuccess] = useState("")
   const router = useRouter()
@@ -239,12 +82,8 @@ export default function RegisterPage() {
     confirmPassword: "",
   })
 
-  // Set language and theme from localStorage on client-side
+  // Set theme from localStorage on client-side
   useEffect(() => {
-    const storedLang = localStorage.getItem("eilam-language") || "he"
-    setLanguage(storedLang)
-    setIsRTL(storedLang === "he" || storedLang === "ar")
-
     const storedTheme = localStorage.getItem("eilam-theme") || "light"
     setTheme(storedTheme)
 
@@ -253,6 +92,10 @@ export default function RegisterPage() {
     } else {
       document.documentElement.classList.remove("dark")
     }
+
+    // Set Hebrew as default
+    document.documentElement.lang = "he"
+    document.documentElement.dir = "rtl"
   }, [])
 
   // Check if user is already logged in
@@ -269,8 +112,6 @@ export default function RegisterPage() {
     checkSession()
   }, [router, supabase.auth])
 
-  const t = translations[language] || translations.he
-
   const validateForm = () => {
     const newErrors = {
       firstName: "",
@@ -284,70 +125,70 @@ export default function RegisterPage() {
 
     // First name validation
     if (!firstName) {
-      newErrors.firstName = t.firstNameRequired
+      newErrors.firstName = translations.firstNameRequired
       isValid = false
     }
 
     // Last name validation
     if (!lastName) {
-      newErrors.lastName = t.lastNameRequired
+      newErrors.lastName = translations.lastNameRequired
       isValid = false
     }
 
     // Email validation
     if (!email) {
-      newErrors.email = t.emailRequired
+      newErrors.email = translations.emailRequired
       isValid = false
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = t.emailInvalid
+      newErrors.email = translations.emailInvalid
       isValid = false
     }
 
     // Phone validation
     if (!phone) {
-      newErrors.phone = t.phoneRequired
+      newErrors.phone = translations.phoneRequired
       isValid = false
     } else if (!/^0\d{1,2}[-\s]?\d{7,8}$/.test(phone)) {
-      newErrors.phone = t.phoneInvalid
+      newErrors.phone = translations.phoneInvalid
       isValid = false
     }
 
     // Password validation - enhanced
     if (!password) {
-      newErrors.password = t.passwordRequired
+      newErrors.password = translations.passwordRequired
       isValid = false
     } else if (password.length < 8) {
-      newErrors.password = t.passwordMinLength
+      newErrors.password = translations.passwordMinLength
       isValid = false
     } else {
       // Check for uppercase letter
       if (!/[A-Z]/.test(password)) {
-        newErrors.password = t.passwordUppercase
+        newErrors.password = translations.passwordUppercase
         isValid = false
       }
       // Check for lowercase letter
       else if (!/[a-z]/.test(password)) {
-        newErrors.password = t.passwordLowercase
+        newErrors.password = translations.passwordLowercase
         isValid = false
       }
       // Check for number
       else if (!/[0-9]/.test(password)) {
-        newErrors.password = t.passwordNumber
+        newErrors.password = translations.passwordNumber
         isValid = false
       }
       // Check for special character
       else if (!/[%@!#]/.test(password)) {
-        newErrors.password = t.passwordSpecial
+        newErrors.password = translations.passwordSpecial
         isValid = false
       }
     }
 
     // Confirm password validation
     if (!confirmPassword) {
-      newErrors.confirmPassword = t.confirmPasswordRequired
+      newErrors.confirmPassword = translations.confirmPasswordRequired
       isValid = false
     } else if (password !== confirmPassword) {
-      newErrors.confirmPassword = t.passwordMismatch
+      newErrors.confirmPassword = translations.passwordMismatch
       isValid = false
     }
 
@@ -385,15 +226,15 @@ export default function RegisterPage() {
 
         // Handle specific error cases
         if (authError.message.includes("already registered")) {
-          setRegisterError(t.errorEmailExists)
+          setRegisterError(translations.errorEmailExists)
           toast({
-            title: t.errorEmailExists,
+            title: translations.errorEmailExists,
             variant: "destructive",
           })
         } else {
-          setRegisterError(t.errorGeneric)
+          setRegisterError(translations.errorGeneric)
           toast({
-            title: t.errorGeneric,
+            title: translations.errorGeneric,
             description: authError.message,
             variant: "destructive",
           })
@@ -403,9 +244,9 @@ export default function RegisterPage() {
       }
 
       if (!authData.user) {
-        setRegisterError(t.errorGeneric)
+        setRegisterError(translations.errorGeneric)
         toast({
-          title: t.errorGeneric,
+          title: translations.errorGeneric,
           variant: "destructive",
         })
         setIsLoading(false)
@@ -442,10 +283,10 @@ export default function RegisterPage() {
       }
 
       // Show success message regardless of profile creation success
-      setRegisterSuccess(t.successTitle)
+      setRegisterSuccess(translations.successTitle)
       toast({
-        title: t.successTitle,
-        description: t.successMessage,
+        title: translations.successTitle,
+        description: translations.successMessage,
       })
 
       // Clear form after successful registration
@@ -462,9 +303,9 @@ export default function RegisterPage() {
       }, 3000)
     } catch (error) {
       console.error("Unexpected error during registration:", error)
-      setRegisterError(t.errorGeneric)
+      setRegisterError(translations.errorGeneric)
       toast({
-        title: t.errorGeneric,
+        title: translations.errorGeneric,
         variant: "destructive",
       })
     } finally {
@@ -487,42 +328,9 @@ export default function RegisterPage() {
     })
   }
 
-  const changeLanguage = (newLang) => {
-    setLanguage(newLang)
-    setIsRTL(newLang === "he" || newLang === "ar")
-    localStorage.setItem("eilam-language", newLang)
-    document.documentElement.lang = newLang
-    document.documentElement.dir = newLang === "he" || newLang === "ar" ? "rtl" : "ltr"
-  }
-
   return (
-    <div
-      className={`min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-gray-50 to-[#005c72]/20 dark:from-gray-900 dark:to-[#005c72]/20 ${isRTL ? "rtl" : ""}`}
-    >
-      <div className="absolute top-4 right-4 flex gap-2">
-        <DropdownMenu dir={isRTL ? "rtl" : "ltr"}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-1 text-gray-800 dark:text-gray-300">
-              <Globe className="h-5 w-5" />
-              <span className="hidden sm:inline">{t.languages[language] || t.languages.he}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align={isRTL ? "start" : "end"} className="dark:bg-gray-800">
-            <DropdownMenuLabel className="dark:text-gray-400">{t.language}</DropdownMenuLabel>
-            <DropdownMenuSeparator className="dark:bg-gray-700" />
-            {Object.keys(t.languages).map((langKey) => (
-              <DropdownMenuItem
-                key={langKey}
-                onClick={() => changeLanguage(langKey)}
-                className={`cursor-pointer dark:hover:bg-gray-700 dark:text-gray-200 ${
-                  language === langKey ? "bg-gray-100 dark:bg-gray-700 font-semibold" : ""
-                }`}
-              >
-                {t.languages[langKey]}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-gray-50 to-[#005c72]/20 dark:from-gray-900 dark:to-[#005c72]/20 rtl">
+      <div className="absolute top-4 right-4">
         <Button variant="ghost" size="icon" onClick={toggleTheme} className="text-gray-800 dark:text-gray-300">
           {theme === "light" ? <Moon /> : <Sun />}
         </Button>
@@ -535,7 +343,7 @@ export default function RegisterPage() {
             className="w-16 h-16 mx-auto mb-2 rounded-full"
           />
           <CardTitle className="text-3xl font-bold text-gray-800 dark:text-white">עיל"ם</CardTitle>
-          <CardDescription className="text-gray-600 dark:text-white">{t.subtitle}</CardDescription>
+          <CardDescription className="text-gray-600 dark:text-white">{translations.subtitle}</CardDescription>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">* שדות חובה</p>
         </CardHeader>
         <CardContent>
@@ -556,7 +364,9 @@ export default function RegisterPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <User className="h-5 w-5 text-[#005c72] dark:text-[#d3e3fd]" />
-                  <h3 className="text-lg font-medium text-[#005c72] dark:text-[#d3e3fd]">{t.personalDetails}</h3>
+                  <h3 className="text-lg font-medium text-[#005c72] dark:text-[#d3e3fd]">
+                    {translations.personalDetails}
+                  </h3>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -565,12 +375,12 @@ export default function RegisterPage() {
                     <div className="flex items-center gap-1">
                       <User className="h-4 w-4 text-gray-500" />
                       <Label htmlFor="firstName" className="text-gray-700 dark:text-gray-300">
-                        {t.firstNameLabel}
+                        {translations.firstNameLabel}
                       </Label>
                     </div>
                     <Input
                       id="firstName"
-                      placeholder={t.firstNamePlaceholder}
+                      placeholder={translations.firstNamePlaceholder}
                       value={firstName}
                       onChange={(e) => {
                         setFirstName(e.target.value)
@@ -591,12 +401,12 @@ export default function RegisterPage() {
                     <div className="flex items-center gap-1">
                       <User className="h-4 w-4 text-gray-500" />
                       <Label htmlFor="lastName" className="text-gray-700 dark:text-gray-300">
-                        {t.lastNameLabel}
+                        {translations.lastNameLabel}
                       </Label>
                     </div>
                     <Input
                       id="lastName"
-                      placeholder={t.lastNamePlaceholder}
+                      placeholder={translations.lastNamePlaceholder}
                       value={lastName}
                       onChange={(e) => {
                         setLastName(e.target.value)
@@ -619,13 +429,13 @@ export default function RegisterPage() {
                   <div className="flex items-center gap-1">
                     <Mail className="h-4 w-4 text-gray-500" />
                     <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">
-                      {t.emailLabel}
+                      {translations.emailLabel}
                     </Label>
                   </div>
                   <Input
                     id="email"
                     type="email"
-                    placeholder={t.emailPlaceholder}
+                    placeholder={translations.emailPlaceholder}
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value)
@@ -648,13 +458,13 @@ export default function RegisterPage() {
                   <div className="flex items-center gap-1">
                     <Phone className="h-4 w-4 text-gray-500" />
                     <Label htmlFor="phone" className="text-gray-700 dark:text-gray-300">
-                      {t.phoneLabel}
+                      {translations.phoneLabel}
                     </Label>
                   </div>
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder={t.phonePlaceholder}
+                    placeholder={translations.phonePlaceholder}
                     value={phone}
                     onChange={(e) => {
                       setPhone(e.target.value)
@@ -683,7 +493,9 @@ export default function RegisterPage() {
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-[#005c72] dark:text-[#d3e3fd]" />
-                  <h3 className="text-lg font-medium text-[#005c72] dark:text-[#d3e3fd]">{t.accountSecurity}</h3>
+                  <h3 className="text-lg font-medium text-[#005c72] dark:text-[#d3e3fd]">
+                    {translations.accountSecurity}
+                  </h3>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -691,13 +503,13 @@ export default function RegisterPage() {
                   <div className="flex items-center gap-1">
                     <Lock className="h-4 w-4 text-gray-500" />
                     <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">
-                      {t.passwordLabel}
+                      {translations.passwordLabel}
                     </Label>
                   </div>
                   <Input
                     id="password"
                     type="password"
-                    placeholder={t.passwordPlaceholder}
+                    placeholder={translations.passwordPlaceholder}
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value)
@@ -725,13 +537,13 @@ export default function RegisterPage() {
                   <div className="flex items-center gap-1">
                     <Lock className="h-4 w-4 text-gray-500" />
                     <Label htmlFor="confirmPassword" className="text-gray-700 dark:text-gray-300">
-                      {t.confirmPasswordLabel}
+                      {translations.confirmPasswordLabel}
                     </Label>
                   </div>
                   <Input
                     id="confirmPassword"
                     type="password"
-                    placeholder={t.confirmPasswordPlaceholder}
+                    placeholder={translations.confirmPasswordPlaceholder}
                     value={confirmPassword}
                     onChange={(e) => {
                       setConfirmPassword(e.target.value)
@@ -759,23 +571,23 @@ export default function RegisterPage() {
             >
               {isLoading ? (
                 <>
-                  <Spinner size="small" className="mr-2" /> {t.registerButtonLoading}
+                  <Spinner size="small" className="mr-2" /> {translations.registerButtonLoading}
                 </>
               ) : (
-                t.registerButton
+                translations.registerButton
               )}
             </Button>
           </form>
         </CardContent>
         <CardFooter className="flex justify-center">
           <Link href="/" className="text-sm text-[#005c72] hover:underline dark:text-[#d3e3fd]">
-            {t.loginLink}
+            {translations.loginLink}
           </Link>
         </CardFooter>
       </Card>
       <style jsx global>{`
         body {
-          direction: ${isRTL ? "rtl" : "ltr"};
+          direction: rtl;
         }
         html.${theme} {
           background-color: ${theme === "dark" ? "#111827" : "#f9fafb"};
