@@ -133,15 +133,6 @@
 - ✅ **Input Validation** - אימות נתונים
 - 📧 **Email Verification** - אימות חשבון
 
-## 🚀 תכונות מתקדמות
-
-- ⚡ **Performance Optimization** - טעינה מהירה
-- 📡 **Real-time Updates** - עדכונים בזמן אמת
-- 🌙 **Dark/Light Mode** - מצבי תצוגה
-- 🌍 **RTL Support** - תמיכה בעברית
-- 📱 **PWA Ready** - תכונות אפליקציה
-- 🔄 **Offline Support** - עבודה ללא אינטרנט
-
 ## 🎯 יעדי המערכת
 
 1. **נגישות** - ממשק פשוט ונגיש לכל הגילאים
